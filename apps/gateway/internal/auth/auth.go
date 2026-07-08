@@ -418,6 +418,43 @@ func RegionalManagerClaims() Claims {
 	}
 }
 
+// StoreOwnerClaims — small-shop owner (abarrotes): inventory + labels + photos, no payroll.
+func StoreOwnerClaims(sub, orgID, branchCode, storeName string) Claims {
+	if sub == "" {
+		sub = "usr_dev_owner"
+	}
+	if orgID == "" {
+		orgID = "org_demo"
+	}
+	if branchCode == "" {
+		branchCode = "br_norte"
+	}
+	return Claims{
+		Sub:       sub,
+		OrgID:     orgID,
+		BranchIDs: []string{branchCode},
+		Roles:     []string{"store_owner"},
+		Permissions: []string{
+			"inventory.balance.read",
+			"inventory.movement.create",
+			"inventory.movement.read",
+			"inventory.catalog.read",
+			"inventory.label.read",
+			"reporting.read",
+			"reporting.image.read",
+			"reporting.image.create",
+			"store.setup.read",
+		},
+		Attrs: map[string]any{
+			"max_adjustment": 100000.0,
+			"store_name":     storeName,
+			"profile":        "abarrotes",
+		},
+		AMR: []string{"pwd", "otp"},
+		SID: "sess_" + sub,
+	}
+}
+
 func FromContext(ctx context.Context) (Claims, bool) {
 	c, ok := ctx.Value(ClaimsContextKey).(Claims)
 	return c, ok

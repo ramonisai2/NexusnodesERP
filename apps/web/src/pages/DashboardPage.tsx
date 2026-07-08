@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { labelOrg, labelPermission, useLocaleStore } from "../i18n/locale";
 import { useAuthStore } from "../auth/store";
 
@@ -5,6 +6,41 @@ export function DashboardPage() {
   const claims = useAuthStore((s) => s.claims);
   const t = useLocaleStore((s) => s.t);
   const locale = useLocaleStore((s) => s.locale);
+  const isShop =
+    claims?.roles?.includes("store_owner") ||
+    claims?.attrs?.profile === "abarrotes" ||
+    typeof claims?.attrs?.store_name === "string";
+
+  const storeLabel =
+    (typeof claims?.attrs?.store_name === "string" && claims.attrs.store_name) ||
+    (claims?.org_id ? labelOrg(claims.org_id, locale) : "—");
+
+  if (isShop) {
+    return (
+      <section className="panel shop-home">
+        <p className="setup-kicker">{t("dashShopKicker")}</p>
+        <h1>{t("dashShopTitle")}</h1>
+        <p className="muted">
+          {t("dashShopSubtitle")} <strong>{storeLabel}</strong>
+        </p>
+        <div className="shop-actions">
+          <Link className="shop-tile" to="/inventory">
+            <strong>{t("dashShopInventory")}</strong>
+            <span className="muted">{t("dashShopInventoryHint")}</span>
+          </Link>
+          <Link className="shop-tile" to="/reports/images">
+            <strong>{t("dashShopPhotos")}</strong>
+            <span className="muted">{t("dashShopPhotosHint")}</span>
+          </Link>
+          <Link className="shop-tile" to="/reports">
+            <strong>{t("dashShopReports")}</strong>
+            <span className="muted">{t("dashShopReportsHint")}</span>
+          </Link>
+        </div>
+        <p className="muted tip">{t("dashShopTip")}</p>
+      </section>
+    );
+  }
 
   return (
     <section className="panel">

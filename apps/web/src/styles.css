@@ -586,6 +586,163 @@ td {
   margin: 0.2rem 0;
 }
 
+.login-actions.advanced {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.linkish {
+  margin-top: 1rem;
+  background: none;
+  border: none;
+  color: var(--accent-2);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.setup-page .setup-card {
+  max-width: 640px;
+  width: min(640px, 100%);
+}
+
+.setup-kicker {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+
+.setup-steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding: 0;
+  margin: 1.25rem 0 1rem;
+}
+
+.setup-steps li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-start;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  opacity: 0.7;
+}
+
+.setup-steps li span {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  font-size: 0.8rem;
+}
+
+.setup-steps li.active,
+.setup-steps li.done {
+  opacity: 1;
+  color: var(--ink);
+}
+
+.setup-steps li.active span,
+.setup-steps li.done span {
+  background: rgba(61, 186, 122, 0.2);
+  border-color: var(--accent);
+  color: var(--accent-2);
+}
+
+.setup-panel {
+  display: grid;
+  gap: 0.85rem;
+  animation: rise 0.4s var(--ease) both;
+}
+
+.setup-panel label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.setup-panel input {
+  background: rgba(15, 28, 23, 0.55);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.55rem;
+}
+
+.preset-chip {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.preset-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preset-chip.on {
+  border-color: var(--accent);
+  background: rgba(61, 186, 122, 0.1);
+}
+
+.custom-row {
+  display: grid;
+  grid-template-columns: 1.6fr 0.7fr 0.7fr;
+  gap: 0.45rem;
+}
+
+.setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.1rem;
+}
+
+.shop-home .shop-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  margin: 1.4rem 0 1rem;
+}
+
+.shop-tile {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background:
+    linear-gradient(160deg, rgba(61, 186, 122, 0.12), transparent 60%),
+    rgba(15, 28, 23, 0.45);
+  transition: transform 0.25s var(--ease), border-color 0.25s var(--ease);
+  animation: rise 0.45s var(--ease) both;
+}
+
+.shop-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(61, 186, 122, 0.55);
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -602,5 +759,13 @@ td {
 
   .main {
     padding: 1rem;
+  }
+
+  .custom-row {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-steps {
+    grid-template-columns: 1fr;
   }
 }

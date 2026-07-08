@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -16,6 +17,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/auth"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/enrich"
+	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/setup"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/otelx"
 )
@@ -33,12 +35,14 @@ func main() {
 	opa := auth.NewOPAClient(os.Getenv("OPA_URL"))
 
 	var enricher *enrich.Enricher
+	setupSvc := &setup.Service{}
 	if os.Getenv("DATABASE_URL") != "" {
 		pool, err := db.Connect(ctx)
 		if err != nil {
 			log.Fatalf("gateway db: %v", err)
 		}
 		enricher = enrich.New(pool)
+		setupSvc.Pool = pool
 		log.Printf("gateway claims enrichment=enabled")
 	} else {
 		log.Printf("gateway claims enrichment=disabled (no DATABASE_URL)")
@@ -69,8 +73,54 @@ func main() {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "gateway"})
 	})
 
+	// First-run installation panel (public): status + complete for small shops.
+	r.Get("/setup/status", func(w http.ResponseWriter, req *http.Request) {
+		st, err := setupSvc.Status(req.Context())
+		if err != nil {
+			http.Error(w, `{"error":"setup_status_failed"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, st)
+	})
+	r.Get("/setup/presets", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, setup.Presets())
+	})
+	r.Post("/setup/complete", func(w http.ResponseWriter, req *http.Request) {
+		var body setup.CompleteRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		result, err := setupSvc.Complete(req.Context(), body)
+		if err != nil {
+			msg := err.Error()
+			status := http.StatusBadRequest
+			switch msg {
+			case "already_configured":
+				status = http.StatusConflict
+			case "database_required":
+				status = http.StatusServiceUnavailable
+			}
+			http.Error(w, fmt.Sprintf(`{"error":%q}`, msg), status)
+			return
+		}
+		// Auto-login as the new store owner when DEV_AUTH_BYPASS is on.
+		resp := map[string]any{"setup": result}
+		if strings.EqualFold(os.Getenv("DEV_AUTH_BYPASS"), "true") {
+			claims := auth.StoreOwnerClaims(result.OwnerSub, result.OrgID, result.BranchCode, result.StoreName)
+			token, err := validator.IssueDevToken(claims, 8*time.Hour)
+			if err == nil {
+				resp["access_token"] = token
+				resp["token_type"] = "Bearer"
+				resp["expires_in"] = 28800
+				resp["claims"] = claims
+			}
+		}
+		writeJSON(w, http.StatusCreated, resp)
+	})
+
 	// Dev helper: mint a JWT for local SPA / curl without Keycloak.
-	// persona=analyst|approver|dual (default analyst) to exercise payroll SoD.
+	// persona=analyst|approver|dual|owner (default analyst) to exercise payroll SoD.
 	r.Post("/auth/dev-token", func(w http.ResponseWriter, req *http.Request) {
 		if !strings.EqualFold(os.Getenv("DEV_AUTH_BYPASS"), "true") {
 			http.Error(w, `{"error":"disabled"}`, http.StatusForbidden)
@@ -87,6 +137,8 @@ func main() {
 			claims = auth.WarehouseManagerClaims()
 		case "regional":
 			claims = auth.RegionalManagerClaims()
+		case "owner":
+			claims = auth.StoreOwnerClaims("usr_dev_owner", "org_demo", "br_norte", "Mi Tienda")
 		}
 		// Issue a lean token; enrichment from DB happens on each authenticated request.
 		lean := claims

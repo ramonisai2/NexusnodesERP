@@ -11,6 +11,7 @@ export function AppShell() {
   const logout = useAuthStore((s) => s.logout);
   const t = useLocaleStore((s) => s.t);
   const locale = useLocaleStore((s) => s.locale);
+  const isShop = claims?.roles?.includes("store_owner") || claims?.attrs?.profile === "abarrotes";
 
   const nav: NavNode[] = [
     { id: "nav.dashboard", label: t("navHome"), path: "/", require: { permissions: [] } },
@@ -20,12 +21,20 @@ export function AppShell() {
       path: "/inventory",
       require: { permissions: ["inventory.balance.read"], anyBranch: true, minAmrCount: 1 },
     },
-    {
-      id: "nav.payroll",
-      label: t("navPayroll"),
-      path: "/payroll",
-      require: { permissions: ["payroll.run.read"], anyBranch: true, minAmrCount: 1 },
-    },
+    ...(!isShop
+      ? [
+          {
+            id: "nav.payroll",
+            label: t("navPayroll"),
+            path: "/payroll",
+            require: {
+              permissions: ["payroll.run.read"],
+              anyBranch: true,
+              minAmrCount: 1,
+            },
+          } satisfies NavNode,
+        ]
+      : []),
     {
       id: "nav.reports",
       label: t("navReports"),

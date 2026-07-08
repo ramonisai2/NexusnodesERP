@@ -51,7 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 export async function loginWithDevToken(
-  persona: "analyst" | "approver" | "wh_manager" | "regional" = "analyst",
+  persona: "analyst" | "approver" | "wh_manager" | "regional" | "owner" = "analyst",
 ): Promise<void> {
   const res = await fetch(`/api/auth/dev-token?persona=${persona}`, { method: "POST" });
   if (!res.ok) throw new Error("dev_token_failed");

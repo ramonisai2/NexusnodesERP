@@ -37,6 +37,7 @@ const ROLE_KEYS: Record<string, MessageKey> = {
   payroll_approver: "rolePayrollApprover",
   platform_admin: "rolePlatformAdmin",
   warehouse_manager: "roleWarehouseManager",
+  store_owner: "roleStoreOwner",
   regional_manager: "roleRegionalManager",
 };
 
@@ -50,6 +51,7 @@ const PERM_KEYS: Record<string, MessageKey> = {
   "reporting.read": "permReportingRead",
   "reporting.image.read": "permReportingImageRead",
   "reporting.image.create": "permReportingImageCreate",
+  "store.setup.read": "permStoreSetupRead",
   "payroll.run.prepare": "permPayrollRunPrepare",
   "payroll.run.approve": "permPayrollRunApprove",
   "payroll.run.read": "permPayrollRunRead",

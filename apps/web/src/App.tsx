@@ -11,6 +11,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { PayrollPage } from "./pages/PayrollPage";
 import { ImageReportsPage } from "./pages/ImageReportsPage";
 import { ReportsPage } from "./pages/ReportsPage";
+import { SetupPage, SetupRedirect } from "./pages/SetupPage";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -39,8 +40,15 @@ function Bootstrap() {
 
   return (
     <Routes>
+      <Route path="/setup" element={<SetupPage />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route element={<RequireAuth />}>
+      <Route
+        element={
+          <SetupRedirect>
+            <RequireAuth />
+          </SetupRedirect>
+        }
+      >
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
           <Route path="inventory" element={<InventoryPage />} />
