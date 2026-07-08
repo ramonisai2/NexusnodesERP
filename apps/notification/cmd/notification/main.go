@@ -90,8 +90,12 @@ func newMailSender() mail.Sender {
 }
 
 func handleMsg(pool *pgxpool.Pool, sender mail.Sender, recipients []string, msg *nats.Msg) {
+	parent := context.Background()
+	if msg.Header != nil {
+		parent = otelx.ExtractMap(parent, headerMap(msg.Header))
+	}
 	tracer := otelx.Tracer("notification")
-	ctx, span := tracer.Start(context.Background(), "notification.handle")
+	ctx, span := tracer.Start(parent, "notification.handle")
 	defer span.End()
 	span.SetAttributes(attribute.String("nats.subject", msg.Subject))
 
@@ -114,6 +118,16 @@ func handleMsg(pool *pgxpool.Pool, sender mail.Sender, recipients []string, msg 
 		return
 	}
 	log.Printf("processed %s id=%s", env.Type, env.ID)
+}
+
+func headerMap(h nats.Header) map[string]string {
+	out := make(map[string]string, len(h))
+	for k, vals := range h {
+		if len(vals) > 0 {
+			out[k] = vals[0]
+		}
+	}
+	return out
 }
 
 func processEvent(ctx context.Context, pool *pgxpool.Pool, sender mail.Sender, recipients []string, env events.Envelope) error {

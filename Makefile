@@ -1,9 +1,10 @@
-.PHONY: deps test-go test-go-pg run-gateway run-inventory run-payroll run-reporting run-reports run-relay run-notification run-web tidy migrate
+.PHONY: deps test-go test-go-pg run-gateway run-inventory run-payroll run-reporting run-reports run-relay run-notification run-web tidy migrate obs-up obs-down run-otel
 
 DATABASE_URL ?= postgres://nexus:nexus@127.0.0.1:5432/nexus_erp?sslmode=disable
 OPA_URL ?= http://127.0.0.1:8181
 NATS_URL ?= nats://127.0.0.1:4222
 OTEL_EXPORTER ?= none
+OTEL_EXPORTER_OTLP_ENDPOINT ?= localhost:4318
 
 deps:
 	cd packages/go/db && go mod tidy
@@ -40,28 +41,53 @@ test-go:
 test-go-pg:
 	DATABASE_URL='$(DATABASE_URL)' go test ./apps/inventory/internal/store ./apps/payroll/internal/store ./apps/gateway/internal/enrich ./packages/go/db -count=1
 
+obs-up:
+	docker compose --profile obs up -d tempo grafana
+
+obs-down:
+	docker compose --profile obs down
+
+# Run any service with OTLP export (requires Tempo on :4318).
+run-otel:
+	@echo "Use: OTEL_EXPORTER=otlp OTEL_EXPORTER_OTLP_ENDPOINT=$(OTEL_EXPORTER_OTLP_ENDPOINT) make run-gateway"
+	@echo "Grafana http://localhost:3000  Tempo http://localhost:3200/ready"
+
 run-gateway:
-	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' REPORTING_URL=http://127.0.0.1:8084 REPORTS_URL=http://127.0.0.1:8085 go run ./apps/gateway/cmd/gateway
+	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' \
+	OTEL_EXPORTER='$(OTEL_EXPORTER)' OTEL_EXPORTER_OTLP_ENDPOINT='$(OTEL_EXPORTER_OTLP_ENDPOINT)' \
+	REPORTING_URL=http://127.0.0.1:8084 REPORTS_URL=http://127.0.0.1:8085 \
+	go run ./apps/gateway/cmd/gateway
 
 run-inventory:
-	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' go run ./apps/inventory/cmd/inventory
+	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' \
+	OTEL_EXPORTER='$(OTEL_EXPORTER)' OTEL_EXPORTER_OTLP_ENDPOINT='$(OTEL_EXPORTER_OTLP_ENDPOINT)' \
+	go run ./apps/inventory/cmd/inventory
 
 run-payroll:
-	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' go run ./apps/payroll/cmd/payroll
+	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' \
+	OTEL_EXPORTER='$(OTEL_EXPORTER)' OTEL_EXPORTER_OTLP_ENDPOINT='$(OTEL_EXPORTER_OTLP_ENDPOINT)' \
+	go run ./apps/payroll/cmd/payroll
 
 run-reporting:
-	DEV_AUTH_BYPASS=true OPA_URL='$(OPA_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' INVENTORY_URL=http://127.0.0.1:8082 PAYROLL_URL=http://127.0.0.1:8083 go run ./apps/reporting-bff/cmd/reporting
+	DEV_AUTH_BYPASS=true OPA_URL='$(OPA_URL)' \
+	OTEL_EXPORTER='$(OTEL_EXPORTER)' OTEL_EXPORTER_OTLP_ENDPOINT='$(OTEL_EXPORTER_OTLP_ENDPOINT)' \
+	INVENTORY_URL=http://127.0.0.1:8082 PAYROLL_URL=http://127.0.0.1:8083 \
+	go run ./apps/reporting-bff/cmd/reporting
 
 run-reports:
-	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' \
+	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' \
+	OTEL_EXPORTER='$(OTEL_EXPORTER)' OTEL_EXPORTER_OTLP_ENDPOINT='$(OTEL_EXPORTER_OTLP_ENDPOINT)' \
 	IMAGE_STORAGE_PATH=./data/image-reports IMAGE_MAX_EDGE=1280 IMAGE_JPEG_QUALITY=82 \
 	go run ./apps/reports/cmd/reports
 
 run-relay:
-	DATABASE_URL='$(DATABASE_URL)' NATS_URL='$(NATS_URL)' OUTBOX_POLL_INTERVAL=1s OTEL_EXPORTER='$(OTEL_EXPORTER)' go run ./apps/outbox-relay/cmd/relay
+	DATABASE_URL='$(DATABASE_URL)' NATS_URL='$(NATS_URL)' OUTBOX_POLL_INTERVAL=1s \
+	OTEL_EXPORTER='$(OTEL_EXPORTER)' OTEL_EXPORTER_OTLP_ENDPOINT='$(OTEL_EXPORTER_OTLP_ENDPOINT)' \
+	go run ./apps/outbox-relay/cmd/relay
 
 run-notification:
-	DATABASE_URL='$(DATABASE_URL)' NATS_URL='$(NATS_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' \
+	DATABASE_URL='$(DATABASE_URL)' NATS_URL='$(NATS_URL)' \
+	OTEL_EXPORTER='$(OTEL_EXPORTER)' OTEL_EXPORTER_OTLP_ENDPOINT='$(OTEL_EXPORTER_OTLP_ENDPOINT)' \
 	SMTP_ENABLED=true SMTP_HOST=127.0.0.1 SMTP_PORT=1025 SMTP_FROM=nexus@demo.local \
 	NOTIFY_EMAIL_TO=ops@demo.nexus,analyst@demo.nexus \
 	go run ./apps/notification/cmd/notification

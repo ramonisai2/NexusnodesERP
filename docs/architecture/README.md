@@ -31,6 +31,7 @@
 | [13 — Reporting BFF GraphQL](./13-reporting-bff-graphql.md) | Agregaciones de solo lectura para la SPA |
 | [14 — Correo SMTP / Mailhog](./14-mailhog-email.md) | Notificaciones por email en local |
 | [15 — Reportes con imágenes](./15-image-reports.md) | Upload con downscale web-friendly |
+| [16 — Tempo + Grafana](./16-tempo-grafana.md) | Trazas OTLP, dashboards TraceQL |
 | [Diagrama de arquitectura](../diagrams/architecture-overview.mmd) | Mermaid — vista de componentes |
 | [Diagrama de flujo auth](../diagrams/auth-flow.mmd) | Mermaid — OAuth2/MFA/JWT |
 | [Diagrama de flujo inventario](../diagrams/inventory-flow.mmd) | Mermaid — movimiento de stock |

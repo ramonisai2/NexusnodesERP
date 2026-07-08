@@ -225,6 +225,8 @@ func reverseProxy(target *url.URL) http.Handler {
 				}
 			}
 		}
+		// Propagate W3C trace context to upstream services.
+		otelx.InjectHTTP(req.Context(), req)
 	}
 	return proxy
 }

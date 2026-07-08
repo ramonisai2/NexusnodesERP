@@ -67,5 +67,56 @@ services:
       - "4222:4222"
       - "8222:8222"
 
+  # Observability profile: docker compose --profile obs up -d
+  tempo:
+    profiles: ["obs"]
+    image: grafana/tempo:2.6.1
+    command: ["-config.file=/etc/tempo.yaml"]
+    ports:
+      - "3200:3200"   # Tempo query API / UI backend
+      - "4317:4317"   # OTLP gRPC (direct; prefer collector)
+      - "4318:4318"   # OTLP HTTP (apps point here when collector is down)
+    volumes:
+      - ./infra/observability/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3200/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  otel-collector:
+    profiles: ["obs"]
+    image: otel/opentelemetry-collector-contrib:0.114.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "4319:4318"   # host apps → collector HTTP (avoids clash with Tempo :4318)
+      - "4320:4317"
+    volumes:
+      - ./infra/observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    depends_on:
+      - tempo
+
+  grafana:
+    profiles: ["obs"]
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: dark
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - tempo
+
 volumes:
   pgdata:
+  tempo-data:
+  grafana-data:

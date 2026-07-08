@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ramonisai2/NexusnodesERP/packages/go/authz"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/otelx"
 )
 
 type Client struct {
@@ -23,7 +24,7 @@ func New(inventoryURL, payrollURL string) *Client {
 	return &Client{
 		inventoryBase: strings.TrimRight(inventoryURL, "/"),
 		payrollBase:   strings.TrimRight(payrollURL, "/"),
-		http:          &http.Client{Timeout: 8 * time.Second},
+		http:          otelx.HTTPClient(8 * time.Second),
 	}
 }
 

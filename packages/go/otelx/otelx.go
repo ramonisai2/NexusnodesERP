@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -79,6 +80,61 @@ func Middleware(service string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return Handler(service, next)
 	}
+}
+
+// HTTPClient returns an http.Client that injects W3C trace context on outbound calls.
+func HTTPClient(timeout time.Duration) *http.Client {
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+	}
+}
+
+// InjectHTTP injects the current span context into an outbound HTTP request.
+func InjectHTTP(ctx context.Context, req *http.Request) {
+	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+}
+
+// ExtractHTTP extracts remote context from an inbound HTTP request.
+func ExtractHTTP(ctx context.Context, req *http.Request) context.Context {
+	return otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(req.Header))
+}
+
+// HeaderCarrier adapts map[string]string for NATS / custom header propagation.
+type HeaderCarrier map[string]string
+
+func (c HeaderCarrier) Get(key string) string { return c[key] }
+func (c HeaderCarrier) Set(key, value string) {
+	if c == nil {
+		return
+	}
+	c[key] = value
+}
+func (c HeaderCarrier) Keys() []string {
+	keys := make([]string, 0, len(c))
+	for k := range c {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// InjectMap injects W3C trace context into a string map (e.g. NATS headers).
+func InjectMap(ctx context.Context, headers map[string]string) {
+	if headers == nil {
+		return
+	}
+	otel.GetTextMapPropagator().Inject(ctx, HeaderCarrier(headers))
+}
+
+// ExtractMap extracts W3C trace context from a string map.
+func ExtractMap(ctx context.Context, headers map[string]string) context.Context {
+	if headers == nil {
+		return ctx
+	}
+	return otel.GetTextMapPropagator().Extract(ctx, HeaderCarrier(headers))
 }
 
 func envOr(k, def string) string {
