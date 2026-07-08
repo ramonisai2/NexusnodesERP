@@ -3,9 +3,11 @@ go 1.22
 use (
 	./apps/gateway
 	./apps/inventory
+	./apps/notification
 	./apps/outbox-relay
 	./apps/payroll
 	./packages/go/authz
 	./packages/go/db
 	./packages/go/events
+	./packages/go/otelx
 )

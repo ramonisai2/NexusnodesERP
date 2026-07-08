@@ -15,6 +15,7 @@ La especificación técnica completa está en [`docs/architecture/`](./docs/arch
 | Guía de bootstrap local | [docs/architecture/05-bootstrap-guide.md](./docs/architecture/05-bootstrap-guide.md) |
 | Postgres + JWKS + OPA | [docs/architecture/06-postgres-jwks-opa.md](./docs/architecture/06-postgres-jwks-opa.md) |
 | Outbox + Claims + RLS | [docs/architecture/07-outbox-claims-rls.md](./docs/architecture/07-outbox-claims-rls.md) |
+| Consumers + OTel + Keycloak | [docs/architecture/08-consumers-otel-keycloak.md](./docs/architecture/08-consumers-otel-keycloak.md) |
 | Diagramas Mermaid | [docs/diagrams/](./docs/diagrams/) |
 | Modelo ER Inventario + Nómina + Seguridad | [docs/data-model/er-inventory-payroll.md](./docs/data-model/er-inventory-payroll.md) |
 

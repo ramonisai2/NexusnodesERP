@@ -15,11 +15,17 @@ import (
 	"github.com/ramonisai2/NexusnodesERP/apps/inventory/internal/store"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/authz"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/otelx"
 )
 
 func main() {
 	addr := envOr("INVENTORY_ADDR", ":8082")
 	ctx := context.Background()
+	shutdown, err := otelx.Init(ctx, "inventory")
+	if err != nil {
+		log.Fatalf("otel: %v", err)
+	}
+	defer func() { _ = shutdown(context.Background()) }()
 
 	var inventoryStore domain.Store
 	if os.Getenv("DATABASE_URL") != "" {
@@ -39,6 +45,7 @@ func main() {
 	opa := authz.NewClientFromEnv()
 
 	r := chi.NewRouter()
+	r.Use(otelx.Middleware("inventory"))
 	r.Use(chimw.RequestID)
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)

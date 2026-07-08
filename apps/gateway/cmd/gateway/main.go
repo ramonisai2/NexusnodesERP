@@ -17,16 +17,24 @@ import (
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/auth"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/enrich"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/otelx"
 )
 
 func main() {
+	ctx := context.Background()
+	shutdown, err := otelx.Init(ctx, "gateway")
+	if err != nil {
+		log.Fatalf("otel: %v", err)
+	}
+	defer func() { _ = shutdown(context.Background()) }()
+
 	addr := envOr("GATEWAY_ADDR", ":8080")
 	validator := auth.NewValidatorFromEnv()
 	opa := auth.NewOPAClient(os.Getenv("OPA_URL"))
 
 	var enricher *enrich.Enricher
 	if os.Getenv("DATABASE_URL") != "" {
-		pool, err := db.Connect(context.Background())
+		pool, err := db.Connect(ctx)
 		if err != nil {
 			log.Fatalf("gateway db: %v", err)
 		}
@@ -40,6 +48,7 @@ func main() {
 	payrollURL := mustURL(envOr("PAYROLL_URL", "http://localhost:8083"))
 
 	r := chi.NewRouter()
+	r.Use(otelx.Middleware("gateway"))
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
 	r.Use(chimw.Logger)

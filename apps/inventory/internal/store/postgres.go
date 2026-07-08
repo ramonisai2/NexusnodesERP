@@ -166,11 +166,12 @@ INSERT INTO inventory_movements (
 	_, _ = tx.Exec(ctx, `
 INSERT INTO outbox (event_type, payload) VALUES ('InventoryMoved', jsonb_build_object(
   'movement_id', $1::text,
-  'branch_id', $2::text,
-  'warehouse_id', $3::text,
-  'sku_id', $4::text,
-  'quantity', $5::float8
-))`, movID.String(), req.BranchID, req.WarehouseID, req.SKUID, delta)
+  'org_id', $2::text,
+  'branch_id', $3::text,
+  'warehouse_id', $4::text,
+  'sku_id', $5::text,
+  'quantity', $6::float8
+))`, movID.String(), orgID, req.BranchID, req.WarehouseID, req.SKUID, delta)
 
 	if err := tx.Commit(ctx); err != nil {
 		return domain.Movement{}, err

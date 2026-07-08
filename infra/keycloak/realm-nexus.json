@@ -7,10 +7,10 @@
   "resetPasswordAllowed": true,
   "roles": {
     "realm": [
-      { "name": "platform_admin" },
-      { "name": "inventory_clerk" },
-      { "name": "payroll_analyst" },
-      { "name": "payroll_approver" }
+      { "name": "platform_admin", "description": "Full platform access" },
+      { "name": "inventory_clerk", "description": "Create inventory movements" },
+      { "name": "payroll_analyst", "description": "Prepare payroll runs" },
+      { "name": "payroll_approver", "description": "Approve payroll runs" }
     ]
   },
   "clients": [
@@ -26,7 +26,108 @@
       "attributes": {
         "pkce.code.challenge.method": "S256"
       },
-      "protocol": "openid-connect"
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access", "microprofile-jwt"],
+      "protocolMappers": [
+        {
+          "name": "audience-nexus-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "nexus-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "org_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "org_id",
+            "claim.name": "org_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "branch_ids",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "branch_ids",
+            "claim.name": "branch_ids",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "permissions",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "permissions",
+            "claim.name": "permissions",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "attrs-max-payroll",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "max_payroll_amount",
+            "claim.name": "attrs.max_payroll_amount",
+            "jsonType.label": "long",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "attrs-max-adjustment",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "max_adjustment",
+            "claim.name": "attrs.max_adjustment",
+            "jsonType.label": "long",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles-as-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
     },
     {
       "clientId": "nexus-api",
@@ -46,6 +147,19 @@
       "emailVerified": true,
       "firstName": "Dev",
       "lastName": "Admin",
+      "attributes": {
+        "org_id": ["org_demo"],
+        "branch_ids": ["br_norte", "br_sur"],
+        "permissions": [
+          "inventory.movement.create",
+          "inventory.balance.read",
+          "payroll.run.prepare",
+          "payroll.run.approve",
+          "payroll.run.read"
+        ],
+        "max_payroll_amount": ["1000000"],
+        "max_adjustment": ["10000"]
+      },
       "credentials": [
         {
           "type": "password",
@@ -54,6 +168,61 @@
         }
       ],
       "realmRoles": ["platform_admin", "inventory_clerk", "payroll_approver"]
+    },
+    {
+      "username": "analyst",
+      "email": "analyst@demo.nexus",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Analyst",
+      "attributes": {
+        "org_id": ["org_demo"],
+        "branch_ids": ["br_norte", "br_sur"],
+        "permissions": [
+          "inventory.movement.create",
+          "inventory.balance.read",
+          "payroll.run.prepare",
+          "payroll.run.read"
+        ],
+        "max_payroll_amount": ["1000000"],
+        "max_adjustment": ["10000"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "analyst123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["inventory_clerk", "payroll_analyst"]
+    },
+    {
+      "username": "approver",
+      "email": "approver@demo.nexus",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Approver",
+      "attributes": {
+        "org_id": ["org_demo"],
+        "branch_ids": ["br_norte", "br_sur"],
+        "permissions": [
+          "payroll.run.approve",
+          "payroll.run.read",
+          "inventory.balance.read"
+        ],
+        "max_payroll_amount": ["1000000"],
+        "max_adjustment": ["10000"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "approver123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["payroll_approver"]
     }
   ]
 }

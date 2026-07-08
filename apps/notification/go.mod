@@ -1,16 +1,15 @@
-module github.com/ramonisai2/NexusnodesERP/apps/gateway
+module github.com/ramonisai2/NexusnodesERP/apps/notification
 
 go 1.22
 
 require (
-	github.com/go-chi/chi/v5 v5.1.0
-	github.com/go-chi/cors v1.2.1
-	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.1
-	github.com/ramonisai2/NexusnodesERP/packages/go/authz v0.0.0
+	github.com/nats-io/nats.go v1.37.0
 	github.com/ramonisai2/NexusnodesERP/packages/go/db v0.0.0
+	github.com/ramonisai2/NexusnodesERP/packages/go/events v0.0.0
 	github.com/ramonisai2/NexusnodesERP/packages/go/otelx v0.0.0
+	go.opentelemetry.io/otel v1.32.0
 )
 
 require (
@@ -22,8 +21,10 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/klauspost/compress v1.17.2 // indirect
+	github.com/nats-io/nkeys v0.4.7 // indirect
+	github.com/nats-io/nuid v1.0.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.57.0 // indirect
-	go.opentelemetry.io/otel v1.32.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.32.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.32.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.32.0 // indirect
@@ -42,8 +43,8 @@ require (
 	google.golang.org/protobuf v1.35.1 // indirect
 )
 
-replace github.com/ramonisai2/NexusnodesERP/packages/go/authz => ../../packages/go/authz
-
 replace github.com/ramonisai2/NexusnodesERP/packages/go/db => ../../packages/go/db
+
+replace github.com/ramonisai2/NexusnodesERP/packages/go/events => ../../packages/go/events
 
 replace github.com/ramonisai2/NexusnodesERP/packages/go/otelx => ../../packages/go/otelx

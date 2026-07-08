@@ -221,10 +221,11 @@ VALUES ($1, $2::uuid, 'PREPARE', jsonb_build_object('total', $3::float8))`, runI
 	_, _ = tx.Exec(ctx, `
 INSERT INTO outbox (event_type, payload) VALUES ('PayrollRunPrepared', jsonb_build_object(
   'run_id', $1::text,
-  'branch_id', $2::text,
-  'total_amount', $3::float8,
-  'prepared_by', $4::text
-))`, runID.String(), req.BranchID, total, req.PreparedBy)
+  'org_id', $2::text,
+  'branch_id', $3::text,
+  'total_amount', $4::float8,
+  'prepared_by', $5::text
+))`, runID.String(), orgID, req.BranchID, total, req.PreparedBy)
 
 	if err := tx.Commit(ctx); err != nil {
 		return domain.PayrollRun{}, err
@@ -301,10 +302,11 @@ UPDATE payroll_runs SET status = 'APPROVED', version = version + 1 WHERE id = $1
 	_, _ = tx.Exec(ctx, `
 INSERT INTO outbox (event_type, payload) VALUES ('PayrollRunApproved', jsonb_build_object(
   'run_id', $1::text,
-  'branch_id', $2::text,
-  'approved_by', $3::text,
-  'total_amount', $4::float8
-))`, id, branchCode, actor, total)
+  'org_id', $2::text,
+  'branch_id', $3::text,
+  'approved_by', $4::text,
+  'total_amount', $5::float8
+))`, id, orgID, branchCode, actor, total)
 
 	if err := tx.Commit(ctx); err != nil {
 		return domain.PayrollRun{}, err

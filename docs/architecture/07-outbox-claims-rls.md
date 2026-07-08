@@ -45,6 +45,5 @@ make test-go-pg
 
 ## Siguiente
 
-- Consumer de notificaciones / reporting desde NATS
-- Protocol mappers Keycloak alineados con enrichment
-- Observabilidad (OTel) en relay y gateway
+- ~~Consumers / OTel / Keycloak mappers~~ → ver [08-consumers-otel-keycloak.md](./08-consumers-otel-keycloak.md)
+- Reporting BFF, email real, dashboards

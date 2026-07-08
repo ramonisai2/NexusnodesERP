@@ -23,6 +23,7 @@
 | [05 — Bootstrap local](./05-bootstrap-guide.md) | Monorepo, auth dev, cómo correr |
 | [06 — Postgres + JWKS + OPA](./06-postgres-jwks-opa.md) | Persistencia real, PEP→OPA, JWKS |
 | [07 — Outbox + Claims + RLS](./07-outbox-claims-rls.md) | NATS relay, enrichment BD, RLS |
+| [08 — Consumers + OTel + Keycloak](./08-consumers-otel-keycloak.md) | Notificaciones, traces, mappers |
 | [Diagrama de arquitectura](../diagrams/architecture-overview.mmd) | Mermaid — vista de componentes |
 | [Diagrama de flujo auth](../diagrams/auth-flow.mmd) | Mermaid — OAuth2/MFA/JWT |
 | [Diagrama de flujo inventario](../diagrams/inventory-flow.mmd) | Mermaid — movimiento de stock |

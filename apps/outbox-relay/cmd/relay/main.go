@@ -12,11 +12,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/events"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/otelx"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+
+	shutdown, err := otelx.Init(ctx, "outbox-relay")
+	if err != nil {
+		log.Fatalf("otel: %v", err)
+	}
+	defer func() { _ = shutdown(context.Background()) }()
 
 	pool, err := db.Connect(ctx)
 	if err != nil {
@@ -55,8 +64,14 @@ func main() {
 }
 
 func publishBatch(ctx context.Context, pool *pgxpool.Pool, pub events.Publisher, limit int) error {
+	tracer := otelx.Tracer("outbox-relay")
+	ctx, span := tracer.Start(ctx, "outbox.publishBatch")
+	defer span.End()
+
 	tx, err := pool.Begin(ctx)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "begin")
 		return err
 	}
 	defer tx.Rollback(ctx)
@@ -69,6 +84,7 @@ ORDER BY created_at
 FOR UPDATE SKIP LOCKED
 LIMIT $1`, limit)
 	if err != nil {
+		span.RecordError(err)
 		return err
 	}
 	defer rows.Close()
@@ -103,12 +119,15 @@ LIMIT $1`, limit)
 			CreatedAt: r.createdAt,
 		}
 		if err := pub.Publish(ctx, env); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "publish")
 			return err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE outbox SET published_at = now() WHERE id = $1::uuid`, r.id); err != nil {
 			return err
 		}
 	}
+	span.SetAttributes(attribute.Int("outbox.batch_size", len(batch)))
 	log.Printf("published %d outbox events", len(batch))
 	return tx.Commit(ctx)
 }
