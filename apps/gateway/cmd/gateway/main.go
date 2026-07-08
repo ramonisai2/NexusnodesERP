@@ -15,6 +15,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/auth"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/enrich"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/setup"
@@ -120,8 +122,8 @@ func main() {
 	})
 
 	// Public QR mobile upload (no JWT): phone opens /upload/{token} and POSTs files.
-	r.Get("/reports/images/upload/{token}", reverseProxy(reportsURL))
-	r.Post("/reports/images/upload/{token}", reverseProxy(reportsURL))
+	r.Method(http.MethodGet, "/reports/images/upload/{token}", reverseProxy(reportsURL))
+	r.Method(http.MethodPost, "/reports/images/upload/{token}", reverseProxy(reportsURL))
 
 	// Dev helper: mint a JWT for local SPA / curl without Keycloak.
 	// persona=analyst|approver|dual|owner (default analyst) to exercise payroll SoD.
@@ -143,6 +145,12 @@ func main() {
 			claims = auth.RegionalManagerClaims()
 		case "owner":
 			claims = auth.StoreOwnerClaims("usr_dev_owner", "org_demo", "br_norte", "Mi Tienda")
+			// Prefer the shop owner created by the setup wizard when present.
+			if setupSvc != nil && setupSvc.Pool != nil {
+				if sub, orgID, branch, store, ok := lookupInstalledOwner(req.Context(), setupSvc.Pool); ok {
+					claims = auth.StoreOwnerClaims(sub, orgID, branch, store)
+				}
+			}
 		}
 		// Issue a lean token; enrichment from DB happens on each authenticated request.
 		lean := claims
@@ -150,23 +158,31 @@ func main() {
 		lean.Permissions = nil
 		lean.BranchIDs = nil
 		lean.Attrs = map[string]any{}
-		token, err := validator.IssueDevToken(lean, 8*time.Hour)
-		if err != nil {
-			http.Error(w, `{"error":"token_issue_failed"}`, http.StatusInternalServerError)
-			return
-		}
+		toIssue := lean
 		effective := claims
 		if enricher != nil {
 			if enriched, err := enricher.Enrich(req.Context(), lean); err == nil {
-				effective = enriched
-				// Preserve AMR/SID from persona template when DB has no MFA attrs.
-				if len(effective.AMR) == 0 {
-					effective.AMR = claims.AMR
-				}
-				if effective.SID == "" {
-					effective.SID = claims.SID
+				if len(enriched.Permissions) > 0 {
+					effective = enriched
+					if len(effective.AMR) == 0 {
+						effective.AMR = claims.AMR
+					}
+					if effective.SID == "" {
+						effective.SID = claims.SID
+					}
+				} else {
+					// No DB user for this persona (e.g. bare owner demo): embed template claims.
+					toIssue = claims
+					effective = claims
 				}
 			}
+		} else {
+			toIssue = claims
+		}
+		token, err := validator.IssueDevToken(toIssue, 8*time.Hour)
+		if err != nil {
+			http.Error(w, `{"error":"token_issue_failed"}`, http.StatusInternalServerError)
+			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"access_token": token,
@@ -313,4 +329,26 @@ func personaOr(v, def string) string {
 		return def
 	}
 	return v
+}
+
+// lookupInstalledOwner returns the shop owner created by the setup wizard, if any.
+func lookupInstalledOwner(ctx context.Context, pool *pgxpool.Pool) (sub, orgID, branch, store string, ok bool) {
+	if pool == nil {
+		return "", "", "", "", false
+	}
+	err := db.WithOrgTx(ctx, pool, "", func(tx pgx.Tx) error {
+		if err := db.SetRLSBypass(ctx, tx, true); err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx, `
+SELECT owner_sub, org_id::text, branch_code, store_name
+FROM app_install WHERE id = 1 AND completed_at IS NOT NULL`).Scan(&sub, &orgID, &branch, &store)
+	})
+	if err != nil {
+		return "", "", "", "", false
+	}
+	if sub == "" || orgID == "" {
+		return "", "", "", "", false
+	}
+	return sub, orgID, branch, store, true
 }
