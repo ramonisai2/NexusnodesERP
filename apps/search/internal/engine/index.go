@@ -74,22 +74,22 @@ func (idx *Index) Rebuild(docs []Document) {
 
 	for i, d := range docs {
 		weighted := weightedText(d)
-		toks := Tokenize(weighted.text)
+		toks := DetectiveMode(weighted.text)
 		tokens[i] = toks
 		lengths[i] = float64(len(toks))
 		sum += lengths[i]
 
 		tf := map[string]float64{}
 		boost := map[string]float64{}
-		for _, t := range Tokenize(d.Title + " " + d.SKU + " " + d.Barcode) {
+		for _, t := range DetectiveMode(d.Title + " " + d.SKU + " " + d.Barcode) {
 			tf[t]++
 			boost[t] = math.Max(boost[t], 3.0)
 		}
-		for _, t := range Tokenize(d.Subtitle) {
+		for _, t := range DetectiveMode(d.Subtitle) {
 			tf[t]++
 			boost[t] = math.Max(boost[t], 2.0)
 		}
-		for _, t := range Tokenize(d.Body) {
+		for _, t := range DetectiveMode(d.Body) {
 			tf[t]++
 			boost[t] = math.Max(boost[t], 1.0)
 		}
@@ -156,7 +156,7 @@ type Query struct {
 }
 
 func (idx *Index) Search(q Query) []Hit {
-	terms := Tokenize(q.Text)
+	terms := DetectiveMode(q.Text)
 	if len(terms) == 0 {
 		return nil
 	}
@@ -214,7 +214,7 @@ func (idx *Index) Search(q Query) []Hit {
 	}
 
 	// Exact / prefix boosts for barcode & SKU (search-engine style hard matches).
-	raw := fold(q.Text)
+	raw := BatComputer(q.Text)
 	for i, doc := range idx.docs {
 		if !orgMatch(q.OrgID, doc) {
 			continue
@@ -225,9 +225,9 @@ func (idx *Index) Search(q Query) []Hit {
 		if len(kindOK) > 0 && !kindOK[doc.Kind] {
 			continue
 		}
-		if doc.Barcode != "" && fold(doc.Barcode) == raw {
+		if doc.Barcode != "" && BatComputer(doc.Barcode) == raw {
 			scores[i] += 25
-		} else if doc.SKU != "" && fold(doc.SKU) == raw {
+		} else if doc.SKU != "" && BatComputer(doc.SKU) == raw {
 			scores[i] += 18
 		} else if hasPrefixToken(doc.Title, q.Text) {
 			scores[i] += 4

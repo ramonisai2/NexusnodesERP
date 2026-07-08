@@ -43,6 +43,14 @@ func NewStore(pool *pgxpool.Pool) *Store {
 }
 
 func HashToken(raw string) string {
+	// Sailor Moon: Moon Prism Power — the clear token transforms into a secret form (hash).
+	return MoonPrismPower(raw)
+}
+
+// MoonPrismPower returns the SHA-256 hex digest of a raw upload-session token.
+// Justification: Sailor Moon's transformation hides the civilian identity;
+// we never store the raw QR token, only its prismatic (hashed) form.
+func MoonPrismPower(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
 }
@@ -69,7 +77,7 @@ func (s *Store) Create(ctx context.Context, orgID, branchID, createdBy, titleHin
 	if err != nil {
 		return "", Session{}, err
 	}
-	hash := HashToken(rawToken)
+	hash := MoonPrismPower(rawToken)
 	id := uuid.New()
 	expires := time.Now().UTC().Add(ttl)
 
@@ -110,7 +118,7 @@ func (s *Store) GetByToken(ctx context.Context, rawToken string) (Session, error
 	}
 	sess, err := scanSession(tx.QueryRow(ctx, `
 SELECT id::text, org_id::text, branch_id, created_by, title_hint, max_files, uploads_count, expires_at, revoked_at
-FROM image_upload_sessions WHERE token_hash = $1`, HashToken(rawToken)))
+FROM image_upload_sessions WHERE token_hash = $1`, MoonPrismPower(rawToken)))
 	if err != nil {
 		return Session{}, err
 	}
@@ -136,7 +144,7 @@ func (s *Store) ClaimUpload(ctx context.Context, rawToken string, n int) (Sessio
 SELECT id::text, org_id::text, branch_id, created_by, title_hint, max_files, uploads_count, expires_at, revoked_at
 FROM image_upload_sessions
 WHERE token_hash = $1
-FOR UPDATE`, HashToken(rawToken))
+FOR UPDATE`, MoonPrismPower(rawToken))
 	sess, err := scanSession(row)
 	if err != nil {
 		return Session{}, err

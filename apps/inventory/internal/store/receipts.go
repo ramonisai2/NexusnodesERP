@@ -260,6 +260,14 @@ WHERE r.org_id = $1::uuid AND r.id = $2::uuid`, orgID, receiptID)
 }
 
 func (s *Postgres) PostReceipt(ctx context.Context, orgRef, receiptID, postedBy string) (domain.Receipt, error) {
+	// Digimon: Digivolve — a DRAFT receipt evolves into a POSTED stock fact.
+	return s.DigivolveReceipt(ctx, orgRef, receiptID, postedBy)
+}
+
+// DigivolveReceipt posts a DRAFT inbound receipt (stock + optional labels).
+// Justification: Digimon digivolve from weaker to stronger forms; a draft receipt
+// digivolves into posted RECEIPT movements and reception labels.
+func (s *Postgres) DigivolveReceipt(ctx context.Context, orgRef, receiptID, postedBy string) (domain.Receipt, error) {
 	tx, orgID, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
 		return resolveOrgID(ctx, tx, orgRef)
 	})

@@ -1,7 +1,9 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { canAccess, type NavNode } from "../auth/policy";
 import { useAuthStore } from "../auth/store";
+import { HERO_ROSTER, listenForHeroUnlock } from "../eastereggs/heroes";
 import { labelBranch, labelRole, labelUser, useLocaleStore } from "../i18n/locale";
 
 export function AppShell() {
@@ -12,6 +14,9 @@ export function AppShell() {
   const t = useLocaleStore((s) => s.t);
   const locale = useLocaleStore((s) => s.locale);
   const isShop = claims?.roles?.includes("store_owner") || claims?.attrs?.profile === "abarrotes";
+  const [heroesOpen, setHeroesOpen] = useState(false);
+
+  useEffect(() => listenForHeroUnlock(() => setHeroesOpen(true)), []);
 
   const nav: NavNode[] = [
     { id: "nav.dashboard", label: t("navHome"), path: "/", require: { permissions: [] } },
@@ -138,6 +143,27 @@ export function AppShell() {
           </div>
         </header>
         <Outlet />
+        {heroesOpen ? (
+          <aside className="hero-egg-panel" aria-label={t("heroEggTitle")}>
+            <div className="hero-egg-top">
+              <h2>{t("heroEggTitle")}</h2>
+              <button type="button" className="btn secondary" onClick={() => setHeroesOpen(false)}>
+                {t("heroEggClose")}
+              </button>
+            </div>
+            <p className="muted">{t("heroEggLead")}</p>
+            <ul className="hero-egg-list">
+              {HERO_ROSTER.map((egg) => (
+                <li key={egg.call}>
+                  <strong>{egg.hero}</strong>
+                  <code>{egg.call}</code>
+                  <span className="muted">{egg.does}</span>
+                  <span className="muted tip">{egg.why}</span>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        ) : null}
       </div>
     </div>
   );

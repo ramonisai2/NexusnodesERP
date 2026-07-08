@@ -8,7 +8,14 @@ import (
 
 // Tokenize turns free text into searchable terms (lowercase, accent-folded, alphanumeric).
 func Tokenize(s string) []string {
-	s = fold(s)
+	// Batman: detective mode finds the clues (tokens) hidden in messy text.
+	return DetectiveMode(s)
+}
+
+// DetectiveMode tokenizes query/document text for the inverted index.
+// Justification: Batman is the detective — he breaks a case (string) into clues (terms).
+func DetectiveMode(s string) []string {
+	s = BatComputer(s)
 	var out []string
 	var b strings.Builder
 	flush := func() {
@@ -42,6 +49,13 @@ func Tokenize(s string) []string {
 	}
 	flush()
 	return dedupe(out)
+}
+
+// BatComputer accent-folds and lowercases text before matching.
+// Justification: the Bat-Computer normalizes raw evidence so clues compare cleanly
+// (piña → pina, Ñandú → nandu).
+func BatComputer(s string) string {
+	return fold(s)
 }
 
 func fold(s string) string {
@@ -91,8 +105,8 @@ func hasPrefixToken(haystack, needle string) bool {
 	if needle == "" {
 		return false
 	}
-	h := fold(haystack)
-	n := fold(needle)
+	h := BatComputer(haystack)
+	n := BatComputer(needle)
 	if strings.Contains(h, n) {
 		return true
 	}

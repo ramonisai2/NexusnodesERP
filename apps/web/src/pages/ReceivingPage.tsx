@@ -108,12 +108,8 @@ function ReceivingPanel() {
   });
 
   const preferredWarehouse = useMemo(() => {
-    const list = warehouses.data ?? [];
-    return (
-      list.find((w) => w.kind === "ARRIVAL") ||
-      list.find((w) => w.kind === "CEDI") ||
-      list[0]
-    );
+    // Thundercats: Sight Beyond Sight — see the right receiving bay first.
+    return sightBeyondSight(warehouses.data ?? []);
   }, [warehouses.data]);
 
   const [warehouseId, setWarehouseId] = useState("");
@@ -337,4 +333,9 @@ function kindLabel(kind: string, t: (k: "recvKindStore" | "recvKindCedi" | "recv
   if (kind === "CEDI") return t("recvKindCedi");
   if (kind === "ARRIVAL") return t("recvKindArrival");
   return t("recvKindStore");
+}
+
+/** Thundercats — Sight Beyond Sight: prefer ARRIVAL, then CEDI, then any warehouse. */
+export function sightBeyondSight(list: Warehouse[]): Warehouse | undefined {
+  return list.find((w) => w.kind === "ARRIVAL") || list.find((w) => w.kind === "CEDI") || list[0];
 }

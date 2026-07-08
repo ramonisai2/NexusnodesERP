@@ -234,6 +234,10 @@ export const messages = {
     recvKindCedi: "CEDI",
     recvKindArrival: "Llegada",
 
+    heroEggTitle: "Héroes de la infancia",
+    heroEggLead: "Aliases con lógica real: cada héroe nombra una función del sistema.",
+    heroEggClose: "Cerrar",
+
     qrTitle: "Subir desde el teléfono (QR)",
     qrSubtitle: "Genera un código, escanéalo con el celular y elige las fotos desde ahí.",
     qrHintLabel: "Título sugerido (opcional)",
@@ -553,6 +557,10 @@ export const messages = {
     recvKindStore: "Store",
     recvKindCedi: "CEDI",
     recvKindArrival: "Arrival",
+
+    heroEggTitle: "Childhood heroes",
+    heroEggLead: "Aliases with real logic: each hero names a system function.",
+    heroEggClose: "Close",
 
     qrTitle: "Upload from your phone (QR)",
     qrSubtitle: "Generate a code, scan it with your phone, and pick photos there.",

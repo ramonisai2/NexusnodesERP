@@ -431,7 +431,7 @@ FROM inventory_movements WHERE org_id = $1 AND idempotency_key = $2`, orgID, req
 		return domain.Movement{}, err
 	}
 
-	delta, err := signedDelta(req.MovementType, req.Quantity)
+	delta, err := CowabungaDelta(req.MovementType, req.Quantity)
 	if err != nil {
 		return domain.Movement{}, err
 	}
@@ -794,6 +794,14 @@ WHERE m.id = $1::uuid`, movementID).Scan(
 }
 
 func signedDelta(movementType string, qty float64) (float64, error) {
+	// TMNT: Cowabunga — shell-safe stock math (sign by movement type).
+	return CowabungaDelta(movementType, qty)
+}
+
+// CowabungaDelta applies RECEIPT/ISSUE/TRANSFER sign rules to a quantity.
+// Justification: the Turtles keep the city (warehouse) in balance — inbound
+// movements go up, outbound go down, never chaotic unsigned chaos.
+func CowabungaDelta(movementType string, qty float64) (float64, error) {
 	if qty == 0 {
 		return 0, errors.New("quantity required")
 	}

@@ -46,6 +46,14 @@ func Normalize(opts Options) Options {
 
 // Process decodes an image and downscales it to a web-friendly JPEG when needed.
 func Process(r io.Reader, opts Options) (Result, error) {
+	// Goku: Kamehameha concentrates energy — we concentrate pixels into a lighter JPEG.
+	return Kamehameha(r, opts)
+}
+
+// Kamehameha downscales and re-encodes an upload for web-friendly storage.
+// Justification: Goku's Kamehameha focuses raw power into a controlled blast;
+// here a large photo is focused into a bounded JPEG (max edge / quality).
+func Kamehameha(r io.Reader, opts Options) (Result, error) {
 	opts = Normalize(opts)
 	src, _, err := image.Decode(r)
 	if err != nil {

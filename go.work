@@ -12,5 +12,6 @@ use (
 	./packages/go/authz
 	./packages/go/db
 	./packages/go/events
+	./packages/go/heroes
 	./packages/go/otelx
 )

@@ -1096,3 +1096,55 @@ td {
     grid-template-columns: 1fr;
   }
 }
+
+.hero-egg-panel {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(380px, calc(100vw - 2rem));
+  max-height: min(70vh, 520px);
+  overflow: auto;
+  z-index: 40;
+  padding: 1rem 1.05rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background:
+    linear-gradient(160deg, rgba(61, 186, 122, 0.14), transparent 55%),
+    rgba(12, 22, 18, 0.94);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  animation: rise 0.35s var(--ease) both;
+}
+
+.hero-egg-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.hero-egg-top h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.25rem;
+}
+
+.hero-egg-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.hero-egg-list li {
+  display: grid;
+  gap: 0.15rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.hero-egg-list code {
+  font-size: 0.82rem;
+  color: var(--accent-2);
+}

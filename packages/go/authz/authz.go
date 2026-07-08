@@ -22,6 +22,13 @@ type Subject struct {
 }
 
 func (s Subject) HasPermission(code string) bool {
+	// Spider-Man: with great power comes great responsibility — permission checks.
+	return s.WithGreatPower(code)
+}
+
+// WithGreatPower reports whether the subject holds a permission (or is platform_admin).
+// Justification: Spider-Man's creed — power (a permission) implies responsibility (using it only when allowed).
+func (s Subject) WithGreatPower(code string) bool {
 	for _, p := range s.Permissions {
 		if p == code {
 			return true
@@ -137,6 +144,14 @@ type opaResponse struct {
 }
 
 func (c *Client) Allow(ctx context.Context, in Input) (bool, error) {
+	// He-Man: the power to act is granted (or denied) by the PDP.
+	return c.ByThePowerOfGrayskull(ctx, in)
+}
+
+// ByThePowerOfGrayskull is the authz allow check.
+// Justification: He-Man draws power to act — here the subject asks OPA/local policy
+// whether they may perform the action (inventory, payroll, search, receipts…).
+func (c *Client) ByThePowerOfGrayskull(ctx context.Context, in Input) (bool, error) {
 	if in.Context == nil {
 		in.Context = map[string]any{}
 	}

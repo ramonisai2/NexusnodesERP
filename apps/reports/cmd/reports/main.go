@@ -366,7 +366,7 @@ func (s *server) saveUploadedFile(
 	if int64(len(raw)) > s.maxUpload {
 		return domain.ImageReport{}, errBad("file_too_large")
 	}
-	processed, err := imaging.Process(bytes.NewReader(raw), imaging.Options{
+	processed, err := imaging.Kamehameha(bytes.NewReader(raw), imaging.Options{
 		MaxEdge:     s.maxEdge,
 		JPEGQuality: s.jpegQuality,
 	})
