@@ -529,3 +529,16 @@ func (s *Memory) GetShippingSlip(_ context.Context, _, _ string) (domain.Shippin
 func (s *Memory) MarkShippingSlipPrinted(_ context.Context, _, _, _ string) (domain.ShippingSlip, error) {
 	return domain.ShippingSlip{}, domain.ErrNotFound
 }
+
+func (s *Memory) CreateTransportSheet(_ context.Context, _ domain.CreateTransportSheetRequest) (domain.TransportSheet, error) {
+	return domain.TransportSheet{}, errors.New("transport sheets require postgres store")
+}
+func (s *Memory) ListTransportSheets(_ context.Context, _ domain.TransportSheetFilter) ([]domain.TransportSheet, error) {
+	return nil, nil
+}
+func (s *Memory) GetTransportSheet(_ context.Context, _, _ string) (domain.TransportSheet, error) {
+	return domain.TransportSheet{}, domain.ErrNotFound
+}
+func (s *Memory) MarkTransportSheetPrinted(_ context.Context, _, _, _ string) (domain.TransportSheet, error) {
+	return domain.TransportSheet{}, domain.ErrNotFound
+}

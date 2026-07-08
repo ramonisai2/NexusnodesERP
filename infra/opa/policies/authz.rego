@@ -174,6 +174,26 @@ allow if {
   mfa_ok
 }
 
+allow if {
+  input.action == "inventory.transport.read"
+  transport_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "inventory.transport.create"
+  transport_write_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.transport.print"
+  transport_write_allowed
+  branch_allowed
+  mfa_ok
+}
+
 branch_allowed if {
   not input.resource.branch_id
 }
@@ -347,6 +367,26 @@ slip_write_allowed if {
 }
 
 slip_write_allowed if {
+  "inventory.movement.create" in input.subject.permissions
+}
+
+transport_read_allowed if {
+  "inventory.transport.read" in input.subject.permissions
+}
+
+transport_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+transport_write_allowed if {
+  "inventory.transport.create" in input.subject.permissions
+}
+
+transport_write_allowed if {
+  "inventory.transport.print" in input.subject.permissions
+}
+
+transport_write_allowed if {
   "inventory.movement.create" in input.subject.permissions
 }
 

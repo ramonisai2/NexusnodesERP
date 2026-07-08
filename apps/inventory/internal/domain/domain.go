@@ -379,6 +379,85 @@ type ShippingSlipFilter struct {
 	Limit      int
 }
 
+const (
+	TransportStatusDraft     = "DRAFT"
+	TransportStatusPrinted   = "PRINTED"
+	TransportStatusInTransit = "IN_TRANSIT"
+	TransportStatusDelivered = "DELIVERED"
+	TransportStatusCancelled = "CANCELLED"
+)
+
+type TransportSectionInput struct {
+	DepartmentCode string   `json:"department_code"`
+	DepartmentName string   `json:"department_name,omitempty"`
+	Notes          string   `json:"notes,omitempty"`
+	SlipIDs        []string `json:"slip_ids,omitempty"`
+}
+
+type CreateTransportSheetRequest struct {
+	OrgID          string                  `json:"org_id"`
+	FromBranchID   string                  `json:"from_branch_id"`
+	ToBranchID     string                  `json:"to_branch_id"`
+	CarrierName    string                  `json:"carrier_name,omitempty"`
+	VehicleRef     string                  `json:"vehicle_ref,omitempty"`
+	DriverName     string                  `json:"driver_name,omitempty"`
+	Notes          string                  `json:"notes,omitempty"`
+	IdempotencyKey string                  `json:"idempotency_key"`
+	CreatedBy      string                  `json:"created_by"`
+	OperatorLabel  string                  `json:"operator_label,omitempty"`
+	SessionID      string                  `json:"session_id,omitempty"`
+	Sections       []TransportSectionInput `json:"sections"`
+}
+
+type TransportLinkedSlip struct {
+	ID             string `json:"id"`
+	SlipNumber     string `json:"slip_number"`
+	ContainerType  string `json:"container_type"`
+	ContainerLabel string `json:"container_label,omitempty"`
+	Description    string `json:"description"`
+	Status         string `json:"status"`
+}
+
+type TransportSheetSection struct {
+	ID             string                `json:"id"`
+	DepartmentCode string                `json:"department_code"`
+	DepartmentName string                `json:"department_name"`
+	Notes          string                `json:"notes"`
+	SortOrder      int                   `json:"sort_order"`
+	Slips          []TransportLinkedSlip `json:"slips,omitempty"`
+}
+
+type TransportSheet struct {
+	ID             string                  `json:"id"`
+	OrgID          string                  `json:"org_id"`
+	SheetNumber    string                  `json:"sheet_number"`
+	FromBranchID   string                  `json:"from_branch_id"`
+	ToBranchID     string                  `json:"to_branch_id"`
+	CarrierName    string                  `json:"carrier_name,omitempty"`
+	VehicleRef     string                  `json:"vehicle_ref,omitempty"`
+	DriverName     string                  `json:"driver_name,omitempty"`
+	Status         string                  `json:"status"`
+	PrintedAt      *time.Time              `json:"printed_at,omitempty"`
+	DepartedAt     *time.Time              `json:"departed_at,omitempty"`
+	DeliveredAt    *time.Time              `json:"delivered_at,omitempty"`
+	CreatedBy      string                  `json:"created_by,omitempty"`
+	OperatorLabel  string                  `json:"operator_label,omitempty"`
+	SessionID      string                  `json:"session_id,omitempty"`
+	Notes          string                  `json:"notes,omitempty"`
+	IdempotencyKey string                  `json:"idempotency_key"`
+	CreatedAt      time.Time               `json:"created_at"`
+	UpdatedAt      time.Time               `json:"updated_at"`
+	Sections       []TransportSheetSection `json:"sections,omitempty"`
+}
+
+type TransportSheetFilter struct {
+	OrgRef     string
+	FromBranch string
+	ToBranch   string
+	Status     string
+	Limit      int
+}
+
 type Store interface {
 	ListBalances(ctx context.Context, filter BalanceFilter) ([]StockBalance, error)
 	PostMovement(ctx context.Context, req MovementRequest) (Movement, error)
@@ -397,4 +476,8 @@ type Store interface {
 	ListShippingSlips(ctx context.Context, filter ShippingSlipFilter) ([]ShippingSlip, error)
 	GetShippingSlip(ctx context.Context, orgRef, slipID string) (ShippingSlip, error)
 	MarkShippingSlipPrinted(ctx context.Context, orgRef, slipID, actor string) (ShippingSlip, error)
+	CreateTransportSheet(ctx context.Context, req CreateTransportSheetRequest) (TransportSheet, error)
+	ListTransportSheets(ctx context.Context, filter TransportSheetFilter) ([]TransportSheet, error)
+	GetTransportSheet(ctx context.Context, orgRef, sheetID string) (TransportSheet, error)
+	MarkTransportSheetPrinted(ctx context.Context, orgRef, sheetID, actor string) (TransportSheet, error)
 }

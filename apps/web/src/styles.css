@@ -1350,3 +1350,102 @@ td {
     display: none !important;
   }
 }
+
+/* —— Hojas de transporte —— */
+.transport-section-draft {
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(15, 28, 23, 0.35);
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.transport-slip-pick {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.transport-slip-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  background: rgba(8, 18, 14, 0.45);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.chip.on {
+  border-color: rgba(120, 180, 140, 0.65);
+  background: rgba(120, 180, 140, 0.18);
+}
+
+.transport-print-sheet {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  background: rgba(255, 250, 235, 0.04);
+}
+
+.hoja-transporte {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.35rem 1.5rem;
+  border: 2px solid #1a2e24;
+  background: #fffaf0;
+  color: #14241c;
+  font-family: "IBM Plex Serif", "Source Serif 4", Georgia, serif;
+}
+
+.hoja-transporte h2 {
+  margin: 0.2rem 0 0.85rem;
+  font-size: 1.55rem;
+  letter-spacing: 0.04em;
+}
+
+.hoja-dept {
+  margin: 0.85rem 0;
+  padding: 0.65rem 0;
+  border-top: 1px solid #c5d0c8;
+}
+
+.hoja-dept h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hoja-dept p {
+  margin: 0 0 0.4rem;
+}
+
+@media print {
+  .transport-print-sheet,
+  .transport-print-sheet * {
+    visibility: visible !important;
+  }
+  .transport-print-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+    background: white;
+    padding: 0;
+  }
+  .hoja-transporte {
+    max-width: none;
+    border-color: #000;
+  }
+}

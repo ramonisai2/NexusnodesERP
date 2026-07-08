@@ -17,6 +17,7 @@ import { ReportsPage } from "./pages/ReportsPage";
 import { SearchPage } from "./pages/SearchPage";
 import { SetupPage, SetupRedirect } from "./pages/SetupPage";
 import { ShippingSlipsPage } from "./pages/ShippingSlipsPage";
+import { TransportSheetsPage } from "./pages/TransportSheetsPage";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ function Bootstrap() {
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="inventory/receiving" element={<ReceivingPage />} />
           <Route path="inventory/slips" element={<ShippingSlipsPage />} />
+          <Route path="inventory/transport" element={<TransportSheetsPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="reports" element={<ReportsPage />} />

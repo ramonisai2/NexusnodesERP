@@ -39,6 +39,7 @@
 | [21 — Easter eggs héroes](./21-hero-easter-eggs.md) | Aliases con justificación lógica |
 | [22 — Operadores compartidos y jefes](./22-shared-operators-approvals.md) | Misma cuenta, estaciones concurrentes, cola de aprobación |
 | [23 — Papeletas entre tiendas](./23-shipping-slips.md) | Papelería: notas imprimibles con tipo de contenedor |
+| [24 — Hojas de transporte](./24-transport-sheets.md) | Manifiesto con notas de diversos departamentos |
 | [Diagrama de arquitectura](../diagrams/architecture-overview.mmd) | Mermaid — vista de componentes |
 | [Diagrama de flujo auth](../diagrams/auth-flow.mmd) | Mermaid — OAuth2/MFA/JWT |
 | [Diagrama de flujo inventario](../diagrams/inventory-flow.mmd) | Mermaid — movimiento de stock |

@@ -58,6 +58,16 @@ export function AppShell() {
       },
     },
     {
+      id: "nav.transport",
+      label: t("navTransport"),
+      path: "/inventory/transport",
+      require: {
+        permissions: ["inventory.transport.read", "inventory.transport.create", "inventory.balance.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
       id: "nav.approvals",
       label: t("navApprovals"),
       path: "/approvals",

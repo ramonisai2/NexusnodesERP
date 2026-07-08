@@ -271,6 +271,17 @@ func localAllow(in Input) bool {
 			!in.Subject.HasPermission("inventory.movement.create") {
 			return false
 		}
+	} else if in.Action == "inventory.transport.read" {
+		if !in.Subject.HasPermission("inventory.transport.read") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "inventory.transport.create" || in.Action == "inventory.transport.print" {
+		if !in.Subject.HasPermission("inventory.transport.create") &&
+			!in.Subject.HasPermission("inventory.transport.print") &&
+			!in.Subject.HasPermission("inventory.movement.create") {
+			return false
+		}
 	} else if in.Action == "inventory.movement.void.request" {
 		if !in.Subject.HasPermission("inventory.movement.void.request") {
 			return false
