@@ -370,6 +370,8 @@ func (s *Memory) PostMovement(_ context.Context, req domain.MovementRequest) (do
 		Quantity:       delta,
 		Status:         "POSTED",
 		PostedBy:       req.PostedBy,
+		OperatorLabel:  req.OperatorLabel,
+		SessionID:      req.SessionID,
 		IdempotencyKey: req.IdempotencyKey,
 		CreatedAt:      time.Now().UTC(),
 	}

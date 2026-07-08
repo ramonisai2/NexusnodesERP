@@ -269,6 +269,12 @@ func main() {
 		if body.OrgID == "" {
 			body.OrgID = subject.OrgID
 		}
+		if body.OperatorLabel == "" {
+			body.OperatorLabel = subject.OperatorLabel
+		}
+		if body.SessionID == "" {
+			body.SessionID = subject.SessionID
+		}
 
 		allow, err := opa.Allow(req.Context(), authz.Input{
 			Subject: subject,
@@ -333,6 +339,12 @@ func main() {
 		if body.OrgID == "" {
 			body.OrgID = subject.OrgID
 		}
+		if body.OperatorLabel == "" {
+			body.OperatorLabel = subject.OperatorLabel
+		}
+		if body.SessionID == "" {
+			body.SessionID = subject.SessionID
+		}
 
 		mov, err := inventoryStore.GetMovement(req.Context(), subject.OrgID, movementID)
 		if errors.Is(err, domain.ErrNotFound) {
@@ -344,21 +356,29 @@ func main() {
 			return
 		}
 
+		resource := map[string]any{
+			"branch_id":    mov.BranchID,
+			"warehouse_id": mov.WarehouseID,
+			"org_id":       subject.OrgID,
+			"movement_id":  mov.ID,
+		}
+
+		// Direct void for managers; clerks get 403 and should use /approvals (maker-checker).
 		allow, err := opa.Allow(req.Context(), authz.Input{
-			Subject: subject,
-			Action:  "inventory.movement.void",
-			Resource: map[string]any{
-				"branch_id":    mov.BranchID,
-				"warehouse_id": mov.WarehouseID,
-				"org_id":       subject.OrgID,
-				"movement_id":  mov.ID,
-			},
+			Subject:  subject,
+			Action:   "inventory.movement.void",
+			Resource: resource,
 		})
 		if err != nil {
 			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
 			return
 		}
 		if !allow {
+			// Hint: clerks with void.request should open an approval instead.
+			if subject.HasPermission("inventory.movement.void.request") {
+				http.Error(w, `{"error":"approval_required","hint":"POST /approvals with action inventory.movement.void"}`, http.StatusForbidden)
+				return
+			}
 			authz.WriteForbidden(w, "inventory.movement.void")
 			return
 		}

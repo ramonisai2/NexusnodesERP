@@ -9,6 +9,7 @@ import { labelBranch, labelRole, labelUser, useLocaleStore } from "../i18n/local
 export function AppShell() {
   const claims = useAuthStore((s) => s.claims);
   const activeBranchId = useAuthStore((s) => s.activeBranchId);
+  const operatorLabel = useAuthStore((s) => s.operatorLabel);
   const setActiveBranch = useAuthStore((s) => s.setActiveBranch);
   const logout = useAuthStore((s) => s.logout);
   const t = useLocaleStore((s) => s.t);
@@ -42,6 +43,16 @@ export function AppShell() {
       path: "/inventory/receiving",
       require: {
         permissions: ["inventory.receipt.create", "inventory.movement.create", "inventory.balance.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
+      id: "nav.approvals",
+      label: t("navApprovals"),
+      path: "/approvals",
+      require: {
+        permissions: ["approval.read", "approval.decide"],
         anyBranch: true,
         minAmrCount: 1,
       },
@@ -117,6 +128,7 @@ export function AppShell() {
           <div>
             <div className="muted">{t("session")}</div>
             <strong>{claims?.sub ? labelUser(claims.sub) : "—"}</strong>{" "}
+            {operatorLabel ? <span className="badge operator">{operatorLabel}</span> : null}{" "}
             <span className="badge">
               {primaryRole ? labelRole(primaryRole, locale) : t("noRole")}
             </span>

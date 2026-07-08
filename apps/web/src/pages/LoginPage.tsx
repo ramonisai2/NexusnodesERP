@@ -2,9 +2,7 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLocaleStore } from "../i18n/locale";
-import { loginWithDevToken, useAuthStore } from "../auth/store";
-
-type Persona = "owner" | "analyst" | "approver" | "wh_manager" | "regional";
+import { loginWithDevToken, useAuthStore, type DevPersona } from "../auth/store";
 
 export function LoginPage() {
   const token = useAuthStore((s) => s.token);
@@ -13,14 +11,20 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [operatorLabel, setOperatorLabel] = useState("");
+  const [stationId, setStationId] = useState("");
 
   if (token) return <Navigate to="/" replace />;
 
-  async function onDevLogin(persona: Persona) {
+  async function onDevLogin(persona: DevPersona) {
     setLoading(true);
     setError(null);
     try {
-      await loginWithDevToken(persona);
+      const op = operatorLabel.trim();
+      await loginWithDevToken(persona, {
+        operatorLabel: op || undefined,
+        stationId: stationId.trim() || undefined,
+      });
     } catch {
       setError(t("loginError"));
     } finally {
@@ -36,6 +40,32 @@ export function LoginPage() {
         </div>
         <h1>{t("loginTitle")}</h1>
         <p className="muted">{t("loginSubtitleShop")}</p>
+
+        <div className="login-operator">
+          <label htmlFor="operator">
+            {t("loginOperatorLabel")}
+            <input
+              id="operator"
+              type="text"
+              value={operatorLabel}
+              onChange={(e) => setOperatorLabel(e.target.value)}
+              placeholder={t("loginOperatorPh")}
+              autoComplete="nickname"
+            />
+          </label>
+          <label htmlFor="station">
+            {t("loginStationLabel")}
+            <input
+              id="station"
+              type="text"
+              value={stationId}
+              onChange={(e) => setStationId(e.target.value)}
+              placeholder={t("loginStationPh")}
+              autoComplete="off"
+            />
+          </label>
+          <p className="hint">{t("loginOperatorHint")}</p>
+        </div>
 
         <div className="login-actions">
           <Link className="btn" to="/setup">

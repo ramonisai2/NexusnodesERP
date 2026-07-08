@@ -69,6 +69,32 @@ allow if {
   warehouse_managed
 }
 
+# Clerks request void; bosses decide via approval queue.
+allow if {
+  input.action == "inventory.movement.void.request"
+  "inventory.movement.void.request" in input.subject.permissions
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "approval.read"
+  approval_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "approval.decide"
+  "approval.decide" in input.subject.permissions
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "session.operator"
+  "session.operator" in input.subject.permissions
+}
+
 allow if {
   input.action == "payroll.run.prepare"
   "payroll.run.prepare" in input.subject.permissions
@@ -282,4 +308,12 @@ receipt_write_allowed if {
 
 receipt_write_allowed if {
   "inventory.movement.create" in input.subject.permissions
+}
+
+approval_read_allowed if {
+  "approval.read" in input.subject.permissions
+}
+
+approval_read_allowed if {
+  "approval.decide" in input.subject.permissions
 }

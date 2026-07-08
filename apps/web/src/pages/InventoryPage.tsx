@@ -33,6 +33,7 @@ type Movement = {
   void_reason?: string;
   voided_by?: string;
   reversal_of?: string;
+  operator_label?: string;
 };
 
 type DepartmentCategory = {
@@ -99,6 +100,7 @@ function InventoryPanel() {
   const canMove = hasPermission(claims, "inventory.movement.create");
   const canReadMovements = hasPermission(claims, "inventory.movement.read");
   const canVoid = hasPermission(claims, "inventory.movement.void");
+  const canRequestVoid = hasPermission(claims, "inventory.movement.void.request");
   const managed = (claims?.attrs?.managed_warehouses as string[] | undefined) ?? [];
 
   const [department, setDepartment] = useState("");
@@ -200,6 +202,39 @@ function InventoryPanel() {
     },
   });
 
+  const requestVoid = useMutation({
+    mutationFn: async (row: Movement) => {
+      const reason =
+        locale === "en" ? "Finger error — needs supervisor approval" : "Error de captura — requiere aprobación del jefe";
+      const idem = crypto.randomUUID();
+      const res = await apiFetch("/approvals", {
+        method: "POST",
+        headers: { "Idempotency-Key": idem },
+        body: JSON.stringify({
+          action_code: "inventory.movement.void",
+          resource_type: "inventory_movement",
+          resource_id: row.id,
+          branch_id: row.branch_id,
+          warehouse_id: row.warehouse_id,
+          reason,
+          summary:
+            locale === "en"
+              ? `Void ${row.movement_type} ${row.sku_id} × ${row.quantity}`
+              : `Anular ${row.movement_type} ${row.sku_id} × ${row.quantity}`,
+          payload: { reason, idempotency_key: idem },
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || "request_void_failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["approvals"] });
+    },
+  });
+
   const rows =
     balances.data?.filter((b) => !activeBranchId || b.branch_id === activeBranchId) ?? [];
 
@@ -210,6 +245,12 @@ function InventoryPanel() {
     if (!canVoid || m.status !== "POSTED" || m.movement_type === "REVERSAL") return false;
     if (claims?.roles.includes("platform_admin")) return true;
     return managed.includes(m.warehouse_id) || managed.includes("*");
+  }
+
+  function canRequestVoidRow(m: Movement): boolean {
+    if (canVoidRow(m)) return false;
+    if (!canRequestVoid || m.status !== "POSTED" || m.movement_type === "REVERSAL") return false;
+    return true;
   }
 
   function onDepartmentChange(code: string) {
@@ -242,6 +283,7 @@ function InventoryPanel() {
       <p className="muted tip">{t("invDeptTip")}</p>
       <p className="muted tip">{t("invLabelTip")}</p>
       {canVoid ? <p className="muted tip">{t("invManagerTip")}</p> : null}
+      {canRequestVoid && !canVoid ? <p className="muted tip">{t("invRequestVoidTip")}</p> : null}
 
       <div className="filter-bar">
         <label className="filter-field">
@@ -420,7 +462,10 @@ function InventoryPanel() {
                     <td>{m.movement_type}</td>
                     <td>{m.quantity}</td>
                     <td>{m.status === "VOID" ? t("statusVoid") : t("statusPosted")}</td>
-                    <td>{labelUser(m.posted_by)}</td>
+                    <td>
+                      {labelUser(m.posted_by)}
+                      {m.operator_label ? ` · ${m.operator_label}` : ""}
+                    </td>
                     <td>
                       {canVoidRow(m) ? (
                         <button
@@ -430,6 +475,16 @@ function InventoryPanel() {
                           onClick={() => voidMove.mutate(m)}
                         >
                           {voidMove.isPending ? t("invVoidPending") : t("invVoid")}
+                        </button>
+                      ) : null}
+                      {canRequestVoidRow(m) ? (
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          disabled={requestVoid.isPending}
+                          onClick={() => requestVoid.mutate(m)}
+                        >
+                          {requestVoid.isPending ? t("invRequestVoidPending") : t("invRequestVoid")}
                         </button>
                       ) : null}
                     </td>
@@ -442,6 +497,10 @@ function InventoryPanel() {
             <p className="error">{friendlyApiError((voidMove.error as Error).message, locale)}</p>
           ) : null}
           {voidMove.isSuccess ? <p className="muted tip">{t("invVoidSuccess")}</p> : null}
+          {requestVoid.isError ? (
+            <p className="error">{friendlyApiError((requestVoid.error as Error).message, locale)}</p>
+          ) : null}
+          {requestVoid.isSuccess ? <p className="muted tip">{t("invRequestVoidSuccess")}</p> : null}
         </>
       ) : null}
 

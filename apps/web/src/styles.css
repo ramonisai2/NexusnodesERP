@@ -369,6 +369,60 @@ td {
   margin-top: 1.25rem;
 }
 
+.login-operator {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.login-operator label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+}
+
+.login-operator input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(8, 18, 14, 0.55);
+  color: var(--ink);
+  font: inherit;
+}
+
+.approval-list {
+  list-style: none;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.approval-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(15, 28, 23, 0.45);
+}
+
+.approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.badge.operator {
+  background: rgba(120, 180, 140, 0.2);
+  border-color: rgba(120, 180, 140, 0.45);
+}
+
 .hint {
   margin: 0 0 0.85rem;
   color: var(--ink-muted);

@@ -12,13 +12,15 @@ import (
 )
 
 type Subject struct {
-	Sub         string         `json:"sub"`
-	OrgID       string         `json:"org_id"`
-	BranchIDs   []string       `json:"branch_ids"`
-	Roles       []string       `json:"roles"`
-	Permissions []string       `json:"permissions"`
-	Attrs       map[string]any `json:"attrs"`
-	AMR         []string       `json:"amr"`
+	Sub            string         `json:"sub"`
+	OrgID          string         `json:"org_id"`
+	BranchIDs      []string       `json:"branch_ids"`
+	Roles          []string       `json:"roles"`
+	Permissions    []string       `json:"permissions"`
+	Attrs          map[string]any `json:"attrs"`
+	AMR            []string       `json:"amr"`
+	SessionID      string         `json:"session_id,omitempty"`
+	OperatorLabel  string         `json:"operator_label,omitempty"`
 }
 
 func (s Subject) HasPermission(code string) bool {
@@ -66,13 +68,25 @@ func FromGatewayHeaders(r *http.Request) Subject {
 		amr = []string{"pwd", "otp"}
 	}
 	sub := Subject{
-		Sub:         r.Header.Get("X-User-Id"),
-		OrgID:       r.Header.Get("X-Org-Id"),
-		BranchIDs:   splitCSV(r.Header.Get("X-Branch-Ids")),
-		Roles:       splitCSV(r.Header.Get("X-Roles")),
-		Permissions: splitCSV(r.Header.Get("X-Permissions")),
-		Attrs:       attrs,
-		AMR:         amr,
+		Sub:           r.Header.Get("X-User-Id"),
+		OrgID:         r.Header.Get("X-Org-Id"),
+		BranchIDs:     splitCSV(r.Header.Get("X-Branch-Ids")),
+		Roles:         splitCSV(r.Header.Get("X-Roles")),
+		Permissions:   splitCSV(r.Header.Get("X-Permissions")),
+		Attrs:         attrs,
+		AMR:           amr,
+		SessionID:     r.Header.Get("X-Session-Id"),
+		OperatorLabel: r.Header.Get("X-Operator-Label"),
+	}
+	if sub.OperatorLabel == "" {
+		if v, ok := attrs["operator_label"].(string); ok {
+			sub.OperatorLabel = v
+		}
+	}
+	if sub.SessionID == "" {
+		if v, ok := attrs["session_id"].(string); ok {
+			sub.SessionID = v
+		}
 	}
 	if sub.Sub == "" && strings.EqualFold(os.Getenv("DEV_AUTH_BYPASS"), "true") {
 		sub.Sub = "usr_dev_analyst"
@@ -244,6 +258,22 @@ func localAllow(in Input) bool {
 		if !in.Subject.HasPermission("inventory.receipt.create") &&
 			!in.Subject.HasPermission("inventory.receipt.post") &&
 			!in.Subject.HasPermission("inventory.movement.create") {
+			return false
+		}
+	} else if in.Action == "inventory.movement.void.request" {
+		if !in.Subject.HasPermission("inventory.movement.void.request") {
+			return false
+		}
+	} else if in.Action == "approval.read" {
+		if !in.Subject.HasPermission("approval.read") && !in.Subject.HasPermission("approval.decide") {
+			return false
+		}
+	} else if in.Action == "approval.decide" {
+		if !in.Subject.HasPermission("approval.decide") {
+			return false
+		}
+	} else if in.Action == "session.operator" {
+		if !in.Subject.HasPermission("session.operator") {
 			return false
 		}
 	} else if !in.Subject.HasPermission(in.Action) {

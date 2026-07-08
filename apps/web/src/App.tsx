@@ -5,6 +5,7 @@ import { RequireAuth } from "./auth/PolicyGuard";
 import { useAuthStore } from "./auth/store";
 import { useLocaleStore } from "./i18n/locale";
 import { AppShell } from "./layout/AppShell";
+import { ApprovalsPage } from "./pages/ApprovalsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -58,6 +59,7 @@ function Bootstrap() {
           <Route path="search" element={<SearchPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="inventory/receiving" element={<ReceivingPage />} />
+          <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="reports/images" element={<ImageReportsPage />} />

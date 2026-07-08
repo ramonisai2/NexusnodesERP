@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,9 +18,12 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/approvals"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/auth"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/enrich"
+	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/sessions"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/setup"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/authz"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/otelx"
 )
@@ -37,6 +41,8 @@ func main() {
 	opa := auth.NewOPAClient(os.Getenv("OPA_URL"))
 
 	var enricher *enrich.Enricher
+	var sessionStore *sessions.Store
+	var approvalStore *approvals.Store
 	setupSvc := &setup.Service{}
 	if os.Getenv("DATABASE_URL") != "" {
 		pool, err := db.Connect(ctx)
@@ -44,6 +50,8 @@ func main() {
 			log.Fatalf("gateway db: %v", err)
 		}
 		enricher = enrich.New(pool)
+		sessionStore = sessions.New(pool)
+		approvalStore = approvals.New(pool)
 		setupSvc.Pool = pool
 		log.Printf("gateway claims enrichment=enabled")
 	} else {
@@ -66,7 +74,10 @@ func main() {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{envOr("CORS_ORIGIN", "http://localhost:5173")},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "Idempotency-Key", "X-Branch-Id"},
+		AllowedHeaders: []string{
+			"Accept", "Authorization", "Content-Type", "Idempotency-Key", "X-Branch-Id",
+			"X-Operator-Label", "X-Session-Id", "X-Station-Id",
+		},
 		ExposedHeaders:   []string{"X-Request-Id"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -180,23 +191,69 @@ func main() {
 		} else {
 			toIssue = claims
 		}
+		// Optional operator seat on shared username (concurrent stations).
+		var station *sessions.Station
+		opLabel := strings.TrimSpace(req.URL.Query().Get("operator_label"))
+		if opLabel == "" {
+			opLabel = strings.TrimSpace(req.Header.Get("X-Operator-Label"))
+		}
+		stationID := strings.TrimSpace(req.URL.Query().Get("station_id"))
+		if stationID == "" {
+			stationID = strings.TrimSpace(req.Header.Get("X-Station-Id"))
+		}
+		if opLabel != "" {
+			effective.OperatorLabel = opLabel
+			toIssue.OperatorLabel = opLabel
+			if toIssue.Attrs == nil {
+				toIssue.Attrs = map[string]any{}
+			}
+			if effective.Attrs == nil {
+				effective.Attrs = map[string]any{}
+			}
+			toIssue.Attrs["operator_label"] = opLabel
+			effective.Attrs["operator_label"] = opLabel
+			if stationID != "" {
+				toIssue.Attrs["station_id"] = stationID
+				effective.Attrs["station_id"] = stationID
+			}
+			if sessionStore != nil {
+				st, err := sessionStore.OpenStation(req.Context(), effective.OrgID, effective.Sub, opLabel, stationID, "", 8*time.Hour)
+				if err == nil {
+					station = &st
+					effective.SessionID = st.ID
+					toIssue.SessionID = st.ID
+					toIssue.SID = st.ID
+					effective.SID = st.ID
+					toIssue.Attrs["session_id"] = st.ID
+					effective.Attrs["session_id"] = st.ID
+				} else {
+					log.Printf("open station warning: %v", err)
+				}
+			}
+		}
+
 		token, err := validator.IssueDevToken(toIssue, 8*time.Hour)
 		if err != nil {
 			http.Error(w, `{"error":"token_issue_failed"}`, http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{
+		resp := map[string]any{
 			"access_token": token,
 			"token_type":   "Bearer",
 			"expires_in":   28800,
 			"claims":       effective,
 			"persona":      personaOr(persona, "analyst"),
-		})
+		}
+		if station != nil {
+			resp["station"] = station
+		}
+		writeJSON(w, http.StatusOK, resp)
 	})
 
 	r.Group(func(pr chi.Router) {
 		pr.Use(validator.Middleware)
 		pr.Use(enrichMiddleware(enricher))
+		pr.Use(operatorHeadersMiddleware(sessionStore))
 
 		pr.Get("/me", func(w http.ResponseWriter, req *http.Request) {
 			claims, _ := auth.FromContext(req.Context())
@@ -206,11 +263,356 @@ func main() {
 		pr.Get("/me/effective-permissions", func(w http.ResponseWriter, req *http.Request) {
 			claims, _ := auth.FromContext(req.Context())
 			writeJSON(w, http.StatusOK, map[string]any{
-				"permissions": claims.Permissions,
-				"roles":       claims.Roles,
-				"branch_ids":  claims.BranchIDs,
-				"attrs":       claims.Attrs,
+				"permissions":    claims.Permissions,
+				"roles":          claims.Roles,
+				"branch_ids":     claims.BranchIDs,
+				"attrs":          claims.Attrs,
+				"operator_label": claims.OperatorLabel,
+				"session_id":     claims.SessionID,
 			})
+		})
+
+		// Concurrent operator stations under a shared account.
+		pr.Get("/auth/stations", func(w http.ResponseWriter, req *http.Request) {
+			claims, _ := auth.FromContext(req.Context())
+			if sessionStore == nil {
+				writeJSON(w, http.StatusOK, []any{})
+				return
+			}
+			list, err := sessionStore.ListActive(req.Context(), claims.Sub)
+			if err != nil {
+				http.Error(w, `{"error":"stations_failed"}`, http.StatusInternalServerError)
+				return
+			}
+			if list == nil {
+				list = []sessions.Station{}
+			}
+			writeJSON(w, http.StatusOK, list)
+		})
+		pr.Post("/auth/operator-signin", func(w http.ResponseWriter, req *http.Request) {
+			claims, _ := auth.FromContext(req.Context())
+			var body struct {
+				OperatorLabel string `json:"operator_label"`
+				StationID     string `json:"station_id"`
+			}
+			_ = json.NewDecoder(req.Body).Decode(&body)
+			opLabel := strings.TrimSpace(body.OperatorLabel)
+			if opLabel == "" {
+				http.Error(w, `{"error":"operator_label_required"}`, http.StatusBadRequest)
+				return
+			}
+			claims.OperatorLabel = opLabel
+			if claims.Attrs == nil {
+				claims.Attrs = map[string]any{}
+			}
+			claims.Attrs["operator_label"] = opLabel
+			if body.StationID != "" {
+				claims.Attrs["station_id"] = strings.TrimSpace(body.StationID)
+			}
+			var station *sessions.Station
+			if sessionStore != nil {
+				st, err := sessionStore.OpenStation(req.Context(), claims.OrgID, claims.Sub, opLabel, body.StationID, "", 8*time.Hour)
+				if err != nil {
+					http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+					return
+				}
+				station = &st
+				claims.SessionID = st.ID
+				claims.SID = st.ID
+				claims.Attrs["session_id"] = st.ID
+			}
+			token, err := validator.IssueDevToken(claims, 8*time.Hour)
+			if err != nil {
+				http.Error(w, `{"error":"token_issue_failed"}`, http.StatusInternalServerError)
+				return
+			}
+			resp := map[string]any{
+				"access_token": token,
+				"token_type":   "Bearer",
+				"expires_in":   28800,
+				"claims":       claims,
+			}
+			if station != nil {
+				resp["station"] = station
+			}
+			writeJSON(w, http.StatusOK, resp)
+		})
+		pr.Delete("/auth/stations/{id}", func(w http.ResponseWriter, req *http.Request) {
+			claims, _ := auth.FromContext(req.Context())
+			if sessionStore == nil {
+				http.Error(w, `{"error":"database_required"}`, http.StatusServiceUnavailable)
+				return
+			}
+			id := chi.URLParam(req, "id")
+			if err := sessionStore.Revoke(req.Context(), id, claims.Sub); err != nil {
+				if errors.Is(err, sessions.ErrNotFound) {
+					http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+					return
+				}
+				http.Error(w, `{"error":"revoke_failed"}`, http.StatusInternalServerError)
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+		})
+
+		// Boss supervision queue (maker-checker).
+		pr.Post("/approvals", func(w http.ResponseWriter, req *http.Request) {
+			claims, _ := auth.FromContext(req.Context())
+			subject := claims.ToSubject()
+			applyOperatorFromRequest(req, &subject, &claims)
+			if !subject.HasPermission("inventory.movement.void.request") &&
+				!subject.HasPermission("approval.read") {
+				authz.WriteForbidden(w, "inventory.movement.void.request")
+				return
+			}
+			if approvalStore == nil {
+				http.Error(w, `{"error":"database_required"}`, http.StatusServiceUnavailable)
+				return
+			}
+			var body struct {
+				ActionCode   string `json:"action_code"`
+				ResourceType string `json:"resource_type"`
+				ResourceID   string `json:"resource_id"`
+				BranchID     string `json:"branch_id"`
+				WarehouseID  string `json:"warehouse_id"`
+				Summary      string `json:"summary"`
+				Reason       string `json:"reason"`
+				Payload      any    `json:"payload"`
+			}
+			if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+				http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+				return
+			}
+			if body.ActionCode == "" {
+				body.ActionCode = "inventory.movement.void"
+			}
+			if body.ResourceType == "" {
+				body.ResourceType = "inventory_movement"
+			}
+			if body.ResourceID == "" {
+				http.Error(w, `{"error":"resource_id_required"}`, http.StatusBadRequest)
+				return
+			}
+			if body.ActionCode == "inventory.movement.void" {
+				if !subject.HasPermission("inventory.movement.void.request") {
+					authz.WriteForbidden(w, "inventory.movement.void.request")
+					return
+				}
+				allow, err := opa.Allow(req.Context(), authz.Input{
+					Subject: subject,
+					Action:  "inventory.movement.void.request",
+					Resource: map[string]any{
+						"branch_id":    body.BranchID,
+						"warehouse_id": body.WarehouseID,
+						"org_id":       claims.OrgID,
+						"movement_id":  body.ResourceID,
+					},
+				})
+				if err != nil {
+					http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+					return
+				}
+				if !allow {
+					authz.WriteForbidden(w, "inventory.movement.void.request")
+					return
+				}
+			}
+			payload := body.Payload
+			if payload == nil {
+				payload = map[string]any{
+					"reason":          body.Reason,
+					"idempotency_key": req.Header.Get("Idempotency-Key"),
+				}
+			}
+			summary := body.Summary
+			if summary == "" {
+				summary = fmt.Sprintf("Anular movimiento %s", body.ResourceID)
+				if subject.OperatorLabel != "" {
+					summary = fmt.Sprintf("%s (op: %s)", summary, subject.OperatorLabel)
+				}
+			}
+			created, err := approvalStore.Create(req.Context(), approvals.CreateInput{
+				OrgRef:              claims.OrgID,
+				ActionCode:          body.ActionCode,
+				ResourceType:        body.ResourceType,
+				ResourceID:          body.ResourceID,
+				BranchID:            body.BranchID,
+				WarehouseID:         body.WarehouseID,
+				Payload:             payload,
+				Summary:             summary,
+				RequestedBySub:      claims.Sub,
+				RequestedByOperator: subject.OperatorLabel,
+				RequestedBySession:  subject.SessionID,
+			})
+			if errors.Is(err, approvals.ErrAlreadyExists) {
+				http.Error(w, `{"error":"already_pending"}`, http.StatusConflict)
+				return
+			}
+			if err != nil {
+				http.Error(w, fmt.Sprintf(`{"error":"create_failed","detail":%q}`, err.Error()), http.StatusBadRequest)
+				return
+			}
+			writeJSON(w, http.StatusCreated, created)
+		})
+		pr.Get("/approvals", func(w http.ResponseWriter, req *http.Request) {
+			claims, _ := auth.FromContext(req.Context())
+			subject := claims.ToSubject()
+			if !subject.HasPermission("approval.read") && !subject.HasPermission("approval.decide") {
+				authz.WriteForbidden(w, "approval.read")
+				return
+			}
+			if approvalStore == nil {
+				writeJSON(w, http.StatusOK, []any{})
+				return
+			}
+			branch := req.URL.Query().Get("branch_id")
+			if branch == "" {
+				branch = req.Header.Get("X-Branch-Id")
+			}
+			list, err := approvalStore.ListPending(req.Context(), claims.OrgID, branch, 40)
+			if err != nil {
+				http.Error(w, `{"error":"list_failed"}`, http.StatusInternalServerError)
+				return
+			}
+			if list == nil {
+				list = []approvals.Request{}
+			}
+			writeJSON(w, http.StatusOK, list)
+		})
+		pr.Post("/approvals/{id}/decide", func(w http.ResponseWriter, req *http.Request) {
+			claims, _ := auth.FromContext(req.Context())
+			subject := claims.ToSubject()
+			applyOperatorFromRequest(req, &subject, &claims)
+			if !subject.HasPermission("approval.decide") {
+				authz.WriteForbidden(w, "approval.decide")
+				return
+			}
+			if approvalStore == nil {
+				http.Error(w, `{"error":"database_required"}`, http.StatusServiceUnavailable)
+				return
+			}
+			var body struct {
+				Approve bool   `json:"approve"`
+				Reason  string `json:"reason"`
+			}
+			if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+				http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+				return
+			}
+			id := chi.URLParam(req, "id")
+			pending, err := approvalStore.Get(req.Context(), claims.OrgID, id)
+			if errors.Is(err, approvals.ErrNotFound) {
+				http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+				return
+			}
+			if err != nil {
+				http.Error(w, `{"error":"lookup_failed"}`, http.StatusInternalServerError)
+				return
+			}
+			if pending.Status != "PENDING" {
+				http.Error(w, `{"error":"not_pending"}`, http.StatusConflict)
+				return
+			}
+			// Self-approval guard: boss cannot decide their own request under the same shared account seat.
+			if pending.RequestedBySub == claims.Sub && pending.RequestedByOperator != "" &&
+				pending.RequestedByOperator == subject.OperatorLabel {
+				http.Error(w, `{"error":"self_approve_forbidden"}`, http.StatusForbidden)
+				return
+			}
+
+			resultRef := ""
+			if body.Approve && pending.ActionCode == "inventory.movement.void" {
+				allow, err := opa.Allow(req.Context(), authz.Input{
+					Subject: subject,
+					Action:  "inventory.movement.void",
+					Resource: map[string]any{
+						"branch_id":    pending.BranchID,
+						"warehouse_id": pending.WarehouseID,
+						"org_id":       claims.OrgID,
+						"movement_id":  pending.ResourceID,
+					},
+				})
+				if err != nil {
+					http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+					return
+				}
+				if !allow {
+					authz.WriteForbidden(w, "inventory.movement.void")
+					return
+				}
+				var payload map[string]any
+				_ = json.Unmarshal(pending.Payload, &payload)
+				reason, _ := payload["reason"].(string)
+				if reason == "" {
+					reason = body.Reason
+				}
+				if reason == "" {
+					reason = "Aprobado por jefe"
+				}
+				idem, _ := payload["idempotency_key"].(string)
+				if idem == "" {
+					idem = "approval-" + pending.ID
+				}
+				voidBody, _ := json.Marshal(map[string]any{
+					"org_id":          claims.OrgID,
+					"reason":          reason,
+					"idempotency_key": idem,
+					"voided_by":       claims.Sub,
+				})
+				upURL := inventoryURL.String() + "/movements/" + pending.ResourceID + "/void"
+				upReq, err := http.NewRequestWithContext(req.Context(), http.MethodPost, upURL, strings.NewReader(string(voidBody)))
+				if err != nil {
+					http.Error(w, `{"error":"proxy_build_failed"}`, http.StatusInternalServerError)
+					return
+				}
+				upReq.Header.Set("Content-Type", "application/json")
+				upReq.Header.Set("Idempotency-Key", idem)
+				upReq.Header.Set("X-User-Id", claims.Sub)
+				upReq.Header.Set("X-Org-Id", claims.OrgID)
+				upReq.Header.Set("X-Branch-Ids", strings.Join(claims.BranchIDs, ","))
+				upReq.Header.Set("X-Permissions", strings.Join(claims.Permissions, ","))
+				upReq.Header.Set("X-Roles", strings.Join(claims.Roles, ","))
+				upReq.Header.Set("X-Amr", strings.Join(claims.AMR, ","))
+				upReq.Header.Set("X-Operator-Label", subject.OperatorLabel)
+				upReq.Header.Set("X-Session-Id", subject.SessionID)
+				if claims.Attrs != nil {
+					if raw, err := json.Marshal(claims.Attrs); err == nil {
+						upReq.Header.Set("X-Attrs-JSON", string(raw))
+					}
+				}
+				upRes, err := http.DefaultClient.Do(upReq)
+				if err != nil {
+					http.Error(w, `{"error":"void_upstream_failed"}`, http.StatusBadGateway)
+					return
+				}
+				defer upRes.Body.Close()
+				if upRes.StatusCode >= 300 {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(upRes.StatusCode)
+					_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"void_failed","status":%d}`, upRes.StatusCode)))
+					return
+				}
+				resultRef = pending.ResourceID
+			}
+
+			decided, err := approvalStore.Decide(req.Context(), approvals.DecideInput{
+				OrgRef:            claims.OrgID,
+				RequestID:         id,
+				Approve:           body.Approve,
+				DecidedBySub:      claims.Sub,
+				DecidedByOperator: subject.OperatorLabel,
+				Reason:            body.Reason,
+				ResultRef:         resultRef,
+			})
+			if errors.Is(err, approvals.ErrNotPending) {
+				http.Error(w, `{"error":"not_pending"}`, http.StatusConflict)
+				return
+			}
+			if err != nil {
+				http.Error(w, `{"error":"decide_failed"}`, http.StatusInternalServerError)
+				return
+			}
+			writeJSON(w, http.StatusOK, decided)
 		})
 
 		pr.Handle("/inventory/*", reverseProxy(inventoryURL))
@@ -224,8 +626,6 @@ func main() {
 		pr.Handle("/search/*", reverseProxy(searchURL))
 		pr.Handle("/search", reverseProxy(searchURL))
 	})
-
-	_ = opa
 
 	log.Printf("gateway listening on %s", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
@@ -247,16 +647,90 @@ func enrichMiddleware(enricher *enrich.Enricher) func(http.Handler) http.Handler
 				next.ServeHTTP(w, r)
 				return
 			}
-			// Keep token AMR/SID if enrichment did not set them.
+			// Keep token AMR/SID/operator seat if enrichment did not set them.
 			if len(enriched.AMR) == 0 {
 				enriched.AMR = claims.AMR
 			}
 			if enriched.SID == "" {
 				enriched.SID = claims.SID
 			}
+			if enriched.OperatorLabel == "" {
+				enriched.OperatorLabel = claims.OperatorLabel
+			}
+			if enriched.SessionID == "" {
+				enriched.SessionID = claims.SessionID
+			}
 			ctx := context.WithValue(r.Context(), auth.ClaimsContextKey, enriched)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+// operatorHeadersMiddleware merges X-Operator-Label / X-Session-Id into claims and touches the station.
+func operatorHeadersMiddleware(sessionStore *sessions.Store) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := auth.FromContext(r.Context())
+			if !ok {
+				next.ServeHTTP(w, r)
+				return
+			}
+			applyOperatorFromRequest(r, nil, &claims)
+			if sessionStore != nil && claims.SessionID != "" {
+				_ = sessionStore.Touch(r.Context(), claims.SessionID)
+			}
+			ctx := context.WithValue(r.Context(), auth.ClaimsContextKey, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func applyOperatorFromRequest(r *http.Request, subject *authz.Subject, claims *auth.Claims) {
+	op := strings.TrimSpace(r.Header.Get("X-Operator-Label"))
+	sid := strings.TrimSpace(r.Header.Get("X-Session-Id"))
+	if claims != nil {
+		if op == "" {
+			op = claims.OperatorLabel
+		}
+		if sid == "" {
+			sid = claims.SessionID
+		}
+		if op == "" && claims.Attrs != nil {
+			if v, ok := claims.Attrs["operator_label"].(string); ok {
+				op = v
+			}
+		}
+		if sid == "" && claims.Attrs != nil {
+			if v, ok := claims.Attrs["session_id"].(string); ok {
+				sid = v
+			}
+		}
+		if op != "" {
+			claims.OperatorLabel = op
+			if claims.Attrs == nil {
+				claims.Attrs = map[string]any{}
+			}
+			claims.Attrs["operator_label"] = op
+		}
+		if sid != "" {
+			claims.SessionID = sid
+			if claims.Attrs == nil {
+				claims.Attrs = map[string]any{}
+			}
+			claims.Attrs["session_id"] = sid
+		}
+	}
+	if subject != nil {
+		if op != "" {
+			subject.OperatorLabel = op
+		} else if claims != nil {
+			subject.OperatorLabel = claims.OperatorLabel
+		}
+		if sid != "" {
+			subject.SessionID = sid
+		} else if claims != nil {
+			subject.SessionID = claims.SessionID
+		}
 	}
 }
 
@@ -299,6 +773,14 @@ func reverseProxy(target *url.URL) http.Handler {
 			req.Header.Set("X-Permissions", strings.Join(claims.Permissions, ","))
 			req.Header.Set("X-Roles", strings.Join(claims.Roles, ","))
 			req.Header.Set("X-Amr", strings.Join(claims.AMR, ","))
+			if claims.OperatorLabel != "" {
+				req.Header.Set("X-Operator-Label", claims.OperatorLabel)
+			}
+			if claims.SessionID != "" {
+				req.Header.Set("X-Session-Id", claims.SessionID)
+			} else if claims.SID != "" {
+				req.Header.Set("X-Session-Id", claims.SID)
+			}
 			if claims.Attrs != nil {
 				if raw, err := json.Marshal(claims.Attrs); err == nil {
 					req.Header.Set("X-Attrs-JSON", string(raw))

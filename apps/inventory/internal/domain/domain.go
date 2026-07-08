@@ -135,6 +135,8 @@ type MovementRequest struct {
 	ExpectedVersion *int    `json:"expected_version"`
 	IdempotencyKey  string  `json:"idempotency_key"`
 	PostedBy        string  `json:"posted_by"` // idp_sub or user uuid
+	OperatorLabel   string  `json:"operator_label,omitempty"`
+	SessionID       string  `json:"session_id,omitempty"`
 }
 
 type Movement struct {
@@ -147,6 +149,8 @@ type Movement struct {
 	Quantity       float64    `json:"quantity"`
 	Status         string     `json:"status"`
 	PostedBy       string     `json:"posted_by"`
+	OperatorLabel  string     `json:"operator_label,omitempty"`
+	SessionID      string     `json:"session_id,omitempty"`
 	IdempotencyKey string     `json:"idempotency_key"`
 	CreatedAt      time.Time  `json:"created_at"`
 	ReversalOf     string     `json:"reversal_of,omitempty"`
@@ -167,6 +171,8 @@ type VoidRequest struct {
 	Reason         string `json:"reason"`
 	IdempotencyKey string `json:"idempotency_key"`
 	VoidedBy       string `json:"voided_by"`
+	OperatorLabel  string `json:"operator_label,omitempty"`
+	SessionID      string `json:"session_id,omitempty"`
 }
 
 type VoidResult struct {

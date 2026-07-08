@@ -484,11 +484,19 @@ WHERE id = $2::uuid AND version = $3`, next, balID, version)
 
 	movID := uuid.New()
 	now := time.Now().UTC()
+	var sess any
+	if req.SessionID != "" {
+		if _, err := uuid.Parse(req.SessionID); err == nil {
+			sess = req.SessionID
+		}
+	}
 	_, err = tx.Exec(ctx, `
 INSERT INTO inventory_movements (
-  id, org_id, branch_id, sku_id, warehouse_id, movement_type, quantity, status, posted_by, idempotency_key, created_at
-) VALUES ($1,$2,$3,$4,$5,$6,$7,'POSTED',$8,$9,$10)`,
-		movID, orgID, branchID, skuID, warehouseID, strings.ToUpper(req.MovementType), delta, postedBy, req.IdempotencyKey, now)
+  id, org_id, branch_id, sku_id, warehouse_id, movement_type, quantity, status, posted_by, idempotency_key, created_at,
+  operator_label, session_id
+) VALUES ($1,$2,$3,$4,$5,$6,$7,'POSTED',$8,$9,$10,$11,$12)`,
+		movID, orgID, branchID, skuID, warehouseID, strings.ToUpper(req.MovementType), delta, postedBy, req.IdempotencyKey, now,
+		strings.TrimSpace(req.OperatorLabel), sess)
 	if err != nil {
 		return domain.Movement{}, err
 	}
@@ -517,6 +525,8 @@ INSERT INTO outbox (event_type, payload) VALUES ('InventoryMoved', jsonb_build_o
 		Quantity:       delta,
 		Status:         "POSTED",
 		PostedBy:       req.PostedBy,
+		OperatorLabel:  strings.TrimSpace(req.OperatorLabel),
+		SessionID:      strings.TrimSpace(req.SessionID),
 		IdempotencyKey: req.IdempotencyKey,
 		CreatedAt:      now,
 	}, nil
@@ -540,6 +550,7 @@ func (s *Postgres) ListMovements(ctx context.Context, filter domain.MovementFilt
 SELECT m.id::text, m.org_id::text, b.code, w.code, ps.sku,
        m.movement_type, m.quantity::float8, m.status,
        COALESCE(u.idp_sub, COALESCE(m.posted_by::text, '')),
+       COALESCE(m.operator_label, ''), COALESCE(m.session_id::text, ''),
        m.idempotency_key, m.created_at,
        COALESCE(m.reversal_of::text, ''),
        COALESCE(m.void_reason, ''),
@@ -580,6 +591,7 @@ WHERE 1=1`
 		if err := rows.Scan(
 			&m.ID, &m.OrgID, &m.BranchID, &m.WarehouseID, &m.SKUID,
 			&m.MovementType, &m.Quantity, &m.Status, &m.PostedBy,
+			&m.OperatorLabel, &m.SessionID,
 			&m.IdempotencyKey, &m.CreatedAt, &m.ReversalOf, &m.VoidReason, &m.VoidedBy, &voidedAt,
 		); err != nil {
 			return nil, err
@@ -722,12 +734,19 @@ WHERE id = $4::uuid`, req.Reason, voidedBy, now, movementID)
 	}
 
 	compID := uuid.New()
+	var sess any
+	if req.SessionID != "" {
+		if _, err := uuid.Parse(req.SessionID); err == nil {
+			sess = req.SessionID
+		}
+	}
 	_, err = tx.Exec(ctx, `
 INSERT INTO inventory_movements (
   id, org_id, branch_id, sku_id, warehouse_id, movement_type, quantity, status,
-  posted_by, idempotency_key, created_at, reversal_of
-) VALUES ($1,$2,$3,$4,$5,'REVERSAL',$6,'POSTED',$7,$8,$9,$10::uuid)`,
-		compID, orgID, branchUUID, skuUUID, warehouseUUID, compDelta, voidedBy, req.IdempotencyKey, now, movementID)
+  posted_by, idempotency_key, created_at, reversal_of, operator_label, session_id
+) VALUES ($1,$2,$3,$4,$5,'REVERSAL',$6,'POSTED',$7,$8,$9,$10::uuid,$11,$12)`,
+		compID, orgID, branchUUID, skuUUID, warehouseUUID, compDelta, voidedBy, req.IdempotencyKey, now, movementID,
+		strings.TrimSpace(req.OperatorLabel), sess)
 	if err != nil {
 		return domain.VoidResult{}, err
 	}
@@ -767,6 +786,7 @@ func scanMovementByID(ctx context.Context, tx pgx.Tx, movementID string) (domain
 SELECT m.id::text, m.org_id::text, b.code, w.code, ps.sku,
        m.movement_type, m.quantity::float8, m.status,
        COALESCE(u.idp_sub, COALESCE(m.posted_by::text, '')),
+       COALESCE(m.operator_label, ''), COALESCE(m.session_id::text, ''),
        m.idempotency_key, m.created_at,
        COALESCE(m.reversal_of::text, ''),
        COALESCE(m.void_reason, ''),
@@ -781,6 +801,7 @@ LEFT JOIN users vu ON vu.id = m.voided_by
 WHERE m.id = $1::uuid`, movementID).Scan(
 		&m.ID, &m.OrgID, &m.BranchID, &m.WarehouseID, &m.SKUID,
 		&m.MovementType, &m.Quantity, &m.Status, &m.PostedBy,
+		&m.OperatorLabel, &m.SessionID,
 		&m.IdempotencyKey, &m.CreatedAt, &m.ReversalOf, &m.VoidReason, &m.VoidedBy, &voidedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {

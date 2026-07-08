@@ -25,14 +25,16 @@ const ClaimsContextKey ctxKey = "nexus_claims"
 
 // Claims mirrors the access-token contract from the architecture docs.
 type Claims struct {
-	Sub         string         `json:"sub"`
-	OrgID       string         `json:"org_id"`
-	BranchIDs   []string       `json:"branch_ids"`
-	Roles       []string       `json:"roles"`
-	Permissions []string       `json:"permissions"`
-	Attrs       map[string]any `json:"attrs"`
-	AMR         []string       `json:"amr"`
-	SID         string         `json:"sid"`
+	Sub           string         `json:"sub"`
+	OrgID         string         `json:"org_id"`
+	BranchIDs     []string       `json:"branch_ids"`
+	Roles         []string       `json:"roles"`
+	Permissions   []string       `json:"permissions"`
+	Attrs         map[string]any `json:"attrs"`
+	AMR           []string       `json:"amr"`
+	SID           string         `json:"sid"`
+	OperatorLabel string         `json:"operator_label,omitempty"`
+	SessionID     string         `json:"session_id,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -55,14 +57,31 @@ func (c Claims) HasBranch(branchID string) bool {
 }
 
 func (c Claims) ToSubject() authz.Subject {
+	op := c.OperatorLabel
+	sid := c.SessionID
+	if op == "" && c.Attrs != nil {
+		if v, ok := c.Attrs["operator_label"].(string); ok {
+			op = v
+		}
+	}
+	if sid == "" && c.Attrs != nil {
+		if v, ok := c.Attrs["session_id"].(string); ok {
+			sid = v
+		}
+	}
+	if sid == "" {
+		sid = c.SID
+	}
 	return authz.Subject{
-		Sub:         c.Sub,
-		OrgID:       c.OrgID,
-		BranchIDs:   c.BranchIDs,
-		Roles:       c.Roles,
-		Permissions: c.Permissions,
-		Attrs:       c.Attrs,
-		AMR:         c.AMR,
+		Sub:           c.Sub,
+		OrgID:         c.OrgID,
+		BranchIDs:     c.BranchIDs,
+		Roles:         c.Roles,
+		Permissions:   c.Permissions,
+		Attrs:         c.Attrs,
+		AMR:           c.AMR,
+		OperatorLabel: op,
+		SessionID:     sid,
 	}
 }
 
@@ -313,6 +332,9 @@ func AnalystClaims() Claims {
 		Permissions: []string{
 			"inventory.movement.create",
 			"inventory.balance.read",
+			"inventory.movement.void.request",
+			"approval.read",
+			"session.operator",
 			"payroll.run.prepare",
 			"payroll.run.read",
 			"reporting.image.read",
@@ -337,6 +359,9 @@ func ApproverClaims() Claims {
 			"payroll.run.approve",
 			"payroll.run.read",
 			"inventory.balance.read",
+			"approval.decide",
+			"approval.read",
+			"session.operator",
 			"reporting.image.read",
 			"reporting.image.create",
 		},
@@ -381,12 +406,15 @@ func WarehouseManagerClaims() Claims {
 			"inventory.movement.read",
 			"inventory.movement.create",
 			"inventory.movement.void",
+			"approval.decide",
+			"approval.read",
+			"session.operator",
 			"reporting.image.read",
 			"reporting.image.create",
 		},
 		Attrs: map[string]any{
-			"max_adjustment":      50000.0,
-			"managed_warehouses":  []string{"wh_norte"},
+			"max_adjustment":     50000.0,
+			"managed_warehouses": []string{"wh_norte"},
 		},
 		AMR: []string{"pwd", "otp"},
 		SID: "sess_dev_wh_manager",
@@ -405,6 +433,9 @@ func RegionalManagerClaims() Claims {
 			"inventory.movement.read",
 			"inventory.movement.create",
 			"inventory.movement.void",
+			"approval.decide",
+			"approval.read",
+			"session.operator",
 			"payroll.run.read",
 			"reporting.image.read",
 			"reporting.image.create",
@@ -438,12 +469,15 @@ func StoreOwnerClaims(sub, orgID, branchCode, storeName string) Claims {
 			"inventory.balance.read",
 			"inventory.movement.create",
 			"inventory.movement.read",
+			"inventory.movement.void.request",
 			"inventory.catalog.read",
 			"inventory.label.read",
 			"inventory.receipt.read",
 			"inventory.receipt.create",
 			"inventory.receipt.post",
 			"inventory.warehouse.read",
+			"approval.read",
+			"session.operator",
 			"reporting.read",
 			"reporting.image.read",
 			"reporting.image.create",

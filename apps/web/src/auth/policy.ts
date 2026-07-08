@@ -7,6 +7,8 @@ export type SessionClaims = {
   attrs: Record<string, unknown>;
   amr: string[];
   sid: string;
+  operator_label?: string;
+  session_id?: string;
 };
 
 export type NavNode = {
@@ -83,6 +85,16 @@ export const NAV_NODES: NavNode[] = [
     path: "/reports/images",
     require: {
       permissions: ["reporting.image.read", "reporting.image.create", "inventory.balance.read"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
+    id: "nav.approvals",
+    label: "Aprobaciones",
+    path: "/approvals",
+    require: {
+      permissions: ["approval.read", "approval.decide"],
       anyBranch: true,
       minAmrCount: 1,
     },
