@@ -323,12 +323,6 @@ func (s *Memory) PostMovement(_ context.Context, req domain.MovementRequest) (do
 	}
 	key := req.WarehouseID + "|" + req.SKUID
 	bal, ok := s.balances[key]
-	if !ok {
-		return domain.Movement{}, domain.ErrNotFound
-	}
-	if req.ExpectedVersion != nil && bal.Version != *req.ExpectedVersion {
-		return domain.Movement{}, domain.ErrConflict
-	}
 
 	delta := req.Quantity
 	switch strings.ToUpper(req.MovementType) {
@@ -343,6 +337,20 @@ func (s *Memory) PostMovement(_ context.Context, req domain.MovementRequest) (do
 	case "ADJUST":
 	default:
 		return domain.Movement{}, errors.New("invalid movement_type")
+	}
+
+	if !ok {
+		if delta <= 0 {
+			return domain.Movement{}, domain.ErrNotFound
+		}
+		bal = &domain.StockBalance{
+			ID: "bal_" + uuid.NewString(), WarehouseID: req.WarehouseID, BranchID: req.BranchID,
+			SKUID: req.SKUID, SKU: req.SKUID, OnHand: 0, Version: 1,
+		}
+		s.balances[key] = bal
+	}
+	if req.ExpectedVersion != nil && bal.Version != *req.ExpectedVersion {
+		return domain.Movement{}, domain.ErrConflict
 	}
 
 	next := bal.OnHand + delta
@@ -472,4 +480,37 @@ func (s *Memory) VoidMovement(_ context.Context, movementID string, req domain.V
 	s.movementsByID[comp.ID] = comp
 
 	return domain.VoidResult{Original: orig, Compensation: comp}, nil
+}
+
+func (s *Memory) ListWarehouses(_ context.Context, filter domain.WarehouseFilter) ([]domain.Warehouse, error) {
+	out := []domain.Warehouse{
+		{ID: "wh_norte", BranchID: "br_norte", Name: "Almacén Norte", Kind: domain.WarehouseKindStore},
+		{ID: "wh_sur", BranchID: "br_sur", Name: "Almacén Sur", Kind: domain.WarehouseKindStore},
+		{ID: "cedi_centro", BranchID: "br_cedi", Name: "CEDI Centro — recepción", Kind: domain.WarehouseKindCEDI},
+		{ID: "principal", BranchID: "tienda", Name: "Almacén de llegada", Kind: domain.WarehouseKindArrival},
+	}
+	filtered := make([]domain.Warehouse, 0, len(out))
+	for _, w := range out {
+		if filter.BranchCode != "" && w.BranchID != filter.BranchCode {
+			continue
+		}
+		if filter.Kind != "" && w.Kind != strings.ToUpper(filter.Kind) {
+			continue
+		}
+		filtered = append(filtered, w)
+	}
+	return filtered, nil
+}
+
+func (s *Memory) CreateReceipt(_ context.Context, req domain.CreateReceiptRequest) (domain.Receipt, error) {
+	return domain.Receipt{}, errors.New("receipts require postgres store")
+}
+func (s *Memory) ListReceipts(_ context.Context, _ domain.ReceiptFilter) ([]domain.Receipt, error) {
+	return nil, nil
+}
+func (s *Memory) GetReceipt(_ context.Context, _, _ string) (domain.Receipt, error) {
+	return domain.Receipt{}, domain.ErrNotFound
+}
+func (s *Memory) PostReceipt(_ context.Context, _, _, _ string) (domain.Receipt, error) {
+	return domain.Receipt{}, domain.ErrNotFound
 }

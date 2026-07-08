@@ -48,6 +48,16 @@ export const NAV_NODES: NavNode[] = [
     },
   },
   {
+    id: "nav.receiving",
+    label: "Recepción",
+    path: "/inventory/receiving",
+    require: {
+      permissions: ["inventory.receipt.create", "inventory.movement.create", "inventory.balance.read"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
     id: "nav.payroll",
     label: "Nómina",
     path: "/payroll",

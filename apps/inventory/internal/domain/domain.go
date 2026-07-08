@@ -174,6 +174,94 @@ type VoidResult struct {
 	Compensation Movement `json:"compensation"`
 }
 
+// WarehouseKind classifies stock locations for CEDI vs store vs small-shop arrival.
+const (
+	WarehouseKindStore   = "STORE"
+	WarehouseKindCEDI    = "CEDI"
+	WarehouseKindArrival = "ARRIVAL"
+)
+
+type Warehouse struct {
+	ID       string `json:"id"`   // public code
+	BranchID string `json:"branch_id"`
+	Name     string `json:"name"`
+	Kind     string `json:"kind"` // STORE | CEDI | ARRIVAL
+}
+
+type WarehouseFilter struct {
+	OrgRef     string
+	BranchCode string
+	Kind       string
+}
+
+const (
+	ReceiptStatusDraft  = "DRAFT"
+	ReceiptStatusPosted = "POSTED"
+	ReceiptStatusVoid   = "VOID"
+)
+
+type ReceiptLineInput struct {
+	SKU              string   `json:"sku"`
+	Quantity         float64  `json:"quantity"`
+	UnitCost         *float64 `json:"unit_cost,omitempty"`
+	LabelDescription string   `json:"label_description,omitempty"`
+	LabelPrice       *float64 `json:"label_price,omitempty"`
+}
+
+type CreateReceiptRequest struct {
+	OrgID          string             `json:"org_id"`
+	BranchID       string             `json:"branch_id"`
+	WarehouseID    string             `json:"warehouse_id"`
+	SupplierName   string             `json:"supplier_name"`
+	InvoiceNumber  string             `json:"invoice_number"`
+	InvoiceDate    string             `json:"invoice_date,omitempty"` // YYYY-MM-DD
+	Notes          string             `json:"notes,omitempty"`
+	PrintLabels    *bool              `json:"print_labels,omitempty"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	CreatedBy      string             `json:"created_by"`
+	Lines          []ReceiptLineInput `json:"lines"`
+}
+
+type ReceiptLine struct {
+	ID               string   `json:"id"`
+	SKU              string   `json:"sku"`
+	Quantity         float64  `json:"quantity"`
+	UnitCost         *float64 `json:"unit_cost,omitempty"`
+	LabelDescription string   `json:"label_description,omitempty"`
+	LabelPrice       *float64 `json:"label_price,omitempty"`
+	MovementID       string   `json:"movement_id,omitempty"`
+	SortOrder        int      `json:"sort_order"`
+}
+
+type Receipt struct {
+	ID             string        `json:"id"`
+	OrgID          string        `json:"org_id"`
+	BranchID       string        `json:"branch_id"`
+	WarehouseID    string        `json:"warehouse_id"`
+	WarehouseKind  string        `json:"warehouse_kind,omitempty"`
+	SupplierName   string        `json:"supplier_name"`
+	InvoiceNumber  string        `json:"invoice_number"`
+	InvoiceDate    *string       `json:"invoice_date,omitempty"`
+	Notes          string        `json:"notes,omitempty"`
+	Status         string        `json:"status"`
+	PrintLabels    bool          `json:"print_labels"`
+	PostedAt       *time.Time    `json:"posted_at,omitempty"`
+	PostedBy       string        `json:"posted_by,omitempty"`
+	CreatedBy      string        `json:"created_by,omitempty"`
+	IdempotencyKey string        `json:"idempotency_key"`
+	CreatedAt      time.Time     `json:"created_at"`
+	Lines          []ReceiptLine `json:"lines,omitempty"`
+	Labels         []StoreLabel  `json:"labels,omitempty"`
+}
+
+type ReceiptFilter struct {
+	OrgRef      string
+	BranchCode  string
+	WarehouseID string
+	Status      string
+	Limit       int
+}
+
 type Store interface {
 	ListBalances(ctx context.Context, filter BalanceFilter) ([]StockBalance, error)
 	PostMovement(ctx context.Context, req MovementRequest) (Movement, error)
@@ -183,4 +271,9 @@ type Store interface {
 	ListDepartments(ctx context.Context, orgRef, branchCode string) ([]Department, error)
 	ListCatalog(ctx context.Context, filter CatalogFilter) ([]CatalogItem, error)
 	ListLabels(ctx context.Context, filter LabelFilter) ([]StoreLabel, error)
+	ListWarehouses(ctx context.Context, filter WarehouseFilter) ([]Warehouse, error)
+	CreateReceipt(ctx context.Context, req CreateReceiptRequest) (Receipt, error)
+	ListReceipts(ctx context.Context, filter ReceiptFilter) ([]Receipt, error)
+	GetReceipt(ctx context.Context, orgRef, receiptID string) (Receipt, error)
+	PostReceipt(ctx context.Context, orgRef, receiptID, postedBy string) (Receipt, error)
 }

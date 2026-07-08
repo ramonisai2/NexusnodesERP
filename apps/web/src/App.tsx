@@ -11,6 +11,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { PayrollPage } from "./pages/PayrollPage";
 import { ImageReportsPage } from "./pages/ImageReportsPage";
 import { MobileUploadPage } from "./pages/MobileUploadPage";
+import { ReceivingPage } from "./pages/ReceivingPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SearchPage } from "./pages/SearchPage";
 import { SetupPage, SetupRedirect } from "./pages/SetupPage";
@@ -56,6 +57,7 @@ function Bootstrap() {
           <Route index element={<DashboardPage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="inventory" element={<InventoryPage />} />
+          <Route path="inventory/receiving" element={<ReceivingPage />} />
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="reports/images" element={<ImageReportsPage />} />

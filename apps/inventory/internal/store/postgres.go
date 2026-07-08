@@ -445,9 +445,21 @@ FROM stock_balances
 WHERE warehouse_id = $1 AND sku_id = $2
 FOR UPDATE`, warehouseID, skuID).Scan(&balID, &onHand, &version)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Movement{}, domain.ErrNotFound
-	}
-	if err != nil {
+		// Inbound movements may create the first balance row (CEDI / arrival receiving).
+		if delta > 0 {
+			balID = uuid.New().String()
+			_, err = tx.Exec(ctx, `
+INSERT INTO stock_balances (id, warehouse_id, sku_id, on_hand, reserved, version, updated_at)
+VALUES ($1::uuid, $2::uuid, $3::uuid, 0, 0, 1, now())`, balID, warehouseID, skuID)
+			if err != nil {
+				return domain.Movement{}, err
+			}
+			onHand = 0
+			version = 1
+		} else {
+			return domain.Movement{}, domain.ErrNotFound
+		}
+	} else if err != nil {
 		return domain.Movement{}, err
 	}
 	if req.ExpectedVersion != nil && version != *req.ExpectedVersion {

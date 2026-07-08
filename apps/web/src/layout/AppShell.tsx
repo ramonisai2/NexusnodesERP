@@ -31,6 +31,16 @@ export function AppShell() {
       path: "/inventory",
       require: { permissions: ["inventory.balance.read"], anyBranch: true, minAmrCount: 1 },
     },
+    {
+      id: "nav.receiving",
+      label: t("navReceiving"),
+      path: "/inventory/receiving",
+      require: {
+        permissions: ["inventory.receipt.create", "inventory.movement.create", "inventory.balance.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
     ...(!isShop
       ? [
           {

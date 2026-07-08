@@ -178,9 +178,11 @@ VALUES ($1, $2, $3, $4, 'LOCAL')`, branchID, orgID, branchCode, req.BranchName);
 	}
 	if _, err = tx.Exec(ctx, `
 INSERT INTO warehouses (id, branch_id, code, name)
-VALUES ($1, $2, 'principal', 'Almacén principal')`, whID, branchID); err != nil {
+VALUES ($1, $2, 'principal', 'Almacén de llegada')`, whID, branchID); err != nil {
 		return CompleteResult{}, fmt.Errorf("warehouse: %w", err)
 	}
+	// Prefer ARRIVAL kind when migration 015 is applied (small-shop receiving bay).
+	_, _ = tx.Exec(ctx, `UPDATE warehouses SET warehouse_kind = 'ARRIVAL' WHERE id = $1`, whID)
 	if err := ensurePermissions(ctx, tx); err != nil {
 		return CompleteResult{}, err
 	}
@@ -194,7 +196,9 @@ SELECT $1, p.id FROM permissions p
 WHERE p.code IN (
   'inventory.balance.read','inventory.movement.create','inventory.movement.read',
   'inventory.catalog.read','inventory.label.read','reporting.read',
-  'reporting.image.read','reporting.image.create','store.setup.read'
+  'reporting.image.read','reporting.image.create','store.setup.read',
+  'inventory.receipt.read','inventory.receipt.create','inventory.receipt.post',
+  'inventory.warehouse.read'
 )`, roleID); err != nil {
 		return CompleteResult{}, fmt.Errorf("role_perms: %w", err)
 	}
@@ -321,7 +325,11 @@ INSERT INTO permissions (code, module, action, resource) VALUES
   ('reporting.read', 'reporting', 'read', 'report'),
   ('reporting.image.read', 'reporting', 'read', 'image'),
   ('reporting.image.create', 'reporting', 'create', 'image'),
-  ('store.setup.read', 'store', 'read', 'setup')
+  ('store.setup.read', 'store', 'read', 'setup'),
+  ('inventory.receipt.read', 'inventory', 'read', 'receipt'),
+  ('inventory.receipt.create', 'inventory', 'create', 'receipt'),
+  ('inventory.receipt.post', 'inventory', 'post', 'receipt'),
+  ('inventory.warehouse.read', 'inventory', 'read', 'warehouse')
 ON CONFLICT (code) DO NOTHING`)
 	return err
 }

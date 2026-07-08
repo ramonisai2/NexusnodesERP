@@ -102,6 +102,32 @@ allow if {
   search_reindex_allowed
 }
 
+allow if {
+  input.action == "inventory.warehouse.read"
+  warehouse_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "inventory.receipt.read"
+  receipt_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "inventory.receipt.create"
+  receipt_write_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.receipt.post"
+  receipt_write_allowed
+  branch_allowed
+  mfa_ok
+}
+
 branch_allowed if {
   not input.resource.branch_id
 }
@@ -228,4 +254,32 @@ search_reindex_allowed if {
 
 search_reindex_allowed if {
   "search.reindex" in input.subject.permissions
+}
+
+warehouse_read_allowed if {
+  "inventory.warehouse.read" in input.subject.permissions
+}
+
+warehouse_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+receipt_read_allowed if {
+  "inventory.receipt.read" in input.subject.permissions
+}
+
+receipt_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+receipt_write_allowed if {
+  "inventory.receipt.create" in input.subject.permissions
+}
+
+receipt_write_allowed if {
+  "inventory.receipt.post" in input.subject.permissions
+}
+
+receipt_write_allowed if {
+  "inventory.movement.create" in input.subject.permissions
 }
