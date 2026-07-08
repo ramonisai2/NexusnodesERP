@@ -516,3 +516,16 @@ func (s *Memory) GetReceipt(_ context.Context, _, _ string) (domain.Receipt, err
 func (s *Memory) PostReceipt(_ context.Context, _, _, _ string) (domain.Receipt, error) {
 	return domain.Receipt{}, domain.ErrNotFound
 }
+
+func (s *Memory) CreateShippingSlip(_ context.Context, _ domain.CreateShippingSlipRequest) (domain.ShippingSlip, error) {
+	return domain.ShippingSlip{}, errors.New("shipping slips require postgres store")
+}
+func (s *Memory) ListShippingSlips(_ context.Context, _ domain.ShippingSlipFilter) ([]domain.ShippingSlip, error) {
+	return nil, nil
+}
+func (s *Memory) GetShippingSlip(_ context.Context, _, _ string) (domain.ShippingSlip, error) {
+	return domain.ShippingSlip{}, domain.ErrNotFound
+}
+func (s *Memory) MarkShippingSlipPrinted(_ context.Context, _, _, _ string) (domain.ShippingSlip, error) {
+	return domain.ShippingSlip{}, domain.ErrNotFound
+}

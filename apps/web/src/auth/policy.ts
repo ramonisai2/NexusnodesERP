@@ -60,6 +60,16 @@ export const NAV_NODES: NavNode[] = [
     },
   },
   {
+    id: "nav.slips",
+    label: "Papeletas",
+    path: "/inventory/slips",
+    require: {
+      permissions: ["inventory.slip.read", "inventory.slip.create", "inventory.balance.read"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
     id: "nav.payroll",
     label: "Nómina",
     path: "/payroll",

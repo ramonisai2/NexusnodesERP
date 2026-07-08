@@ -38,6 +38,7 @@
 | [20 — CEDI y recepción](./20-cedi-inbound-receiving.md) | Factura, etiquetas y almacén de llegada |
 | [21 — Easter eggs héroes](./21-hero-easter-eggs.md) | Aliases con justificación lógica |
 | [22 — Operadores compartidos y jefes](./22-shared-operators-approvals.md) | Misma cuenta, estaciones concurrentes, cola de aprobación |
+| [23 — Papeletas entre tiendas](./23-shipping-slips.md) | Papelería: notas imprimibles con tipo de contenedor |
 | [Diagrama de arquitectura](../diagrams/architecture-overview.mmd) | Mermaid — vista de componentes |
 | [Diagrama de flujo auth](../diagrams/auth-flow.mmd) | Mermaid — OAuth2/MFA/JWT |
 | [Diagrama de flujo inventario](../diagrams/inventory-flow.mmd) | Mermaid — movimiento de stock |

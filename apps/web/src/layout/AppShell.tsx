@@ -48,6 +48,16 @@ export function AppShell() {
       },
     },
     {
+      id: "nav.slips",
+      label: t("navSlips"),
+      path: "/inventory/slips",
+      require: {
+        permissions: ["inventory.slip.read", "inventory.slip.create", "inventory.balance.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
       id: "nav.approvals",
       label: t("navApprovals"),
       path: "/approvals",

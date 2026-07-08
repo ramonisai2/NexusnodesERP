@@ -575,6 +575,155 @@ func main() {
 		writeJSON(w, http.StatusOK, rec)
 	})
 
+	r.Get("/slips", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.URL.Query().Get("branch_id")
+		if branchID == "" {
+			branchID = req.Header.Get("X-Branch-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.slip.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.slip.read")
+			return
+		}
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		direction := req.URL.Query().Get("direction") // from|to|both
+		filter := domain.ShippingSlipFilter{
+			OrgRef: subject.OrgID,
+			Status: req.URL.Query().Get("status"),
+			Limit:  limit,
+		}
+		switch direction {
+		case "to":
+			filter.ToBranch = branchID
+		case "from", "":
+			filter.FromBranch = branchID
+		}
+		items, err := inventoryStore.ListShippingSlips(req.Context(), filter)
+		if err != nil {
+			http.Error(w, `{"error":"list_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	})
+
+	r.Get("/slips/{id}", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.slip.read",
+			Resource: map[string]any{"org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.slip.read")
+			return
+		}
+		slip, err := inventoryStore.GetShippingSlip(req.Context(), subject.OrgID, id)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, slip)
+	})
+
+	r.Post("/slips", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		var body domain.CreateShippingSlipRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		idem := req.Header.Get("Idempotency-Key")
+		if idem == "" {
+			idem = body.IdempotencyKey
+		}
+		body.IdempotencyKey = idem
+		if body.OrgID == "" {
+			body.OrgID = subject.OrgID
+		}
+		if body.CreatedBy == "" {
+			body.CreatedBy = subject.Sub
+		}
+		if body.OperatorLabel == "" {
+			body.OperatorLabel = subject.OperatorLabel
+		}
+		if body.SessionID == "" {
+			body.SessionID = subject.SessionID
+		}
+		if body.FromBranchID == "" {
+			body.FromBranchID = req.Header.Get("X-Branch-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject: subject,
+			Action:  "inventory.slip.create",
+			Resource: map[string]any{
+				"branch_id": body.FromBranchID,
+				"org_id":    body.OrgID,
+			},
+			Context: map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.slip.create")
+			return
+		}
+		slip, err := inventoryStore.CreateShippingSlip(req.Context(), body)
+		if err != nil {
+			http.Error(w, `{"error":"create_failed","detail":"`+err.Error()+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusCreated, slip)
+	})
+
+	r.Post("/slips/{id}/print", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.slip.print",
+			Resource: map[string]any{"org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.slip.print")
+			return
+		}
+		slip, err := inventoryStore.MarkShippingSlipPrinted(req.Context(), subject.OrgID, id, subject.Sub)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"print_failed","detail":"`+err.Error()+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, slip)
+	})
+
 	log.Printf("inventory listening on %s", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatal(err)

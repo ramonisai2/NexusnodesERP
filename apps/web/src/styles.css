@@ -1202,3 +1202,151 @@ td {
   font-size: 0.82rem;
   color: var(--accent-2);
 }
+
+/* —— Papeletas entre tiendas —— */
+.slip-form {
+  display: grid;
+  gap: 0.85rem;
+  margin: 1.25rem 0 1.75rem;
+}
+
+.slip-form .filter-field.block {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.slip-form textarea,
+.slip-form .filter-field.block input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(8, 18, 14, 0.45);
+  color: var(--ink);
+  font: inherit;
+}
+
+.slip-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.filter-field.grow {
+  flex: 1 1 12rem;
+}
+
+.slip-print-sheet {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  background: rgba(255, 250, 235, 0.04);
+}
+
+.slip-print-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.papeleta {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 1.25rem 1.4rem;
+  border: 2px solid #1a2e24;
+  background: #fffaf0;
+  color: #14241c;
+  font-family: "IBM Plex Serif", "Source Serif 4", Georgia, serif;
+}
+
+.papeleta-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  color: #4a5c52;
+}
+
+.papeleta h2 {
+  margin: 0.2rem 0 0.85rem;
+  font-size: 1.55rem;
+  letter-spacing: 0.04em;
+}
+
+.papeleta-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem 1rem;
+  margin: 0 0 0.9rem;
+}
+
+.papeleta-meta dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #5a6b62;
+}
+
+.papeleta-meta dd {
+  margin: 0.1rem 0 0;
+  font-weight: 600;
+}
+
+.papeleta-container {
+  font-size: 1.15rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.papeleta-desc {
+  font-size: 1.05rem;
+  line-height: 1.35;
+  margin: 0 0 0.75rem;
+}
+
+.papeleta-lines {
+  margin: 0.5rem 0 0.75rem;
+  padding-left: 1.1rem;
+}
+
+.papeleta-footer {
+  margin-top: 1rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed #8a9a90;
+  font-size: 0.85rem;
+  color: #3d4f45;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .slip-print-sheet,
+  .slip-print-sheet * {
+    visibility: visible !important;
+  }
+  .slip-print-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+    background: white;
+    padding: 0;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .papeleta {
+    max-width: none;
+    border-color: #000;
+    box-shadow: none;
+  }
+  .sidebar,
+  .topbar,
+  .app-shell > aside {
+    display: none !important;
+  }
+}

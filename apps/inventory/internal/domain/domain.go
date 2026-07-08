@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -268,6 +269,116 @@ type ReceiptFilter struct {
 	Limit       int
 }
 
+// Container types for inter-store papelería (identification slips stuck on packages).
+const (
+	ContainerEnvelope     = "ENVELOPE"      // sobre
+	ContainerBox          = "BOX"           // caja
+	ContainerPlasticBox   = "PLASTIC_BOX"   // caja plástica
+	ContainerBundle       = "BUNDLE"        // bulto
+	ContainerOriginalPack = "ORIGINAL_PACK" // empaque original
+)
+
+const (
+	SlipStatusDraft     = "DRAFT"
+	SlipStatusPrinted   = "PRINTED"
+	SlipStatusInTransit = "IN_TRANSIT"
+	SlipStatusReceived  = "RECEIVED"
+	SlipStatusCancelled = "CANCELLED"
+)
+
+func ValidContainerType(code string) bool {
+	switch strings.ToUpper(strings.TrimSpace(code)) {
+	case ContainerEnvelope, ContainerBox, ContainerPlasticBox, ContainerBundle, ContainerOriginalPack:
+		return true
+	default:
+		return false
+	}
+}
+
+func ContainerTypeLabelES(code string) string {
+	switch strings.ToUpper(code) {
+	case ContainerEnvelope:
+		return "Sobre"
+	case ContainerBox:
+		return "Caja"
+	case ContainerPlasticBox:
+		return "Caja plástica"
+	case ContainerBundle:
+		return "Bulto"
+	case ContainerOriginalPack:
+		return "Empaque original"
+	default:
+		return code
+	}
+}
+
+type ShippingSlipLineInput struct {
+	SKU         string  `json:"sku,omitempty"`
+	Description string  `json:"description,omitempty"`
+	Quantity    float64 `json:"quantity"`
+}
+
+type CreateShippingSlipRequest struct {
+	OrgID           string                  `json:"org_id"`
+	FromBranchID    string                  `json:"from_branch_id"`
+	ToBranchID      string                  `json:"to_branch_id"`
+	FromWarehouseID string                  `json:"from_warehouse_id,omitempty"`
+	ToWarehouseID   string                  `json:"to_warehouse_id,omitempty"`
+	ContainerType   string                  `json:"container_type"`
+	Description     string                  `json:"description"`
+	ContentsSummary string                  `json:"contents_summary,omitempty"`
+	QuantityUnits   int                     `json:"quantity_units,omitempty"`
+	Notes           string                  `json:"notes,omitempty"`
+	IdempotencyKey  string                  `json:"idempotency_key"`
+	CreatedBy       string                  `json:"created_by"`
+	OperatorLabel   string                  `json:"operator_label,omitempty"`
+	SessionID       string                  `json:"session_id,omitempty"`
+	Lines           []ShippingSlipLineInput `json:"lines,omitempty"`
+}
+
+type ShippingSlipLine struct {
+	ID          string  `json:"id"`
+	SKU         string  `json:"sku,omitempty"`
+	Description string  `json:"description"`
+	Quantity    float64 `json:"quantity"`
+	SortOrder   int     `json:"sort_order"`
+}
+
+type ShippingSlip struct {
+	ID              string             `json:"id"`
+	OrgID           string             `json:"org_id"`
+	SlipNumber      string             `json:"slip_number"`
+	FromBranchID    string             `json:"from_branch_id"`
+	ToBranchID      string             `json:"to_branch_id"`
+	FromWarehouseID string             `json:"from_warehouse_id,omitempty"`
+	ToWarehouseID   string             `json:"to_warehouse_id,omitempty"`
+	ContainerType   string             `json:"container_type"`
+	ContainerLabel  string             `json:"container_label,omitempty"`
+	Description     string             `json:"description"`
+	ContentsSummary string             `json:"contents_summary,omitempty"`
+	QuantityUnits   int                `json:"quantity_units"`
+	Status          string             `json:"status"`
+	PrintedAt       *time.Time         `json:"printed_at,omitempty"`
+	ShippedAt       *time.Time         `json:"shipped_at,omitempty"`
+	ReceivedAt      *time.Time         `json:"received_at,omitempty"`
+	CreatedBy       string             `json:"created_by,omitempty"`
+	OperatorLabel   string             `json:"operator_label,omitempty"`
+	SessionID       string             `json:"session_id,omitempty"`
+	Notes           string             `json:"notes,omitempty"`
+	IdempotencyKey  string             `json:"idempotency_key"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
+	Lines           []ShippingSlipLine `json:"lines,omitempty"`
+}
+
+type ShippingSlipFilter struct {
+	OrgRef     string
+	FromBranch string
+	ToBranch   string
+	Status     string
+	Limit      int
+}
+
 type Store interface {
 	ListBalances(ctx context.Context, filter BalanceFilter) ([]StockBalance, error)
 	PostMovement(ctx context.Context, req MovementRequest) (Movement, error)
@@ -282,4 +393,8 @@ type Store interface {
 	ListReceipts(ctx context.Context, filter ReceiptFilter) ([]Receipt, error)
 	GetReceipt(ctx context.Context, orgRef, receiptID string) (Receipt, error)
 	PostReceipt(ctx context.Context, orgRef, receiptID, postedBy string) (Receipt, error)
+	CreateShippingSlip(ctx context.Context, req CreateShippingSlipRequest) (ShippingSlip, error)
+	ListShippingSlips(ctx context.Context, filter ShippingSlipFilter) ([]ShippingSlip, error)
+	GetShippingSlip(ctx context.Context, orgRef, slipID string) (ShippingSlip, error)
+	MarkShippingSlipPrinted(ctx context.Context, orgRef, slipID, actor string) (ShippingSlip, error)
 }

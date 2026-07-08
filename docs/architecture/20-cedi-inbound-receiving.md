@@ -62,3 +62,4 @@ SPA: menú **Recepción**.
 - Traslado CEDI → tienda (API atómica de transfer)
 - Parseo CFDI / XML
 - Ubicaciones / pasillos dentro del CEDI
+- Papeletas de identificación entre tiendas → ver [23 — Papeletas](./23-shipping-slips.md)
