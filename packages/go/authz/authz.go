@@ -197,6 +197,24 @@ func localAllow(in Input) bool {
 			!in.Subject.HasPermission("inventory.balance.read") {
 			return false
 		}
+	} else if in.Action == "search.query" {
+		if !in.Subject.HasPermission("search.query") &&
+			!in.Subject.HasPermission("inventory.balance.read") &&
+			!in.Subject.HasPermission("inventory.catalog.read") &&
+			!in.Subject.HasPermission("reporting.image.read") &&
+			!in.Subject.HasPermission("reporting.read") {
+			return false
+		}
+	} else if in.Action == "search.reindex" {
+		ok := in.Subject.HasPermission("search.reindex")
+		for _, r := range in.Subject.Roles {
+			if r == "platform_admin" {
+				ok = true
+			}
+		}
+		if !ok {
+			return false
+		}
 	} else if !in.Subject.HasPermission(in.Action) {
 		return false
 	}

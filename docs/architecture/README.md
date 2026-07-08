@@ -34,6 +34,7 @@
 | [16 — Tempo + Grafana](./16-tempo-grafana.md) | Trazas OTLP, dashboards TraceQL |
 | [17 — Instalación tienda pequeña](./17-store-setup-wizard.md) | Wizard abarrotes + perfil dueño |
 | [18 — Subida móvil por QR](./18-qr-mobile-upload.md) | Teléfono escanea QR y elige fotos sin login |
+| [19 — Motor de búsqueda BM25](./19-search-engine.md) | Índice invertido (estilo buscador), no scan de tablas |
 | [Diagrama de arquitectura](../diagrams/architecture-overview.mmd) | Mermaid — vista de componentes |
 | [Diagrama de flujo auth](../diagrams/auth-flow.mmd) | Mermaid — OAuth2/MFA/JWT |
 | [Diagrama de flujo inventario](../diagrams/inventory-flow.mmd) | Mermaid — movimiento de stock |

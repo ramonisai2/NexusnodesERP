@@ -1,4 +1,4 @@
-.PHONY: deps test-go test-go-pg run-gateway run-inventory run-payroll run-reporting run-reports run-relay run-notification run-web tidy migrate obs-up obs-down run-otel
+.PHONY: deps test-go test-go-pg run-gateway run-inventory run-payroll run-reporting run-reports run-search run-relay run-notification run-web tidy migrate obs-up obs-down run-otel
 
 DATABASE_URL ?= postgres://nexus:nexus@127.0.0.1:5432/nexus_erp?sslmode=disable
 OPA_URL ?= http://127.0.0.1:8181
@@ -16,6 +16,7 @@ deps:
 	cd apps/payroll && go mod tidy
 	cd apps/reporting-bff && go mod tidy
 	cd apps/reports && go mod tidy
+	cd apps/search && go mod tidy
 	cd apps/outbox-relay && go mod tidy
 	cd apps/notification && go mod tidy
 	pnpm install
@@ -35,6 +36,7 @@ test-go:
 	cd apps/payroll && go test ./...
 	cd apps/reporting-bff && go test ./...
 	cd apps/reports && go test ./...
+	cd apps/search && go test ./...
 	cd apps/outbox-relay && go test ./...
 	cd apps/notification && go test ./...
 
@@ -56,6 +58,7 @@ run-gateway:
 	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' \
 	OTEL_EXPORTER='$(OTEL_EXPORTER)' OTEL_EXPORTER_OTLP_ENDPOINT='$(OTEL_EXPORTER_OTLP_ENDPOINT)' \
 	REPORTING_URL=http://127.0.0.1:8084 REPORTS_URL=http://127.0.0.1:8085 \
+	SEARCH_URL=http://127.0.0.1:8086 \
 	go run ./apps/gateway/cmd/gateway
 
 run-inventory:
@@ -81,6 +84,12 @@ run-reports:
 	PUBLIC_WEB_BASE='$(or $(PUBLIC_WEB_BASE),http://localhost:5173)' \
 	IMAGE_UPLOAD_SESSION_TTL_MIN='$(or $(IMAGE_UPLOAD_SESSION_TTL_MIN),20)' \
 	go run ./apps/reports/cmd/reports
+
+run-search:
+	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' \
+	OTEL_EXPORTER='$(OTEL_EXPORTER)' OTEL_EXPORTER_OTLP_ENDPOINT='$(OTEL_EXPORTER_OTLP_ENDPOINT)' \
+	SEARCH_ADDR=:8086 SEARCH_REINDEX_SECONDS=30 \
+	go run ./apps/search/cmd/search
 
 run-relay:
 	DATABASE_URL='$(DATABASE_URL)' NATS_URL='$(NATS_URL)' OUTBOX_POLL_INTERVAL=1s \

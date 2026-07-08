@@ -16,6 +16,16 @@ export function AppShell() {
   const nav: NavNode[] = [
     { id: "nav.dashboard", label: t("navHome"), path: "/", require: { permissions: [] } },
     {
+      id: "nav.search",
+      label: t("navSearch"),
+      path: "/search",
+      require: {
+        permissions: ["inventory.balance.read", "inventory.catalog.read", "reporting.image.read", "search.query"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
       id: "nav.inventory",
       label: t("navInventory"),
       path: "/inventory",

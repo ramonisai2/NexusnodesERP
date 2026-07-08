@@ -8,6 +8,7 @@ use (
 	./apps/payroll
 	./apps/reporting-bff
 	./apps/reports
+	./apps/search
 	./packages/go/authz
 	./packages/go/db
 	./packages/go/events

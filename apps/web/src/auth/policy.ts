@@ -28,6 +28,16 @@ export const NAV_NODES: NavNode[] = [
     require: { permissions: [] },
   },
   {
+    id: "nav.search",
+    label: "Buscar",
+    path: "/search",
+    require: {
+      permissions: ["inventory.balance.read", "inventory.catalog.read", "reporting.image.read", "search.query"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
     id: "nav.inventory",
     label: "Inventario",
     path: "/inventory",

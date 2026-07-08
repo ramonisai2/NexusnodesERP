@@ -12,6 +12,7 @@ import { PayrollPage } from "./pages/PayrollPage";
 import { ImageReportsPage } from "./pages/ImageReportsPage";
 import { MobileUploadPage } from "./pages/MobileUploadPage";
 import { ReportsPage } from "./pages/ReportsPage";
+import { SearchPage } from "./pages/SearchPage";
 import { SetupPage, SetupRedirect } from "./pages/SetupPage";
 import "./styles.css";
 
@@ -53,6 +54,7 @@ function Bootstrap() {
       >
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
+          <Route path="search" element={<SearchPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="reports" element={<ReportsPage />} />

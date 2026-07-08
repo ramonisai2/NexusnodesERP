@@ -54,6 +54,7 @@ func main() {
 	payrollURL := mustURL(envOr("PAYROLL_URL", "http://localhost:8083"))
 	reportingURL := mustURL(envOr("REPORTING_URL", "http://localhost:8084"))
 	reportsURL := mustURL(envOr("REPORTS_URL", "http://localhost:8085"))
+	searchURL := mustURL(envOr("SEARCH_URL", "http://localhost:8086"))
 
 	r := chi.NewRouter()
 	r.Use(otelx.Middleware("gateway"))
@@ -220,6 +221,8 @@ func main() {
 		pr.Handle("/graphql/*", reverseProxy(reportingURL))
 		pr.Handle("/reports/*", reverseProxy(reportsURL))
 		pr.Handle("/reports", reverseProxy(reportsURL))
+		pr.Handle("/search/*", reverseProxy(searchURL))
+		pr.Handle("/search", reverseProxy(searchURL))
 	})
 
 	_ = opa
@@ -280,6 +283,11 @@ func reverseProxy(target *url.URL) http.Handler {
 			req.URL.Path = path
 		case strings.HasPrefix(path, "/reports"):
 			req.URL.Path = strings.TrimPrefix(path, "/reports")
+			if req.URL.Path == "" {
+				req.URL.Path = "/"
+			}
+		case strings.HasPrefix(path, "/search"):
+			req.URL.Path = strings.TrimPrefix(path, "/search")
 			if req.URL.Path == "" {
 				req.URL.Path = "/"
 			}

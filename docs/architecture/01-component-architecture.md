@@ -83,6 +83,7 @@
 | Kafka / NATS JetStream | Eventos de dominio, outbox, sync asíncrona |
 | Object Storage (S3) | Comprobantes, reportes PDF, adjuntos |
 | OpenSearch (opcional) | Búsqueda full-text de productos/empleados |
+| **Search service (BM25)** | Índice invertido embebido en `apps/search` — ver [19](./19-search-engine.md) |
 
 ## 3. Alta disponibilidad y tolerancia a fallos
 

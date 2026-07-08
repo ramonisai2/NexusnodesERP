@@ -91,6 +91,17 @@ allow if {
   branch_allowed
 }
 
+allow if {
+  input.action == "search.query"
+  search_query_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "search.reindex"
+  search_reindex_allowed
+}
+
 branch_allowed if {
   not input.resource.branch_id
 }
@@ -189,4 +200,32 @@ image_report_read_allowed if {
 
 image_report_read_allowed if {
   "inventory.balance.read" in input.subject.permissions
+}
+
+search_query_allowed if {
+  "search.query" in input.subject.permissions
+}
+
+search_query_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+search_query_allowed if {
+  "inventory.catalog.read" in input.subject.permissions
+}
+
+search_query_allowed if {
+  "reporting.image.read" in input.subject.permissions
+}
+
+search_query_allowed if {
+  "reporting.read" in input.subject.permissions
+}
+
+search_reindex_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+search_reindex_allowed if {
+  "search.reindex" in input.subject.permissions
 }
