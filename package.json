@@ -1,0 +1,20 @@
+{
+  "name": "nexus-erp",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @nexus/web dev",
+    "build:web": "pnpm --filter @nexus/web build",
+    "lint:web": "pnpm --filter @nexus/web lint",
+    "typecheck:web": "pnpm --filter @nexus/web typecheck",
+    "dev:gateway": "go run ./apps/gateway/cmd/gateway",
+    "dev:inventory": "go run ./apps/inventory/cmd/inventory",
+    "dev:payroll": "go run ./apps/payroll/cmd/payroll",
+    "test:go": "go test ./...",
+    "migrate:up": "bash infra/scripts/migrate.sh up",
+    "seed": "bash infra/scripts/seed.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -20,6 +20,7 @@
 | [02 — Seguridad RBAC/ABAC](./02-security-rbac-abac.md) | Modelo de acceso, JWT, MFA, nodos UI |
 | [03 — Persistencia e integridad](./03-persistence-integrity.md) | Transacciones, concurrencia, sync async |
 | [04 — Stack tecnológico](./04-tech-stack.md) | Tecnologías recomendadas y justificación |
+| [05 — Bootstrap local](./05-bootstrap-guide.md) | Monorepo, auth dev, cómo correr |
 | [Diagrama de arquitectura](../diagrams/architecture-overview.mmd) | Mermaid — vista de componentes |
 | [Diagrama de flujo auth](../diagrams/auth-flow.mmd) | Mermaid — OAuth2/MFA/JWT |
 | [Diagrama de flujo inventario](../diagrams/inventory-flow.mmd) | Mermaid — movimiento de stock |

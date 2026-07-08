@@ -12,8 +12,34 @@ La especificación técnica completa está en [`docs/architecture/`](./docs/arch
 | Seguridad RBAC/ABAC + JWT/MFA | [docs/architecture/02-security-rbac-abac.md](./docs/architecture/02-security-rbac-abac.md) |
 | Persistencia, concurrencia, sync | [docs/architecture/03-persistence-integrity.md](./docs/architecture/03-persistence-integrity.md) |
 | Stack tecnológico recomendado | [docs/architecture/04-tech-stack.md](./docs/architecture/04-tech-stack.md) |
+| Guía de bootstrap local | [docs/architecture/05-bootstrap-guide.md](./docs/architecture/05-bootstrap-guide.md) |
 | Diagramas Mermaid | [docs/diagrams/](./docs/diagrams/) |
 | Modelo ER Inventario + Nómina + Seguridad | [docs/data-model/er-inventory-payroll.md](./docs/data-model/er-inventory-payroll.md) |
+
+## Monorepo (bootstrap)
+
+```text
+apps/
+  web/          SPA React + PolicyGuard
+  gateway/      API Gateway (JWT + proxy)
+  inventory/    Microservicio inventarios
+  payroll/      Microservicio nóminas
+infra/
+  postgres/     Migraciones + seed
+  opa/          Políticas Rego
+  keycloak/     Realm de desarrollo
+packages/
+  api-contracts/ OpenAPI
+```
+
+```bash
+cp .env.example .env
+make deps && make test-go
+make run-inventory   # :8082
+make run-payroll     # :8083
+make run-gateway     # :8080
+make run-web         # :5173
+```
 
 ## Licencia
 

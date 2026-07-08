@@ -1,0 +1,146 @@
+openapi: 3.1.0
+info:
+  title: NexusERP Gateway API
+  version: 0.1.0
+  description: Edge API for NexusERP (auth, inventory proxy, payroll proxy)
+servers:
+  - url: http://localhost:8080
+paths:
+  /healthz:
+    get:
+      summary: Liveness
+      responses:
+        "200":
+          description: OK
+  /auth/dev-token:
+    post:
+      summary: Issue development JWT (disabled unless DEV_AUTH_BYPASS=true)
+      parameters:
+        - in: query
+          name: persona
+          schema:
+            type: string
+            enum: [analyst, approver]
+      responses:
+        "200":
+          description: Token issued
+  /me:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Current access-token claims
+      responses:
+        "200":
+          description: Claims
+  /me/effective-permissions:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Effective permissions for UI PolicyGuard
+      responses:
+        "200":
+          description: Permissions payload
+  /inventory/balances:
+    get:
+      security:
+        - bearerAuth: []
+      summary: List stock balances
+      parameters:
+        - in: header
+          name: X-Branch-Id
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Balances
+  /inventory/movements:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Post inventory movement
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MovementRequest"
+      responses:
+        "201":
+          description: Created
+        "409":
+          description: Optimistic lock conflict
+  /payroll/runs:
+    get:
+      security:
+        - bearerAuth: []
+      summary: List payroll runs
+      responses:
+        "200":
+          description: Runs
+    post:
+      security:
+        - bearerAuth: []
+      summary: Prepare and calculate a payroll run
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [period_label, branch_id]
+              properties:
+                period_label:
+                  type: string
+                branch_id:
+                  type: string
+      responses:
+        "201":
+          description: Created
+  /payroll/runs/{id}/approve:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Approve payroll run (SoD enforced)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Approved
+        "403":
+          description: SoD violation or forbidden
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    MovementRequest:
+      type: object
+      required: [branch_id, warehouse_id, sku_id, movement_type, quantity]
+      properties:
+        branch_id:
+          type: string
+        warehouse_id:
+          type: string
+        sku_id:
+          type: string
+        movement_type:
+          type: string
+          enum: [RECEIPT, ISSUE, ADJUST, ADJUST_IN, ADJUST_OUT, TRANSFER_IN, TRANSFER_OUT]
+        quantity:
+          type: number
+        expected_version:
+          type: integer
+        idempotency_key:
+          type: string

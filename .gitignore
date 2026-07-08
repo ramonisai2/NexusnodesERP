@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+dist/
+build/
+coverage/
+*.exe
+*.test
+bin/
+.env
+.env.local
+.DS_Store
+.idea/
+.vscode/
+*.log
+tmp/
+.turbo/
+apps/web/dist/
+*.tsbuildinfo
+go.work.sum

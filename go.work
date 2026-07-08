@@ -1,0 +1,7 @@
+go 1.22
+
+use (
+	./apps/gateway
+	./apps/inventory
+	./apps/payroll
+)
