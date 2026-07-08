@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NAV_NODES, hasPermission } from "../auth/policy";
 import { PolicyGuard } from "../auth/PolicyGuard";
 import { apiFetch, useAuthStore } from "../auth/store";
+import { friendlyApiError, labelBranch, useLocaleStore } from "../i18n/locale";
 
 type Balance = {
   id: string;
@@ -17,13 +18,14 @@ type Balance = {
 const inventoryNode = NAV_NODES.find((n) => n.id === "nav.inventory")!;
 
 export function InventoryPage() {
+  const t = useLocaleStore((s) => s.t);
   return (
     <PolicyGuard
       node={inventoryNode}
       fallback={
         <section className="panel">
-          <h1>Inventario</h1>
-          <p className="error">No tienes permiso para ver inventarios en esta sesión.</p>
+          <h1>{t("invTitle")}</h1>
+          <p className="error">{t("invForbidden")}</p>
         </section>
       }
     >
@@ -36,6 +38,8 @@ function InventoryPanel() {
   const claims = useAuthStore((s) => s.claims);
   const activeBranchId = useAuthStore((s) => s.activeBranchId);
   const qc = useQueryClient();
+  const t = useLocaleStore((s) => s.t);
+  const locale = useLocaleStore((s) => s.locale);
   const canMove = hasPermission(claims, "inventory.movement.create");
 
   const balances = useQuery({
@@ -70,52 +74,52 @@ function InventoryPanel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["balances"] }),
   });
 
+  const rows =
+    balances.data?.filter((b) => !activeBranchId || b.branch_id === activeBranchId) ?? [];
+
   return (
     <section className="panel">
-      <h1>Inventario</h1>
-      <p className="muted">
-        Saldos por almacén con bloqueo optimista (`version`). Filtrado por sucursal activa.
-      </p>
-      {balances.isLoading ? <p className="muted">Cargando…</p> : null}
-      {balances.isError ? <p className="error">Error al cargar saldos.</p> : null}
-      {balances.data ? (
+      <h1>{t("invTitle")}</h1>
+      <p className="muted">{t("invSubtitle")}</p>
+      {balances.isLoading ? <p className="muted">{t("invLoading")}</p> : null}
+      {balances.isError ? <p className="error">{t("invError")}</p> : null}
+      {balances.data && rows.length === 0 ? <p className="muted">{t("invNoRows")}</p> : null}
+      {rows.length > 0 ? (
         <table>
           <thead>
             <tr>
-              <th>SKU</th>
-              <th>Almacén</th>
-              <th>Sucursal</th>
-              <th>On hand</th>
-              <th>Versión</th>
+              <th>{t("invColSku")}</th>
+              <th>{t("invColWarehouse")}</th>
+              <th>{t("invColBranch")}</th>
+              <th>{t("invColOnHand")}</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {balances.data
-              .filter((b) => !activeBranchId || b.branch_id === activeBranchId)
-              .map((b) => (
-                <tr key={b.id}>
-                  <td>{b.sku}</td>
-                  <td>{b.warehouse_id}</td>
-                  <td>{b.branch_id}</td>
-                  <td>{b.on_hand}</td>
-                  <td>{b.version}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn secondary"
-                      disabled={!canMove || move.isPending}
-                      onClick={() => move.mutate(b)}
-                    >
-                      Salida −1
-                    </button>
-                  </td>
-                </tr>
-              ))}
+            {rows.map((b) => (
+              <tr key={b.id}>
+                <td>{b.sku}</td>
+                <td>{b.warehouse_id.replace(/^wh_/, "").replace(/_/g, " ")}</td>
+                <td>{labelBranch(b.branch_id, locale)}</td>
+                <td>{b.on_hand}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    disabled={!canMove || move.isPending}
+                    onClick={() => move.mutate(b)}
+                  >
+                    {move.isPending ? t("invIssuePending") : t("invIssue")}
+                  </button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       ) : null}
-      {move.isError ? <p className="error">{(move.error as Error).message}</p> : null}
+      {move.isError ? (
+        <p className="error">{friendlyApiError((move.error as Error).message, locale)}</p>
+      ) : null}
     </section>
   );
 }

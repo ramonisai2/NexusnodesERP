@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./auth/PolicyGuard";
 import { useAuthStore } from "./auth/store";
+import { useLocaleStore } from "./i18n/locale";
 import { AppShell } from "./layout/AppShell";
 import { DashboardPage } from "./pages/DashboardPage";
 import { InventoryPage } from "./pages/InventoryPage";
@@ -14,7 +15,13 @@ const queryClient = new QueryClient();
 
 function Bootstrap() {
   const hydrate = useAuthStore((s) => s.hydrate);
+  const locale = useLocaleStore((s) => s.locale);
+  const t = useLocaleStore((s) => s.t);
   const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   useEffect(() => {
     void hydrate().finally(() => setReady(true));
@@ -23,7 +30,7 @@ function Bootstrap() {
   if (!ready) {
     return (
       <main className="login-page">
-        <p className="muted">Cargando sesión…</p>
+        <p className="muted">{t("loadingSession")}</p>
       </main>
     );
   }

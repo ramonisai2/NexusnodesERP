@@ -223,6 +223,69 @@ td {
   margin: 0 0 0.4rem;
 }
 
+.login-card-top {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.login-actions {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+}
+
+.hint {
+  margin: 0 0 0.85rem;
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+}
+
+.secure-note {
+  margin-top: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.access-list {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.2rem;
+}
+
+.tip {
+  margin-top: 1rem;
+  font-size: 0.92rem;
+}
+
+.toolbar {
+  margin: 1rem 0;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
 .form-row {
   display: flex;
   flex-direction: column;

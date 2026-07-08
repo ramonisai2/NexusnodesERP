@@ -16,6 +16,7 @@ La especificación técnica completa está en [`docs/architecture/`](./docs/arch
 | Postgres + JWKS + OPA | [docs/architecture/06-postgres-jwks-opa.md](./docs/architecture/06-postgres-jwks-opa.md) |
 | Outbox + Claims + RLS | [docs/architecture/07-outbox-claims-rls.md](./docs/architecture/07-outbox-claims-rls.md) |
 | Consumers + OTel + Keycloak | [docs/architecture/08-consumers-otel-keycloak.md](./docs/architecture/08-consumers-otel-keycloak.md) |
+| UX e i18n (ES/EN) | [docs/architecture/09-ux-i18n.md](./docs/architecture/09-ux-i18n.md) |
 | Diagramas Mermaid | [docs/diagrams/](./docs/diagrams/) |
 | Modelo ER Inventario + Nómina + Seguridad | [docs/data-model/er-inventory-payroll.md](./docs/data-model/er-inventory-payroll.md) |
 

@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { useLocaleStore } from "../i18n/locale";
 import { loginWithDevToken, useAuthStore } from "../auth/store";
 
 export function LoginPage() {
   const token = useAuthStore((s) => s.token);
+  const t = useLocaleStore((s) => s.t);
+  const locale = useLocaleStore((s) => s.locale);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,7 +19,7 @@ export function LoginPage() {
     try {
       await loginWithDevToken(persona);
     } catch {
-      setError("No se pudo emitir el token de desarrollo. ¿Está el gateway en :8080?");
+      setError(t("loginError"));
     } finally {
       setLoading(false);
     }
@@ -24,33 +28,36 @@ export function LoginPage() {
   return (
     <main className="login-page">
       <section className="login-card">
-        <h1>NexusERP</h1>
-        <p className="muted">
-          Acceso seguro con OAuth2/OIDC + MFA. En local usa personas de desarrollo para probar
-          RBAC y segregación de funciones en nómina.
-        </p>
-        <div style={{ display: "grid", gap: "0.75rem" }}>
+        <div className="login-card-top">
+          <LanguageSwitcher />
+        </div>
+        <h1>{t("loginTitle")}</h1>
+        <p className="muted">{t("loginSubtitle")}</p>
+        <div className="login-actions">
           <button
             type="button"
             className="btn"
             disabled={loading}
             onClick={() => void onDevLogin("analyst")}
           >
-            {loading ? "Autenticando…" : "Entrar como Analista (prepara nómina / inventario)"}
+            {loading ? t("loginLoading") : t("loginAnalyst")}
           </button>
+          <p className="hint">{t("loginAnalystHint")}</p>
           <button
             type="button"
             className="btn secondary"
             disabled={loading}
             onClick={() => void onDevLogin("approver")}
           >
-            Entrar como Aprobador (aprueba nómina)
+            {t("loginApprover")}
           </button>
+          <p className="hint">{t("loginApproverHint")}</p>
         </div>
-        <p className="muted" style={{ marginTop: "1rem", fontSize: "0.9rem" }}>
-          Producción: Authorization Code + PKCE contra Keycloak (`nexus` realm).
-        </p>
+        <p className="muted secure-note">{t("loginSecureNote")}</p>
         {error ? <p className="error">{error}</p> : null}
+        <span className="sr-only" aria-live="polite">
+          {locale}
+        </span>
       </section>
     </main>
   );
