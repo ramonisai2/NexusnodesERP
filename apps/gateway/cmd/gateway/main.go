@@ -131,6 +131,13 @@ func reverseProxy(target *url.URL) http.Handler {
 			req.Header.Set("X-Org-Id", claims.OrgID)
 			req.Header.Set("X-Branch-Ids", strings.Join(claims.BranchIDs, ","))
 			req.Header.Set("X-Permissions", strings.Join(claims.Permissions, ","))
+			req.Header.Set("X-Roles", strings.Join(claims.Roles, ","))
+			req.Header.Set("X-Amr", strings.Join(claims.AMR, ","))
+			if claims.Attrs != nil {
+				if raw, err := json.Marshal(claims.Attrs); err == nil {
+					req.Header.Set("X-Attrs-JSON", string(raw))
+				}
+			}
 		}
 	}
 	return proxy

@@ -48,9 +48,9 @@ docker compose up -d postgres redis opa keycloak
 - **Prod path:** Keycloak realm `nexus` + PKCE; gateway validará JWKS (pendiente de cablear RS256)
 - **AuthZ:** permisos en JWT + chequeo de sucursal en servicios; OPA listo en `:8181`
 
-## Siguiente (paso 3+)
+## Estado actual (paso 3+)
 
-1. Sustituir stores in-memory por PostgreSQL (`pgx`)
-2. Validación JWT via JWKS de Keycloak
-3. PEP → OPA en cada comando de escritura
-4. Outbox + Kafka para proyecciones
+1. ~~Stores PostgreSQL (`pgx`)~~ → ver [06-postgres-jwks-opa.md](./06-postgres-jwks-opa.md)
+2. ~~Validación JWT via JWKS~~ (RS256 + HS256 dev)
+3. ~~PEP → OPA en escrituras~~
+4. Pendiente: Outbox relay → Kafka, enrichment de claims desde BD, RLS por request

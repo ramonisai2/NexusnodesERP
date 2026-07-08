@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -22,12 +23,13 @@ func TestHasPermissionAndBranch(t *testing.T) {
 }
 
 func TestIssueAndParseDevToken(t *testing.T) {
+	t.Setenv("DEV_AUTH_BYPASS", "true")
 	v := NewValidatorFromEnv()
 	tok, err := v.IssueDevToken(DevClaims(), time.Hour)
 	if err != nil {
 		t.Fatalf("issue: %v", err)
 	}
-	claims, err := v.Parse(tok)
+	claims, err := v.Parse(context.Background(), tok)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}

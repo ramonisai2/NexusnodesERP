@@ -13,6 +13,7 @@ La especificación técnica completa está en [`docs/architecture/`](./docs/arch
 | Persistencia, concurrencia, sync | [docs/architecture/03-persistence-integrity.md](./docs/architecture/03-persistence-integrity.md) |
 | Stack tecnológico recomendado | [docs/architecture/04-tech-stack.md](./docs/architecture/04-tech-stack.md) |
 | Guía de bootstrap local | [docs/architecture/05-bootstrap-guide.md](./docs/architecture/05-bootstrap-guide.md) |
+| Postgres + JWKS + OPA | [docs/architecture/06-postgres-jwks-opa.md](./docs/architecture/06-postgres-jwks-opa.md) |
 | Diagramas Mermaid | [docs/diagrams/](./docs/diagrams/) |
 | Modelo ER Inventario + Nómina + Seguridad | [docs/data-model/er-inventory-payroll.md](./docs/data-model/er-inventory-payroll.md) |
 
@@ -35,9 +36,11 @@ packages/
 ```bash
 cp .env.example .env
 make deps && make test-go
-make run-inventory   # :8082
+# Con Postgres + OPA (recomendado):
+#   make migrate && opa run --server --addr=127.0.0.1:8181 infra/opa/policies
+make run-inventory   # :8082  (usa DATABASE_URL si está definido)
 make run-payroll     # :8083
-make run-gateway     # :8080
+make run-gateway     # :8080  (JWKS RS256 + HS256 dev)
 make run-web         # :5173
 ```
 

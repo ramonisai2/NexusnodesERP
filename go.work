@@ -4,4 +4,6 @@ use (
 	./apps/gateway
 	./apps/inventory
 	./apps/payroll
+	./packages/go/authz
+	./packages/go/db
 )

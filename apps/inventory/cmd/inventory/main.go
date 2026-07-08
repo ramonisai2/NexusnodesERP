@@ -7,19 +7,36 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
-	"github.com/google/uuid"
+	"github.com/ramonisai2/NexusnodesERP/apps/inventory/internal/domain"
+	"github.com/ramonisai2/NexusnodesERP/apps/inventory/internal/store"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/authz"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
 )
 
 func main() {
 	addr := envOr("INVENTORY_ADDR", ":8082")
-	store := NewMemoryStore()
-	_ = store.SeedDemo()
+	ctx := context.Background()
+
+	var inventoryStore domain.Store
+	if os.Getenv("DATABASE_URL") != "" {
+		pool, err := db.Connect(ctx)
+		if err != nil {
+			log.Fatalf("postgres: %v", err)
+		}
+		inventoryStore = store.NewPostgres(pool)
+		log.Printf("inventory store=postgres")
+	} else {
+		mem := store.NewMemory()
+		mem.SeedDemo()
+		inventoryStore = mem
+		log.Printf("inventory store=memory")
+	}
+
+	opa := authz.NewClientFromEnv()
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
@@ -32,20 +49,32 @@ func main() {
 	})
 
 	r.Get("/balances", func(w http.ResponseWriter, req *http.Request) {
-		if !hasPerm(req, "inventory.balance.read") {
-			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.Header.Get("X-Branch-Id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.balance.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
 			return
 		}
-		branchID := req.Header.Get("X-Branch-Id")
-		writeJSON(w, http.StatusOK, store.ListBalances(branchID))
+		if !allow {
+			authz.WriteForbidden(w, "inventory.balance.read")
+			return
+		}
+		balances, err := inventoryStore.ListBalances(req.Context(), branchID)
+		if err != nil {
+			http.Error(w, `{"error":"list_failed"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, balances)
 	})
 
 	r.Post("/movements", func(w http.ResponseWriter, req *http.Request) {
-		if !hasPerm(req, "inventory.movement.create") {
-			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
-			return
-		}
-		var body MovementRequest
+		subject := authz.FromGatewayHeaders(req)
+		var body domain.MovementRequest
 		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
 			return
@@ -59,20 +88,37 @@ func main() {
 			return
 		}
 		body.IdempotencyKey = idem
-		body.PostedBy = req.Header.Get("X-User-Id")
-		body.OrgID = req.Header.Get("X-Org-Id")
+		if body.PostedBy == "" {
+			body.PostedBy = subject.Sub
+		}
+		if body.OrgID == "" {
+			body.OrgID = subject.OrgID
+		}
 
-		if !branchAllowed(req, body.BranchID) {
-			http.Error(w, `{"error":"branch_forbidden"}`, http.StatusForbidden)
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject: subject,
+			Action:  "inventory.movement.create",
+			Resource: map[string]any{
+				"branch_id": body.BranchID,
+				"org_id":    body.OrgID,
+				"quantity":  body.Quantity,
+			},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.movement.create")
 			return
 		}
 
-		mov, err := store.PostMovement(req.Context(), body)
-		if errors.Is(err, ErrConflict) {
+		mov, err := inventoryStore.PostMovement(req.Context(), body)
+		if errors.Is(err, domain.ErrConflict) {
 			http.Error(w, `{"error":"version_conflict"}`, http.StatusConflict)
 			return
 		}
-		if errors.Is(err, ErrInsufficientStock) {
+		if errors.Is(err, domain.ErrInsufficientStock) {
 			http.Error(w, `{"error":"insufficient_stock"}`, http.StatusUnprocessableEntity)
 			return
 		}
@@ -89,34 +135,6 @@ func main() {
 	}
 }
 
-func hasPerm(r *http.Request, code string) bool {
-	perms := strings.Split(r.Header.Get("X-Permissions"), ",")
-	for _, p := range perms {
-		if strings.TrimSpace(p) == code {
-			return true
-		}
-	}
-	// Local direct calls without gateway: allow in DEV
-	if strings.EqualFold(os.Getenv("DEV_AUTH_BYPASS"), "true") && r.Header.Get("X-Permissions") == "" {
-		return true
-	}
-	return false
-}
-
-func branchAllowed(r *http.Request, branchID string) bool {
-	raw := r.Header.Get("X-Branch-Ids")
-	if raw == "" && strings.EqualFold(os.Getenv("DEV_AUTH_BYPASS"), "true") {
-		return true
-	}
-	for _, b := range strings.Split(raw, ",") {
-		b = strings.TrimSpace(b)
-		if b == branchID || b == "*" {
-			return true
-		}
-	}
-	return false
-}
-
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -128,152 +146,4 @@ func envOr(k, def string) string {
 		return v
 	}
 	return def
-}
-
-// --- Domain (in-memory vertical slice; Postgres store swaps in later) ---
-
-var (
-	ErrConflict          = errors.New("version conflict")
-	ErrInsufficientStock = errors.New("insufficient stock")
-	ErrNotFound          = errors.New("not found")
-)
-
-type StockBalance struct {
-	ID          string  `json:"id"`
-	WarehouseID string  `json:"warehouse_id"`
-	BranchID    string  `json:"branch_id"`
-	SKUID       string  `json:"sku_id"`
-	SKU         string  `json:"sku"`
-	OnHand      float64 `json:"on_hand"`
-	Reserved    float64 `json:"reserved"`
-	Version     int     `json:"version"`
-}
-
-type MovementRequest struct {
-	OrgID          string  `json:"org_id"`
-	BranchID       string  `json:"branch_id"`
-	WarehouseID    string  `json:"warehouse_id"`
-	SKUID          string  `json:"sku_id"`
-	MovementType   string  `json:"movement_type"`
-	Quantity       float64 `json:"quantity"`
-	ExpectedVersion *int   `json:"expected_version"`
-	IdempotencyKey string  `json:"idempotency_key"`
-	PostedBy       string  `json:"posted_by"`
-}
-
-type Movement struct {
-	ID             string    `json:"id"`
-	OrgID          string    `json:"org_id"`
-	BranchID       string    `json:"branch_id"`
-	WarehouseID    string    `json:"warehouse_id"`
-	SKUID          string    `json:"sku_id"`
-	MovementType   string    `json:"movement_type"`
-	Quantity       float64   `json:"quantity"`
-	Status         string    `json:"status"`
-	PostedBy       string    `json:"posted_by"`
-	IdempotencyKey string    `json:"idempotency_key"`
-	CreatedAt      time.Time `json:"created_at"`
-}
-
-type MemoryStore struct {
-	mu         sync.Mutex
-	balances   map[string]*StockBalance // key warehouse|sku
-	movements  map[string]Movement      // idempotency -> movement
-	byID       map[string]*StockBalance
-}
-
-func NewMemoryStore() *MemoryStore {
-	return &MemoryStore{
-		balances:  map[string]*StockBalance{},
-		movements: map[string]Movement{},
-		byID:      map[string]*StockBalance{},
-	}
-}
-
-func (s *MemoryStore) SeedDemo() error {
-	items := []StockBalance{
-		{ID: "bal_1", WarehouseID: "wh_norte", BranchID: "br_norte", SKUID: "sku_bolt", SKU: "BOLT-M8", OnHand: 1000, Version: 1},
-		{ID: "bal_2", WarehouseID: "wh_norte", BranchID: "br_norte", SKUID: "sku_nut", SKU: "NUT-M8", OnHand: 800, Version: 1},
-		{ID: "bal_3", WarehouseID: "wh_sur", BranchID: "br_sur", SKUID: "sku_bolt", SKU: "BOLT-M8", OnHand: 400, Version: 1},
-	}
-	for i := range items {
-		b := items[i]
-		key := b.WarehouseID + "|" + b.SKUID
-		cp := b
-		s.balances[key] = &cp
-		s.byID[b.ID] = &cp
-	}
-	return nil
-}
-
-func (s *MemoryStore) ListBalances(branchID string) []StockBalance {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make([]StockBalance, 0, len(s.balances))
-	for _, b := range s.balances {
-		if branchID != "" && b.BranchID != branchID {
-			continue
-		}
-		out = append(out, *b)
-	}
-	return out
-}
-
-func (s *MemoryStore) PostMovement(_ context.Context, req MovementRequest) (Movement, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if existing, ok := s.movements[req.IdempotencyKey]; ok {
-		return existing, nil
-	}
-	if req.Quantity == 0 {
-		return Movement{}, errors.New("quantity required")
-	}
-	key := req.WarehouseID + "|" + req.SKUID
-	bal, ok := s.balances[key]
-	if !ok {
-		return Movement{}, ErrNotFound
-	}
-	if req.ExpectedVersion != nil && bal.Version != *req.ExpectedVersion {
-		return Movement{}, ErrConflict
-	}
-
-	delta := req.Quantity
-	switch strings.ToUpper(req.MovementType) {
-	case "RECEIPT", "ADJUST_IN", "TRANSFER_IN":
-		if delta < 0 {
-			delta = -delta
-		}
-	case "ISSUE", "ADJUST_OUT", "TRANSFER_OUT":
-		if delta > 0 {
-			delta = -delta
-		}
-	case "ADJUST":
-		// signed quantity as-is
-	default:
-		return Movement{}, errors.New("invalid movement_type")
-	}
-
-	next := bal.OnHand + delta
-	if next < 0 {
-		return Movement{}, ErrInsufficientStock
-	}
-	bal.OnHand = next
-	bal.Version++
-
-	mov := Movement{
-		ID:             "mov_" + uuid.NewString(),
-		OrgID:          req.OrgID,
-		BranchID:       req.BranchID,
-		WarehouseID:    req.WarehouseID,
-		SKUID:          req.SKUID,
-		MovementType:   strings.ToUpper(req.MovementType),
-		Quantity:       delta,
-		Status:         "POSTED",
-		PostedBy:       req.PostedBy,
-		IdempotencyKey: req.IdempotencyKey,
-		CreatedAt:      time.Now().UTC(),
-	}
-	s.movements[req.IdempotencyKey] = mov
-	return mov, nil
 }

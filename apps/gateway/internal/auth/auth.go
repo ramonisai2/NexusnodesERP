@@ -2,16 +2,21 @@ package auth
 
 import (
 	"context"
+	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/authz"
 )
 
 type ctxKey string
@@ -49,19 +54,50 @@ func (c Claims) HasBranch(branchID string) bool {
 	return false
 }
 
+func (c Claims) ToSubject() authz.Subject {
+	return authz.Subject{
+		Sub:         c.Sub,
+		OrgID:       c.OrgID,
+		BranchIDs:   c.BranchIDs,
+		Roles:       c.Roles,
+		Permissions: c.Permissions,
+		Attrs:       c.Attrs,
+		AMR:         c.AMR,
+	}
+}
+
 type Validator struct {
-	secret   []byte
-	issuer   string
-	audience string
-	bypass   bool
+	secret     []byte
+	issuer     string
+	audience   string
+	bypass     bool
+	jwksURL    string
+	httpClient *http.Client
+
+	mu    sync.RWMutex
+	keys  map[string]*rsa.PublicKey
+	fetchedAt time.Time
 }
 
 func NewValidatorFromEnv() *Validator {
+	issuer := envOr("JWT_ISSUER", "http://localhost:8081/realms/nexus")
+	jwks := os.Getenv("JWT_JWKS_URL")
+	if jwks == "" && os.Getenv("KEYCLOAK_URL") != "" {
+		jwks = strings.TrimRight(os.Getenv("KEYCLOAK_URL"), "/") + "/realms/" + envOr("KEYCLOAK_REALM", "nexus") + "/protocol/openid-connect/certs"
+	}
+	if jwks == "" {
+		jwks = strings.TrimRight(issuer, "/") + "/protocol/openid-connect/certs"
+	}
 	return &Validator{
 		secret:   []byte(envOr("DEV_JWT_SECRET", "nexus-dev-secret-change-me")),
-		issuer:   envOr("JWT_ISSUER", "http://localhost:8081/realms/nexus"),
+		issuer:   issuer,
 		audience: envOr("JWT_AUDIENCE", "nexus-api"),
 		bypass:   strings.EqualFold(os.Getenv("DEV_AUTH_BYPASS"), "true"),
+		jwksURL:  jwks,
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second,
+		},
+		keys: map[string]*rsa.PublicKey{},
 	}
 }
 
@@ -88,7 +124,7 @@ func (v *Validator) Middleware(next http.Handler) http.Handler {
 			http.Error(w, `{"error":"invalid_authorization_scheme"}`, http.StatusUnauthorized)
 			return
 		}
-		claims, err := v.Parse(raw)
+		claims, err := v.Parse(r.Context(), raw)
 		if err != nil {
 			http.Error(w, fmt.Sprintf(`{"error":"invalid_token","detail":%q}`, err.Error()), http.StatusUnauthorized)
 			return
@@ -97,12 +133,24 @@ func (v *Validator) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func (v *Validator) Parse(tokenString string) (Claims, error) {
+func (v *Validator) Parse(ctx context.Context, tokenString string) (Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (any, error) {
-		if t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+		switch t.Method.Alg() {
+		case jwt.SigningMethodHS256.Alg():
+			if !v.bypass && os.Getenv("DEV_JWT_SECRET") == "" {
+				return nil, fmt.Errorf("HS256 only allowed in development")
+			}
+			return v.secret, nil
+		case jwt.SigningMethodRS256.Alg():
+			kid, _ := t.Header["kid"].(string)
+			key, err := v.lookupRSA(ctx, kid)
+			if err != nil {
+				return nil, err
+			}
+			return key, nil
+		default:
 			return nil, fmt.Errorf("unexpected alg %s", t.Method.Alg())
 		}
-		return v.secret, nil
 	}, jwt.WithIssuer(v.issuer), jwt.WithAudience(v.audience))
 	if err != nil {
 		return Claims{}, err
@@ -111,7 +159,130 @@ func (v *Validator) Parse(tokenString string) (Claims, error) {
 	if !ok || !token.Valid {
 		return Claims{}, errors.New("invalid claims")
 	}
+	normalizeClaims(claims)
 	return *claims, nil
+}
+
+func normalizeClaims(c *Claims) {
+	if c.OrgID == "" {
+		if org, ok := c.Attrs["org_id"].(string); ok {
+			c.OrgID = org
+		}
+	}
+	if len(c.Roles) == 0 {
+		// Keycloak often puts realm roles under realm_access — accept attrs fallback
+		if roles, ok := c.Attrs["roles"].([]any); ok {
+			for _, r := range roles {
+				if s, ok := r.(string); ok {
+					c.Roles = append(c.Roles, s)
+				}
+			}
+		}
+	}
+	if c.Attrs == nil {
+		c.Attrs = map[string]any{}
+	}
+}
+
+type jwksResponse struct {
+	Keys []jwk `json:"keys"`
+}
+
+type jwk struct {
+	Kid string `json:"kid"`
+	Kty string `json:"kty"`
+	Alg string `json:"alg"`
+	N   string `json:"n"`
+	E   string `json:"e"`
+}
+
+func (v *Validator) lookupRSA(ctx context.Context, kid string) (*rsa.PublicKey, error) {
+	v.mu.RLock()
+	key, ok := v.keys[kid]
+	fresh := time.Since(v.fetchedAt) < 10*time.Minute
+	v.mu.RUnlock()
+	if ok && fresh {
+		return key, nil
+	}
+	if err := v.refreshJWKS(ctx); err != nil {
+		if ok {
+			return key, nil
+		}
+		return nil, err
+	}
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+	key, ok = v.keys[kid]
+	if !ok {
+		// try any key if kid missing
+		for _, k := range v.keys {
+			return k, nil
+		}
+		return nil, fmt.Errorf("jwks kid not found: %s", kid)
+	}
+	return key, nil
+}
+
+func (v *Validator) refreshJWKS(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, v.jwksURL, nil)
+	if err != nil {
+		return err
+	}
+	res, err := v.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode >= 300 {
+		return fmt.Errorf("jwks status %d", res.StatusCode)
+	}
+	var body jwksResponse
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		return err
+	}
+	keys := map[string]*rsa.PublicKey{}
+	for _, k := range body.Keys {
+		if k.Kty != "RSA" {
+			continue
+		}
+		pub, err := rsaPublicKey(k.N, k.E)
+		if err != nil {
+			continue
+		}
+		kid := k.Kid
+		if kid == "" {
+			kid = "default"
+		}
+		keys[kid] = pub
+	}
+	if len(keys) == 0 {
+		return errors.New("jwks contained no RSA keys")
+	}
+	v.mu.Lock()
+	v.keys = keys
+	v.fetchedAt = time.Now()
+	v.mu.Unlock()
+	return nil
+}
+
+func rsaPublicKey(nB64, eB64 string) (*rsa.PublicKey, error) {
+	nb, err := base64.RawURLEncoding.DecodeString(nB64)
+	if err != nil {
+		return nil, err
+	}
+	eb, err := base64.RawURLEncoding.DecodeString(eB64)
+	if err != nil {
+		return nil, err
+	}
+	n := new(big.Int).SetBytes(nb)
+	var eInt int
+	for _, b := range eb {
+		eInt = eInt<<8 + int(b)
+	}
+	if eInt == 0 {
+		return nil, errors.New("invalid exponent")
+	}
+	return &rsa.PublicKey{N: n, E: eInt}, nil
 }
 
 // IssueDevToken mints an HS256 token for local development / tests.
@@ -199,102 +370,14 @@ func FromContext(ctx context.Context) (Claims, bool) {
 	return c, ok
 }
 
-// OPAClient evaluates RBAC+ABAC policies against Open Policy Agent.
-type OPAClient struct {
-	baseURL    string
-	httpClient *http.Client
+// OPAClient is retained for gateway-level checks; services use packages/go/authz.
+type OPAClient = authz.Client
+
+func NewOPAClient(baseURL string) *authz.Client {
+	if baseURL == "" {
+		return authz.NewClientFromEnv()
+	}
+	return authz.NewClient(baseURL)
 }
 
-func NewOPAClient(baseURL string) *OPAClient {
-	return &OPAClient{
-		baseURL: strings.TrimRight(baseURL, "/"),
-		httpClient: &http.Client{
-			Timeout: 2 * time.Second,
-		},
-	}
-}
-
-type OPAInput struct {
-	Subject  Claims         `json:"subject"`
-	Action   string         `json:"action"`
-	Resource map[string]any `json:"resource"`
-	Context  map[string]any `json:"context"`
-}
-
-type opaRequest struct {
-	Input OPAInput `json:"input"`
-}
-
-type opaResponse struct {
-	Result struct {
-		Allow bool `json:"allow"`
-	} `json:"result"`
-}
-
-func (o *OPAClient) Allow(ctx context.Context, in OPAInput) (bool, error) {
-	if o.baseURL == "" {
-		// Fail-closed unless local bypass: permission must exist on token.
-		return in.Subject.HasPermission(in.Action), nil
-	}
-	body, err := json.Marshal(opaRequest{Input: in})
-	if err != nil {
-		return false, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.baseURL+"/v1/data/nexus/authz", strings.NewReader(string(body)))
-	if err != nil {
-		return false, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	res, err := o.httpClient.Do(req)
-	if err != nil {
-		// Soft-fail to token permissions when OPA is down in local/dev.
-		if strings.EqualFold(os.Getenv("DEV_AUTH_BYPASS"), "true") {
-			return in.Subject.HasPermission(in.Action), nil
-		}
-		return false, err
-	}
-	defer res.Body.Close()
-	if res.StatusCode >= 300 {
-		return false, fmt.Errorf("opa status %d", res.StatusCode)
-	}
-	var out opaResponse
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
-		return false, err
-	}
-	return out.Result.Allow, nil
-}
-
-func RequirePermission(opa *OPAClient, action string, resourceFromReq func(*http.Request) map[string]any) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			claims, ok := FromContext(r.Context())
-			if !ok {
-				http.Error(w, `{"error":"unauthenticated"}`, http.StatusUnauthorized)
-				return
-			}
-			resource := map[string]any{"org_id": claims.OrgID}
-			if resourceFromReq != nil {
-				for k, v := range resourceFromReq(r) {
-					resource[k] = v
-				}
-			}
-			allow, err := opa.Allow(r.Context(), OPAInput{
-				Subject:  claims,
-				Action:   action,
-				Resource: resource,
-				Context: map[string]any{
-					"mfa_level": len(claims.AMR),
-				},
-			})
-			if err != nil {
-				http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
-				return
-			}
-			if !allow {
-				http.Error(w, `{"error":"forbidden","action":"`+action+`"}`, http.StatusForbidden)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
+type OPAInput = authz.Input

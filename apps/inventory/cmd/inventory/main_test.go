@@ -3,15 +3,18 @@ package main
 import (
 	"context"
 	"testing"
+
+	"github.com/ramonisai2/NexusnodesERP/apps/inventory/internal/domain"
+	"github.com/ramonisai2/NexusnodesERP/apps/inventory/internal/store"
 )
 
 func TestPostMovementOptimisticAndIdempotent(t *testing.T) {
-	store := NewMemoryStore()
-	_ = store.SeedDemo()
+	s := store.NewMemory()
+	s.SeedDemo()
 
 	v := 1
-	mov, err := store.PostMovement(context.Background(), MovementRequest{
-		OrgID: "org_demo", BranchID: "br_norte", WarehouseID: "wh_norte", SKUID: "sku_bolt",
+	mov, err := s.PostMovement(context.Background(), domain.MovementRequest{
+		OrgID: "org_demo", BranchID: "br_norte", WarehouseID: "wh_norte", SKUID: "BOLT-M8",
 		MovementType: "ISSUE", Quantity: 1, ExpectedVersion: &v, IdempotencyKey: "idem-1", PostedBy: "usr_a",
 	})
 	if err != nil {
@@ -21,8 +24,8 @@ func TestPostMovementOptimisticAndIdempotent(t *testing.T) {
 		t.Fatalf("status=%s", mov.Status)
 	}
 
-	mov2, err := store.PostMovement(context.Background(), MovementRequest{
-		OrgID: "org_demo", BranchID: "br_norte", WarehouseID: "wh_norte", SKUID: "sku_bolt",
+	mov2, err := s.PostMovement(context.Background(), domain.MovementRequest{
+		OrgID: "org_demo", BranchID: "br_norte", WarehouseID: "wh_norte", SKUID: "BOLT-M8",
 		MovementType: "ISSUE", Quantity: 1, ExpectedVersion: &v, IdempotencyKey: "idem-1", PostedBy: "usr_a",
 	})
 	if err != nil {
@@ -32,11 +35,11 @@ func TestPostMovementOptimisticAndIdempotent(t *testing.T) {
 		t.Fatal("idempotency should return same movement")
 	}
 
-	_, err = store.PostMovement(context.Background(), MovementRequest{
-		OrgID: "org_demo", BranchID: "br_norte", WarehouseID: "wh_norte", SKUID: "sku_bolt",
+	_, err = s.PostMovement(context.Background(), domain.MovementRequest{
+		OrgID: "org_demo", BranchID: "br_norte", WarehouseID: "wh_norte", SKUID: "BOLT-M8",
 		MovementType: "ISSUE", Quantity: 1, ExpectedVersion: &v, IdempotencyKey: "idem-2", PostedBy: "usr_a",
 	})
-	if err != ErrConflict {
+	if err != domain.ErrConflict {
 		t.Fatalf("expected conflict, got %v", err)
 	}
 }
