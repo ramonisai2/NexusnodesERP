@@ -191,6 +191,12 @@ func localAllow(in Input) bool {
 			!in.Subject.HasPermission("payroll.run.read") {
 			return false
 		}
+	} else if in.Action == "reporting.image.read" {
+		if !in.Subject.HasPermission("reporting.image.read") &&
+			!in.Subject.HasPermission("reporting.read") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
 	} else if !in.Subject.HasPermission(in.Action) {
 		return false
 	}

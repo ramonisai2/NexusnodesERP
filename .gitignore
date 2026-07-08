@@ -13,6 +13,7 @@ bin/
 .vscode/
 *.log
 tmp/
+data/
 .turbo/
 apps/web/dist/
 *.tsbuildinfo

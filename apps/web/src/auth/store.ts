@@ -64,8 +64,17 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   const headers = new Headers(init.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (activeBranchId) headers.set("X-Branch-Id", activeBranchId);
-  if (!headers.has("Content-Type") && init.body) {
+  const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
+  if (!headers.has("Content-Type") && init.body && !isFormData) {
     headers.set("Content-Type", "application/json");
   }
   return fetch(`/api${path}`, { ...init, headers });
+}
+
+/** Authenticated blob fetch for protected image content URLs. */
+export async function apiBlob(path: string): Promise<string> {
+  const res = await apiFetch(path);
+  if (!res.ok) throw new Error("blob_fetch_failed");
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
 }

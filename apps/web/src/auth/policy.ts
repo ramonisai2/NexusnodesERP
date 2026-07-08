@@ -57,6 +57,16 @@ export const NAV_NODES: NavNode[] = [
       minAmrCount: 1,
     },
   },
+  {
+    id: "nav.imageReports",
+    label: "Fotos",
+    path: "/reports/images",
+    require: {
+      permissions: ["reporting.image.read", "reporting.image.create", "inventory.balance.read"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
 ];
 
 export function canAccess(claims: SessionClaims | null, node: NavNode): boolean {

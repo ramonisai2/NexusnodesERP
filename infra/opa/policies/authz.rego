@@ -42,6 +42,19 @@ allow if {
 }
 
 allow if {
+  input.action == "reporting.image.read"
+  image_report_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "reporting.image.create"
+  "reporting.image.create" in input.subject.permissions
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "inventory.movement.read"
   "inventory.movement.read" in input.subject.permissions
   branch_allowed
@@ -164,4 +177,16 @@ reporting_read_allowed if {
 
 reporting_read_allowed if {
   "payroll.run.read" in input.subject.permissions
+}
+
+image_report_read_allowed if {
+  "reporting.image.read" in input.subject.permissions
+}
+
+image_report_read_allowed if {
+  "reporting.read" in input.subject.permissions
+}
+
+image_report_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
 }

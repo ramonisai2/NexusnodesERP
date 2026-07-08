@@ -7,6 +7,7 @@ use (
 	./apps/outbox-relay
 	./apps/payroll
 	./apps/reporting-bff
+	./apps/reports
 	./packages/go/authz
 	./packages/go/db
 	./packages/go/events

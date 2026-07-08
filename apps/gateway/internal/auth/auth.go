@@ -315,6 +315,8 @@ func AnalystClaims() Claims {
 			"inventory.balance.read",
 			"payroll.run.prepare",
 			"payroll.run.read",
+			"reporting.image.read",
+			"reporting.image.create",
 		},
 		Attrs: map[string]any{
 			"max_payroll_amount": 1000000.0,
@@ -335,6 +337,8 @@ func ApproverClaims() Claims {
 			"payroll.run.approve",
 			"payroll.run.read",
 			"inventory.balance.read",
+			"reporting.image.read",
+			"reporting.image.create",
 		},
 		Attrs: map[string]any{
 			"max_payroll_amount": 1000000.0,
@@ -377,6 +381,8 @@ func WarehouseManagerClaims() Claims {
 			"inventory.movement.read",
 			"inventory.movement.create",
 			"inventory.movement.void",
+			"reporting.image.read",
+			"reporting.image.create",
 		},
 		Attrs: map[string]any{
 			"max_adjustment":      50000.0,
@@ -400,6 +406,8 @@ func RegionalManagerClaims() Claims {
 			"inventory.movement.create",
 			"inventory.movement.void",
 			"payroll.run.read",
+			"reporting.image.read",
+			"reporting.image.create",
 		},
 		Attrs: map[string]any{
 			"max_adjustment":     50000.0,

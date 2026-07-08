@@ -461,6 +461,131 @@ td {
   }
 }
 
+.image-upload {
+  margin: 1.25rem 0 1.75rem;
+  display: grid;
+  gap: 0.85rem;
+  max-width: 520px;
+  padding: 1rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  animation: rise 0.45s var(--ease) both;
+}
+
+.image-upload h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.45rem;
+}
+
+.image-upload label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.image-upload input[type="text"],
+.image-upload input:not([type]),
+.image-upload textarea,
+.image-upload input[type="file"] {
+  width: 100%;
+}
+
+.image-upload input,
+.image-upload textarea {
+  background: rgba(15, 28, 23, 0.55);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+}
+
+.file-picker input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.file-picker {
+  position: relative;
+}
+
+.file-name {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px dashed rgba(61, 186, 122, 0.45);
+  border-radius: 10px;
+  color: var(--accent-2);
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.file-picker:hover .file-name,
+.file-picker:focus-within .file-name {
+  border-color: var(--accent);
+  background: rgba(61, 186, 122, 0.08);
+}
+
+.image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.1rem;
+  margin-top: 1rem;
+}
+
+.image-card {
+  display: grid;
+  gap: 0.75rem;
+  animation: rise 0.5s var(--ease) both;
+}
+
+.image-card-media {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, rgba(61, 186, 122, 0.12), transparent 55%),
+    rgba(15, 28, 23, 0.65);
+  border: 1px solid var(--line);
+}
+
+.image-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.45s var(--ease);
+}
+
+.image-card:hover .image-card-media img {
+  transform: scale(1.03);
+}
+
+.image-card-placeholder {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(155, 181, 168, 0.08),
+    rgba(155, 181, 168, 0.08) 8px,
+    transparent 8px,
+    transparent 16px
+  );
+}
+
+.image-card-body h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.image-card-body p {
+  margin: 0.2rem 0;
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;

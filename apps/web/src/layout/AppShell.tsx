@@ -36,6 +36,16 @@ export function AppShell() {
         minAmrCount: 1,
       },
     },
+    {
+      id: "nav.imageReports",
+      label: t("navImageReports"),
+      path: "/reports/images",
+      require: {
+        permissions: ["reporting.image.read", "reporting.image.create", "inventory.balance.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
   ];
 
   const primaryRole = claims?.roles?.[0];

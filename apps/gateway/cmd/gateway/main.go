@@ -47,6 +47,7 @@ func main() {
 	inventoryURL := mustURL(envOr("INVENTORY_URL", "http://localhost:8082"))
 	payrollURL := mustURL(envOr("PAYROLL_URL", "http://localhost:8083"))
 	reportingURL := mustURL(envOr("REPORTING_URL", "http://localhost:8084"))
+	reportsURL := mustURL(envOr("REPORTS_URL", "http://localhost:8085"))
 
 	r := chi.NewRouter()
 	r.Use(otelx.Middleware("gateway"))
@@ -54,7 +55,7 @@ func main() {
 	r.Use(chimw.RealIP)
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
-	r.Use(chimw.Timeout(30 * time.Second))
+	r.Use(chimw.Timeout(60 * time.Second))
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{envOr("CORS_ORIGIN", "http://localhost:5173")},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -145,6 +146,8 @@ func main() {
 		pr.Handle("/payroll", reverseProxy(payrollURL))
 		pr.Handle("/graphql", reverseProxy(reportingURL))
 		pr.Handle("/graphql/*", reverseProxy(reportingURL))
+		pr.Handle("/reports/*", reverseProxy(reportsURL))
+		pr.Handle("/reports", reverseProxy(reportsURL))
 	})
 
 	_ = opa
@@ -203,6 +206,11 @@ func reverseProxy(target *url.URL) http.Handler {
 		case path == "/graphql" || strings.HasPrefix(path, "/graphql/"):
 			// keep /graphql path on reporting-bff
 			req.URL.Path = path
+		case strings.HasPrefix(path, "/reports"):
+			req.URL.Path = strings.TrimPrefix(path, "/reports")
+			if req.URL.Path == "" {
+				req.URL.Path = "/"
+			}
 		}
 		if claims, ok := auth.FromContext(req.Context()); ok {
 			req.Header.Set("X-User-Id", claims.Sub)
