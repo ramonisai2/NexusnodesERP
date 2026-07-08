@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ramonisai2/NexusnodesERP/apps/payroll/internal/domain"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
 )
 
 type Postgres struct {
@@ -20,8 +21,16 @@ func NewPostgres(pool *pgxpool.Pool) *Postgres {
 	return &Postgres{pool: pool}
 }
 
-func (s *Postgres) ListRuns(ctx context.Context) ([]domain.PayrollRun, error) {
-	rows, err := s.pool.Query(ctx, `
+func (s *Postgres) ListRuns(ctx context.Context, orgRef string) ([]domain.PayrollRun, error) {
+	tx, _, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, orgRef)
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	rows, err := tx.Query(ctx, `
 SELECT r.id::text, p.label, b.code, r.status,
        COALESCE(u_prep.idp_sub, r.prepared_by::text, ''),
        COALESCE((
@@ -48,12 +57,26 @@ ORDER BY r.created_at DESC`)
 		}
 		out = append(out, r)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func (s *Postgres) GetRun(ctx context.Context, id string) (domain.PayrollRun, error) {
+func (s *Postgres) GetRun(ctx context.Context, orgRef, id string) (domain.PayrollRun, error) {
+	tx, _, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, orgRef)
+	})
+	if err != nil {
+		return domain.PayrollRun{}, err
+	}
+	defer tx.Rollback(ctx)
+
 	var r domain.PayrollRun
-	err := s.pool.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 SELECT r.id::text, p.label, b.code, r.status,
        COALESCE(u_prep.idp_sub, r.prepared_by::text, ''),
        COALESCE((
@@ -74,16 +97,19 @@ WHERE r.id = $1::uuid`, id).Scan(&r.ID, &r.PeriodLabel, &r.BranchID, &r.Status, 
 	if err != nil {
 		return domain.PayrollRun{}, err
 	}
-	lines, err := s.loadLines(ctx, id)
+	lines, err := s.loadLinesTx(ctx, tx, id)
 	if err != nil {
 		return domain.PayrollRun{}, err
 	}
 	r.Lines = lines
+	if err := tx.Commit(ctx); err != nil {
+		return domain.PayrollRun{}, err
+	}
 	return r, nil
 }
 
-func (s *Postgres) loadLines(ctx context.Context, runID string) ([]domain.PayrollLine, error) {
-	rows, err := s.pool.Query(ctx, `
+func (s *Postgres) loadLinesTx(ctx context.Context, tx pgx.Tx, runID string) ([]domain.PayrollLine, error) {
+	rows, err := tx.Query(ctx, `
 SELECT e.employee_number, c.code, l.amount::float8
 FROM payroll_lines l
 JOIN employees e ON e.id = l.employee_id
@@ -108,16 +134,14 @@ func (s *Postgres) CreateAndCalculate(ctx context.Context, req domain.CreateRunR
 	if req.BranchID == "" || req.PeriodLabel == "" {
 		return domain.PayrollRun{}, errors.New("branch_id and period_label required")
 	}
-	tx, err := s.pool.Begin(ctx)
+	tx, orgID, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, req.OrgID)
+	})
 	if err != nil {
 		return domain.PayrollRun{}, err
 	}
 	defer tx.Rollback(ctx)
 
-	orgID, err := resolveOrgID(ctx, tx, req.OrgID)
-	if err != nil {
-		return domain.PayrollRun{}, err
-	}
 	branchID, err := resolveBranchID(ctx, tx, orgID, req.BranchID)
 	if err != nil {
 		return domain.PayrollRun{}, err
@@ -167,7 +191,6 @@ WHERE org_id = $1::uuid AND branch_id = $2::uuid AND status = 'ACTIVE'`, orgID, 
 	var total float64
 	var lines []domain.PayrollLine
 	for _, e := range emps {
-		// Demo salary: fixed by employee number for determinism when contracts lack decrypted salary
 		amount := 25000.0
 		if e.number == "E-002" {
 			amount = 22000.0
@@ -195,6 +218,13 @@ VALUES ($1, $2::uuid, 'PREPARE', jsonb_build_object('total', $3::float8))`, runI
 			return domain.PayrollRun{}, err
 		}
 	}
+	_, _ = tx.Exec(ctx, `
+INSERT INTO outbox (event_type, payload) VALUES ('PayrollRunPrepared', jsonb_build_object(
+  'run_id', $1::text,
+  'branch_id', $2::text,
+  'total_amount', $3::float8,
+  'prepared_by', $4::text
+))`, runID.String(), req.BranchID, total, req.PreparedBy)
 
 	if err := tx.Commit(ctx); err != nil {
 		return domain.PayrollRun{}, err
@@ -212,27 +242,29 @@ VALUES ($1, $2::uuid, 'PREPARE', jsonb_build_object('total', $3::float8))`, runI
 	}, nil
 }
 
-func (s *Postgres) Approve(ctx context.Context, id, actor string) (domain.PayrollRun, error) {
-	tx, err := s.pool.Begin(ctx)
+func (s *Postgres) Approve(ctx context.Context, orgRef, id, actor string) (domain.PayrollRun, error) {
+	tx, orgID, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, orgRef)
+	})
 	if err != nil {
 		return domain.PayrollRun{}, err
 	}
 	defer tx.Rollback(ctx)
 
-	var status, preparedSub, orgID string
+	var status, preparedSub string
 	var preparedBy *string
 	var total float64
 	var version int
 	var branchCode, periodLabel string
 	err = tx.QueryRow(ctx, `
 SELECT r.status, r.prepared_by::text, COALESCE(u.idp_sub, ''), r.total_amount::float8, r.version,
-       b.code, p.label, b.org_id::text
+       b.code, p.label
 FROM payroll_runs r
 JOIN branches b ON b.id = r.branch_id
 JOIN payroll_periods p ON p.id = r.period_id
 LEFT JOIN users u ON u.id = r.prepared_by
 WHERE r.id = $1::uuid
-FOR UPDATE OF r`, id).Scan(&status, &preparedBy, &preparedSub, &total, &version, &branchCode, &periodLabel, &orgID)
+FOR UPDATE OF r`, id).Scan(&status, &preparedBy, &preparedSub, &total, &version, &branchCode, &periodLabel)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PayrollRun{}, domain.ErrNotFound
 	}
@@ -266,6 +298,14 @@ UPDATE payroll_runs SET status = 'APPROVED', version = version + 1 WHERE id = $1
 	if err != nil {
 		return domain.PayrollRun{}, err
 	}
+	_, _ = tx.Exec(ctx, `
+INSERT INTO outbox (event_type, payload) VALUES ('PayrollRunApproved', jsonb_build_object(
+  'run_id', $1::text,
+  'branch_id', $2::text,
+  'approved_by', $3::text,
+  'total_amount', $4::float8
+))`, id, branchCode, actor, total)
+
 	if err := tx.Commit(ctx); err != nil {
 		return domain.PayrollRun{}, err
 	}

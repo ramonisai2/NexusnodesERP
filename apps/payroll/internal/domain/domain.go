@@ -37,8 +37,8 @@ type CreateRunRequest struct {
 }
 
 type Store interface {
-	ListRuns(ctx context.Context) ([]PayrollRun, error)
-	GetRun(ctx context.Context, id string) (PayrollRun, error)
+	ListRuns(ctx context.Context, orgRef string) ([]PayrollRun, error)
+	GetRun(ctx context.Context, orgRef, id string) (PayrollRun, error)
 	CreateAndCalculate(ctx context.Context, req CreateRunRequest) (PayrollRun, error)
-	Approve(ctx context.Context, id, actor string) (PayrollRun, error)
+	Approve(ctx context.Context, orgRef, id, actor string) (PayrollRun, error)
 }

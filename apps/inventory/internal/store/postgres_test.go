@@ -2,8 +2,10 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ramonisai2/NexusnodesERP/apps/inventory/internal/domain"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
@@ -20,7 +22,7 @@ func TestPostgresPostMovement(t *testing.T) {
 	defer pool.Close()
 	s := NewPostgres(pool)
 
-	balances, err := s.ListBalances(context.Background(), "br_norte")
+	balances, err := s.ListBalances(context.Background(), "org_demo", "br_norte")
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -38,7 +40,7 @@ func TestPostgresPostMovement(t *testing.T) {
 		t.Fatal("BOLT-M8 not found")
 	}
 
-	key := "test-idem-" + target.ID + "-" + string(rune(target.Version+'0'))
+	key := fmt.Sprintf("test-idem-%d", time.Now().UnixNano())
 	v := target.Version
 	mov, err := s.PostMovement(context.Background(), domain.MovementRequest{
 		OrgID: "org_demo", BranchID: "br_norte", WarehouseID: "wh_norte", SKUID: "BOLT-M8",

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -14,12 +15,26 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/auth"
+	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/enrich"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
 )
 
 func main() {
 	addr := envOr("GATEWAY_ADDR", ":8080")
 	validator := auth.NewValidatorFromEnv()
 	opa := auth.NewOPAClient(os.Getenv("OPA_URL"))
+
+	var enricher *enrich.Enricher
+	if os.Getenv("DATABASE_URL") != "" {
+		pool, err := db.Connect(context.Background())
+		if err != nil {
+			log.Fatalf("gateway db: %v", err)
+		}
+		enricher = enrich.New(pool)
+		log.Printf("gateway claims enrichment=enabled")
+	} else {
+		log.Printf("gateway claims enrichment=disabled (no DATABASE_URL)")
+	}
 
 	inventoryURL := mustURL(envOr("INVENTORY_URL", "http://localhost:8082"))
 	payrollURL := mustURL(envOr("PAYROLL_URL", "http://localhost:8083"))
@@ -44,7 +59,7 @@ func main() {
 	})
 
 	// Dev helper: mint a JWT for local SPA / curl without Keycloak.
-	// persona=analyst|approver (default analyst) to exercise payroll SoD.
+	// persona=analyst|approver|dual (default analyst) to exercise payroll SoD.
 	r.Post("/auth/dev-token", func(w http.ResponseWriter, req *http.Request) {
 		if !strings.EqualFold(os.Getenv("DEV_AUTH_BYPASS"), "true") {
 			http.Error(w, `{"error":"disabled"}`, http.StatusForbidden)
@@ -58,22 +73,42 @@ func main() {
 		case "dual":
 			claims = auth.DualClaims()
 		}
-		token, err := validator.IssueDevToken(claims, 8*time.Hour)
+		// Issue a lean token; enrichment from DB happens on each authenticated request.
+		lean := claims
+		lean.Roles = nil
+		lean.Permissions = nil
+		lean.BranchIDs = nil
+		lean.Attrs = map[string]any{}
+		token, err := validator.IssueDevToken(lean, 8*time.Hour)
 		if err != nil {
 			http.Error(w, `{"error":"token_issue_failed"}`, http.StatusInternalServerError)
 			return
+		}
+		effective := claims
+		if enricher != nil {
+			if enriched, err := enricher.Enrich(req.Context(), lean); err == nil {
+				effective = enriched
+				// Preserve AMR/SID from persona template when DB has no MFA attrs.
+				if len(effective.AMR) == 0 {
+					effective.AMR = claims.AMR
+				}
+				if effective.SID == "" {
+					effective.SID = claims.SID
+				}
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"access_token": token,
 			"token_type":   "Bearer",
 			"expires_in":   28800,
-			"claims":       claims,
+			"claims":       effective,
 			"persona":      personaOr(persona, "analyst"),
 		})
 	})
 
 	r.Group(func(pr chi.Router) {
 		pr.Use(validator.Middleware)
+		pr.Use(enrichMiddleware(enricher))
 
 		pr.Get("/me", func(w http.ResponseWriter, req *http.Request) {
 			claims, _ := auth.FromContext(req.Context())
@@ -90,18 +125,44 @@ func main() {
 			})
 		})
 
-		// Proxied domain APIs — JWT already validated; downstream re-checks ABAC.
 		pr.Handle("/inventory/*", reverseProxy(inventoryURL))
 		pr.Handle("/inventory", reverseProxy(inventoryURL))
 		pr.Handle("/payroll/*", reverseProxy(payrollURL))
 		pr.Handle("/payroll", reverseProxy(payrollURL))
 	})
 
-	_ = opa // wired in downstream services; gateway keeps client for future coarse checks
+	_ = opa
 
 	log.Printf("gateway listening on %s", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatal(err)
+	}
+}
+
+func enrichMiddleware(enricher *enrich.Enricher) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := auth.FromContext(r.Context())
+			if !ok || enricher == nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+			enriched, err := enricher.Enrich(r.Context(), claims)
+			if err != nil {
+				log.Printf("enrich warning: %v", err)
+				next.ServeHTTP(w, r)
+				return
+			}
+			// Keep token AMR/SID if enrichment did not set them.
+			if len(enriched.AMR) == 0 {
+				enriched.AMR = claims.AMR
+			}
+			if enriched.SID == "" {
+				enriched.SID = claims.SID
+			}
+			ctx := context.WithValue(r.Context(), auth.ClaimsContextKey, enriched)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
 	}
 }
 
@@ -111,8 +172,6 @@ func reverseProxy(target *url.URL) http.Handler {
 	proxy.Director = func(req *http.Request) {
 		original(req)
 		req.Host = target.Host
-		// Strip /inventory or /payroll prefix is NOT done — services listen on root paths
-		// matching the gateway mount via path rewrite below.
 		path := req.URL.Path
 		switch {
 		case strings.HasPrefix(path, "/inventory"):

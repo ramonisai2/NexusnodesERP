@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ramonisai2/NexusnodesERP/apps/inventory/internal/domain"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
 )
 
 type Postgres struct {
@@ -21,7 +22,15 @@ func NewPostgres(pool *pgxpool.Pool) *Postgres {
 	return &Postgres{pool: pool}
 }
 
-func (s *Postgres) ListBalances(ctx context.Context, branchCode string) ([]domain.StockBalance, error) {
+func (s *Postgres) ListBalances(ctx context.Context, orgRef, branchCode string) ([]domain.StockBalance, error) {
+	tx, _, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, orgRef)
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
 	q := `
 SELECT sb.id::text, w.code, b.code, ps.sku, ps.sku,
        sb.on_hand::float8, sb.reserved::float8, sb.version
@@ -36,7 +45,7 @@ JOIN product_skus ps ON ps.id = sb.sku_id`
 	}
 	q += ` ORDER BY b.code, w.code, ps.sku`
 
-	rows, err := s.pool.Query(ctx, q, args...)
+	rows, err := tx.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -50,20 +59,23 @@ JOIN product_skus ps ON ps.id = sb.sku_id`
 		}
 		out = append(out, b)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s *Postgres) PostMovement(ctx context.Context, req domain.MovementRequest) (domain.Movement, error) {
-	tx, err := s.pool.Begin(ctx)
+	tx, orgID, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, req.OrgID)
+	})
 	if err != nil {
 		return domain.Movement{}, err
 	}
 	defer tx.Rollback(ctx)
-
-	orgID, err := resolveOrgID(ctx, tx, req.OrgID)
-	if err != nil {
-		return domain.Movement{}, err
-	}
 
 	var existing domain.Movement
 	err = tx.QueryRow(ctx, `

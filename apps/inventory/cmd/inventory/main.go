@@ -64,9 +64,9 @@ func main() {
 			authz.WriteForbidden(w, "inventory.balance.read")
 			return
 		}
-		balances, err := inventoryStore.ListBalances(req.Context(), branchID)
+		balances, err := inventoryStore.ListBalances(req.Context(), subject.OrgID, branchID)
 		if err != nil {
-			http.Error(w, `{"error":"list_failed"}`, http.StatusInternalServerError)
+			http.Error(w, `{"error":"list_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, http.StatusOK, balances)

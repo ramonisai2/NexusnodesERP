@@ -29,11 +29,11 @@ func TestPostgresPayrollSoD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	_, err = s.Approve(context.Background(), run.ID, "usr_dev_analyst")
+	_, err = s.Approve(context.Background(), "org_demo", run.ID, "usr_dev_analyst")
 	if err != domain.ErrSoDViolation {
 		t.Fatalf("expected SoD got %v", err)
 	}
-	approved, err := s.Approve(context.Background(), run.ID, "usr_dev_approver")
+	approved, err := s.Approve(context.Background(), "org_demo", run.ID, "usr_dev_approver")
 	if err != nil {
 		t.Fatalf("approve: %v", err)
 	}

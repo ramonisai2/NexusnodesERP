@@ -34,7 +34,7 @@ func (s *Memory) SeedDemo() {
 	}
 }
 
-func (s *Memory) ListRuns(_ context.Context) ([]domain.PayrollRun, error) {
+func (s *Memory) ListRuns(_ context.Context, _ string) ([]domain.PayrollRun, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]domain.PayrollRun, 0, len(s.runs))
@@ -44,7 +44,7 @@ func (s *Memory) ListRuns(_ context.Context) ([]domain.PayrollRun, error) {
 	return out, nil
 }
 
-func (s *Memory) GetRun(_ context.Context, id string) (domain.PayrollRun, error) {
+func (s *Memory) GetRun(_ context.Context, _, id string) (domain.PayrollRun, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	r, ok := s.runs[id]
@@ -81,7 +81,7 @@ func (s *Memory) CreateAndCalculate(_ context.Context, req domain.CreateRunReque
 	return *run, nil
 }
 
-func (s *Memory) Approve(_ context.Context, id, actor string) (domain.PayrollRun, error) {
+func (s *Memory) Approve(_ context.Context, _, id, actor string) (domain.PayrollRun, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	run, ok := s.runs[id]

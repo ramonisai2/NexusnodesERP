@@ -3,7 +3,9 @@ go 1.22
 use (
 	./apps/gateway
 	./apps/inventory
+	./apps/outbox-relay
 	./apps/payroll
 	./packages/go/authz
 	./packages/go/db
+	./packages/go/events
 )

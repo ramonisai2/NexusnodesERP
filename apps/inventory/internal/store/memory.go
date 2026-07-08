@@ -38,7 +38,7 @@ func (s *Memory) SeedDemo() {
 	}
 }
 
-func (s *Memory) ListBalances(_ context.Context, branchID string) ([]domain.StockBalance, error) {
+func (s *Memory) ListBalances(_ context.Context, _, branchID string) ([]domain.StockBalance, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]domain.StockBalance, 0, len(s.balances))

@@ -63,9 +63,9 @@ func main() {
 			authz.WriteForbidden(w, "payroll.run.read")
 			return
 		}
-		runs, err := payrollStore.ListRuns(req.Context())
+		runs, err := payrollStore.ListRuns(req.Context(), subject.OrgID)
 		if err != nil {
-			http.Error(w, `{"error":"list_failed"}`, http.StatusInternalServerError)
+			http.Error(w, `{"error":"list_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, http.StatusOK, runs)
@@ -113,13 +113,13 @@ func main() {
 	r.Post("/runs/{id}/approve", func(w http.ResponseWriter, req *http.Request) {
 		subject := authz.FromGatewayHeaders(req)
 		id := chi.URLParam(req, "id")
-		existing, err := payrollStore.GetRun(req.Context(), id)
+		existing, err := payrollStore.GetRun(req.Context(), subject.OrgID, id)
 		if errors.Is(err, domain.ErrNotFound) {
 			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
 			return
 		}
 		if err != nil {
-			http.Error(w, `{"error":"lookup_failed"}`, http.StatusInternalServerError)
+			http.Error(w, `{"error":"lookup_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
 			return
 		}
 
@@ -127,10 +127,10 @@ func main() {
 			Subject: subject,
 			Action:  "payroll.run.approve",
 			Resource: map[string]any{
-				"branch_id":      existing.BranchID,
-				"org_id":         subject.OrgID,
-				"prepared_by":    existing.PreparedBy,
-				"total_amount":   existing.TotalAmount,
+				"branch_id":    existing.BranchID,
+				"org_id":       subject.OrgID,
+				"prepared_by":  existing.PreparedBy,
+				"total_amount": existing.TotalAmount,
 			},
 		})
 		if err != nil {
@@ -142,7 +142,7 @@ func main() {
 			return
 		}
 
-		run, err := payrollStore.Approve(req.Context(), id, subject.Sub)
+		run, err := payrollStore.Approve(req.Context(), subject.OrgID, id, subject.Sub)
 		if errors.Is(err, domain.ErrSoDViolation) {
 			http.Error(w, `{"error":"sod_violation"}`, http.StatusForbidden)
 			return

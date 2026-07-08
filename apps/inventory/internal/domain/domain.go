@@ -50,6 +50,6 @@ type Movement struct {
 }
 
 type Store interface {
-	ListBalances(ctx context.Context, branchCode string) ([]StockBalance, error)
+	ListBalances(ctx context.Context, orgRef, branchCode string) ([]StockBalance, error)
 	PostMovement(ctx context.Context, req MovementRequest) (Movement, error)
 }

@@ -14,6 +14,7 @@ La especificación técnica completa está en [`docs/architecture/`](./docs/arch
 | Stack tecnológico recomendado | [docs/architecture/04-tech-stack.md](./docs/architecture/04-tech-stack.md) |
 | Guía de bootstrap local | [docs/architecture/05-bootstrap-guide.md](./docs/architecture/05-bootstrap-guide.md) |
 | Postgres + JWKS + OPA | [docs/architecture/06-postgres-jwks-opa.md](./docs/architecture/06-postgres-jwks-opa.md) |
+| Outbox + Claims + RLS | [docs/architecture/07-outbox-claims-rls.md](./docs/architecture/07-outbox-claims-rls.md) |
 | Diagramas Mermaid | [docs/diagrams/](./docs/diagrams/) |
 | Modelo ER Inventario + Nómina + Seguridad | [docs/data-model/er-inventory-payroll.md](./docs/data-model/er-inventory-payroll.md) |
 

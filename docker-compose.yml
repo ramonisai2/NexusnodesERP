@@ -60,5 +60,12 @@ services:
       - "1025:1025"
       - "8025:8025"
 
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
 volumes:
   pgdata:

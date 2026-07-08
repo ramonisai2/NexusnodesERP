@@ -46,6 +46,5 @@ En local, `POST /auth/dev-token` sigue emitiendo HS256 mientras `DEV_AUTH_BYPASS
 
 ## Siguiente
 
-- Outbox relay → Kafka
-- Enrichment de claims desde `user_roles` / `user_attributes` en BD
-- RLS session `SET app.org_id` por request
+- ~~Outbox relay → NATS, enrichment de claims, RLS~~ → ver [07-outbox-claims-rls.md](./07-outbox-claims-rls.md)
+- Consumers de eventos / OTel / mappers Keycloak
