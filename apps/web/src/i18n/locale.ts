@@ -45,6 +45,7 @@ const PERM_KEYS: Record<string, MessageKey> = {
   "inventory.movement.create": "permInventoryMovementCreate",
   "inventory.movement.read": "permInventoryMovementRead",
   "inventory.movement.void": "permInventoryMovementVoid",
+  "inventory.catalog.read": "permInventoryCatalogRead",
   "payroll.run.prepare": "permPayrollRunPrepare",
   "payroll.run.approve": "permPayrollRunApprove",
   "payroll.run.read": "permPayrollRunRead",

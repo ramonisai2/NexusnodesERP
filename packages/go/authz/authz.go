@@ -177,7 +177,11 @@ func (c *Client) Allow(ctx context.Context, in Input) (bool, error) {
 }
 
 func localAllow(in Input) bool {
-	if !in.Subject.HasPermission(in.Action) {
+	if in.Action == "inventory.catalog.read" {
+		if !in.Subject.HasPermission("inventory.catalog.read") && !in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if !in.Subject.HasPermission(in.Action) {
 		return false
 	}
 	if branch, ok := in.Resource["branch_id"].(string); ok && branch != "" {

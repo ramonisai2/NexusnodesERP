@@ -12,11 +12,24 @@ import (
 	"github.com/ramonisai2/NexusnodesERP/apps/inventory/internal/domain"
 )
 
+type memPlacement struct {
+	productSKU string
+	branchID   string
+	deptCode   string
+	deptName   string
+	catCode    string
+	catName    string
+	isPrimary  bool
+}
+
 type Memory struct {
-	mu           sync.Mutex
-	balances     map[string]*domain.StockBalance
-	movements    map[string]domain.Movement // by idempotency key
+	mu            sync.Mutex
+	balances      map[string]*domain.StockBalance
+	movements     map[string]domain.Movement
 	movementsByID map[string]domain.Movement
+	departments   []domain.Department
+	placements    []memPlacement
+	catalog       []domain.CatalogItem
 }
 
 func NewMemory() *Memory {
@@ -29,9 +42,27 @@ func NewMemory() *Memory {
 
 func (s *Memory) SeedDemo() {
 	items := []domain.StockBalance{
-		{ID: "bal_1", WarehouseID: "wh_norte", BranchID: "br_norte", SKUID: "BOLT-M8", SKU: "BOLT-M8", OnHand: 1000, Version: 1},
-		{ID: "bal_2", WarehouseID: "wh_norte", BranchID: "br_norte", SKUID: "NUT-M8", SKU: "NUT-M8", OnHand: 800, Version: 1},
-		{ID: "bal_3", WarehouseID: "wh_sur", BranchID: "br_sur", SKUID: "BOLT-M8", SKU: "BOLT-M8", OnHand: 400, Version: 1},
+		{ID: "bal_1", WarehouseID: "wh_norte", BranchID: "br_norte", SKUID: "BOLT-M8", SKU: "BOLT-M8", ProductName: "Tornillo M8", OnHand: 1000, Version: 1},
+		{ID: "bal_2", WarehouseID: "wh_norte", BranchID: "br_norte", SKUID: "NUT-M8", SKU: "NUT-M8", ProductName: "Tuerca M8", OnHand: 800, Version: 1},
+		{ID: "bal_3", WarehouseID: "wh_sur", BranchID: "br_sur", SKUID: "BOLT-M8", SKU: "BOLT-M8", ProductName: "Tornillo M8", OnHand: 400, Version: 1},
+		{
+			ID: "bal_4", WarehouseID: "wh_norte", BranchID: "br_norte", SKUID: "LAPTOP-14", SKU: "LAPTOP-14",
+			ProductName: `Laptop 14"`, OnHand: 25, Version: 1,
+			Departments: []string{"electronica"}, Categories: []string{"computo"},
+			Placements: []string{"Electrónica / Cómputo"},
+		},
+		{
+			ID: "bal_5", WarehouseID: "wh_norte", BranchID: "br_norte", SKUID: "PHONE-X", SKU: "PHONE-X",
+			ProductName: "Smartphone X", OnHand: 40, Version: 1,
+			Departments: []string{"electronica"}, Categories: []string{"telefonia"},
+			Placements: []string{"Electrónica / Telefonía"},
+		},
+		{
+			ID: "bal_6", WarehouseID: "wh_norte", BranchID: "br_norte", SKUID: "FIG-COL-01", SKU: "FIG-COL-01",
+			ProductName: "Figura coleccionable ed. limitada", OnHand: 15, Version: 1,
+			Departments: []string{"electronica", "jugueteria"}, Categories: []string{"videojuegos", "coleccionables"},
+			Placements: []string{"Electrónica / Videojuegos", "Juguetería / Coleccionables"},
+		},
 	}
 	for i := range items {
 		b := items[i]
@@ -39,17 +70,133 @@ func (s *Memory) SeedDemo() {
 		cp := b
 		s.balances[key] = &cp
 	}
+
+	s.departments = []domain.Department{
+		{
+			Code: "electronica", Name: "Electrónica", BranchID: "br_norte", SortOrder: 10,
+			Categories: []domain.DepartmentCategory{
+				{Code: "computo", Name: "Cómputo", SortOrder: 10},
+				{Code: "video", Name: "Video", SortOrder: 20},
+				{Code: "telefonia", Name: "Telefonía", SortOrder: 30},
+				{Code: "videojuegos", Name: "Videojuegos", SortOrder: 40},
+			},
+		},
+		{
+			Code: "jugueteria", Name: "Juguetería", BranchID: "br_norte", SortOrder: 20,
+			Categories: []domain.DepartmentCategory{
+				{Code: "coleccionables", Name: "Coleccionables", SortOrder: 10},
+				{Code: "juegos_mesa", Name: "Juegos de mesa", SortOrder: 20},
+			},
+		},
+	}
+
+	s.placements = []memPlacement{
+		{productSKU: "LAPTOP-14", branchID: "br_norte", deptCode: "electronica", deptName: "Electrónica", catCode: "computo", catName: "Cómputo", isPrimary: true},
+		{productSKU: "PHONE-X", branchID: "br_norte", deptCode: "electronica", deptName: "Electrónica", catCode: "telefonia", catName: "Telefonía", isPrimary: true},
+		{productSKU: "FIG-COL-01", branchID: "br_norte", deptCode: "electronica", deptName: "Electrónica", catCode: "videojuegos", catName: "Videojuegos", isPrimary: true},
+		{productSKU: "FIG-COL-01", branchID: "br_norte", deptCode: "jugueteria", deptName: "Juguetería", catCode: "coleccionables", catName: "Coleccionables", isPrimary: false},
+	}
+
+	s.catalog = []domain.CatalogItem{
+		{
+			ProductID: "p_laptop", SKUBase: "LAPTOP", Name: `Laptop 14"`, SKUs: []string{"LAPTOP-14"},
+			Placements: []domain.CatalogPlacement{
+				{DepartmentCode: "electronica", DepartmentName: "Electrónica", CategoryCode: "computo", CategoryName: "Cómputo", IsPrimary: true},
+			},
+		},
+		{
+			ProductID: "p_phone", SKUBase: "PHONE", Name: "Smartphone X", SKUs: []string{"PHONE-X"},
+			Placements: []domain.CatalogPlacement{
+				{DepartmentCode: "electronica", DepartmentName: "Electrónica", CategoryCode: "telefonia", CategoryName: "Telefonía", IsPrimary: true},
+			},
+		},
+		{
+			ProductID: "p_fig", SKUBase: "FIG-COL", Name: "Figura coleccionable ed. limitada", SKUs: []string{"FIG-COL-01"},
+			Placements: []domain.CatalogPlacement{
+				{DepartmentCode: "electronica", DepartmentName: "Electrónica", CategoryCode: "videojuegos", CategoryName: "Videojuegos", IsPrimary: true},
+				{DepartmentCode: "jugueteria", DepartmentName: "Juguetería", CategoryCode: "coleccionables", CategoryName: "Coleccionables", IsPrimary: false},
+			},
+		},
+	}
 }
 
-func (s *Memory) ListBalances(_ context.Context, _, branchID string) ([]domain.StockBalance, error) {
+func (s *Memory) ListBalances(_ context.Context, filter domain.BalanceFilter) ([]domain.StockBalance, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]domain.StockBalance, 0, len(s.balances))
 	for _, b := range s.balances {
-		if branchID != "" && b.BranchID != branchID {
+		if filter.BranchCode != "" && b.BranchID != filter.BranchCode {
 			continue
 		}
-		out = append(out, *b)
+		if filter.DepartmentCode != "" || filter.CategoryCode != "" {
+			if !s.balanceMatchesPlacement(b, filter) {
+				continue
+			}
+		}
+		cp := *b
+		out = append(out, cp)
+	}
+	return out, nil
+}
+
+func (s *Memory) balanceMatchesPlacement(b *domain.StockBalance, filter domain.BalanceFilter) bool {
+	for _, p := range s.placements {
+		if p.productSKU != b.SKUID {
+			continue
+		}
+		if filter.BranchCode != "" && p.branchID != filter.BranchCode {
+			continue
+		}
+		if filter.DepartmentCode != "" && p.deptCode != filter.DepartmentCode {
+			continue
+		}
+		if filter.CategoryCode != "" && p.catCode != filter.CategoryCode {
+			continue
+		}
+		return true
+	}
+	// Items without placements only show when no dept/category filter.
+	return filter.DepartmentCode == "" && filter.CategoryCode == ""
+}
+
+func (s *Memory) ListDepartments(_ context.Context, _, branchCode string) ([]domain.Department, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]domain.Department, 0, len(s.departments))
+	for _, d := range s.departments {
+		if branchCode != "" && d.BranchID != branchCode {
+			continue
+		}
+		out = append(out, d)
+	}
+	return out, nil
+}
+
+func (s *Memory) ListCatalog(_ context.Context, filter domain.CatalogFilter) ([]domain.CatalogItem, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]domain.CatalogItem, 0, len(s.catalog))
+	for _, item := range s.catalog {
+		placements := make([]domain.CatalogPlacement, 0, len(item.Placements))
+		for _, p := range item.Placements {
+			if filter.DepartmentCode != "" && p.DepartmentCode != filter.DepartmentCode {
+				continue
+			}
+			if filter.CategoryCode != "" && p.CategoryCode != filter.CategoryCode {
+				continue
+			}
+			placements = append(placements, p)
+		}
+		if filter.DepartmentCode != "" || filter.CategoryCode != "" {
+			if len(placements) == 0 {
+				continue
+			}
+		} else {
+			placements = item.Placements
+		}
+		cp := item
+		cp.Placements = placements
+		out = append(out, cp)
 	}
 	return out, nil
 }

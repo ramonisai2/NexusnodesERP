@@ -14,14 +14,62 @@ var (
 )
 
 type StockBalance struct {
-	ID          string  `json:"id"`
-	WarehouseID string  `json:"warehouse_id"` // public code
-	BranchID    string  `json:"branch_id"`    // public code
-	SKUID       string  `json:"sku_id"`       // public sku code
-	SKU         string  `json:"sku"`
-	OnHand      float64 `json:"on_hand"`
-	Reserved    float64 `json:"reserved"`
-	Version     int     `json:"version"`
+	ID           string   `json:"id"`
+	WarehouseID  string   `json:"warehouse_id"` // public code
+	BranchID     string   `json:"branch_id"`    // public code
+	SKUID        string   `json:"sku_id"`       // public sku code
+	SKU          string   `json:"sku"`
+	ProductName  string   `json:"product_name,omitempty"`
+	OnHand       float64  `json:"on_hand"`
+	Reserved     float64  `json:"reserved"`
+	Version      int      `json:"version"`
+	Departments  []string `json:"departments,omitempty"`  // dept codes where article appears
+	Categories   []string `json:"categories,omitempty"`   // category codes
+	Placements   []string `json:"placements,omitempty"`   // "dept/category" labels
+}
+
+type BalanceFilter struct {
+	OrgRef         string
+	BranchCode     string
+	DepartmentCode string
+	CategoryCode   string
+}
+
+type DepartmentCategory struct {
+	Code      string `json:"code"`
+	Name      string `json:"name"`
+	SortOrder int    `json:"sort_order"`
+}
+
+type Department struct {
+	Code       string                `json:"code"`
+	Name       string                `json:"name"`
+	BranchID   string                `json:"branch_id"`
+	SortOrder  int                   `json:"sort_order"`
+	Categories []DepartmentCategory  `json:"categories"`
+}
+
+type CatalogItem struct {
+	ProductID   string             `json:"product_id"`
+	SKUBase     string             `json:"sku_base"`
+	Name        string             `json:"name"`
+	SKUs        []string           `json:"skus"`
+	Placements  []CatalogPlacement `json:"placements"`
+}
+
+type CatalogPlacement struct {
+	DepartmentCode string `json:"department_code"`
+	DepartmentName string `json:"department_name"`
+	CategoryCode   string `json:"category_code,omitempty"`
+	CategoryName   string `json:"category_name,omitempty"`
+	IsPrimary      bool   `json:"is_primary"`
+}
+
+type CatalogFilter struct {
+	OrgRef         string
+	BranchCode     string
+	DepartmentCode string
+	CategoryCode   string
 }
 
 type MovementRequest struct {
@@ -74,9 +122,11 @@ type VoidResult struct {
 }
 
 type Store interface {
-	ListBalances(ctx context.Context, orgRef, branchCode string) ([]StockBalance, error)
+	ListBalances(ctx context.Context, filter BalanceFilter) ([]StockBalance, error)
 	PostMovement(ctx context.Context, req MovementRequest) (Movement, error)
 	ListMovements(ctx context.Context, filter MovementFilter) ([]Movement, error)
 	GetMovement(ctx context.Context, orgRef, movementID string) (Movement, error)
 	VoidMovement(ctx context.Context, movementID string, req VoidRequest) (VoidResult, error)
+	ListDepartments(ctx context.Context, orgRef, branchCode string) ([]Department, error)
+	ListCatalog(ctx context.Context, filter CatalogFilter) ([]CatalogItem, error)
 }

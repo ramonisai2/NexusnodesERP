@@ -59,6 +59,11 @@ func main() {
 	r.Get("/balances", func(w http.ResponseWriter, req *http.Request) {
 		subject := authz.FromGatewayHeaders(req)
 		branchID := req.Header.Get("X-Branch-Id")
+		if q := req.URL.Query().Get("branch_id"); q != "" {
+			branchID = q
+		}
+		dept := req.URL.Query().Get("department")
+		cat := req.URL.Query().Get("category")
 		allow, err := opa.Allow(req.Context(), authz.Input{
 			Subject:  subject,
 			Action:   "inventory.balance.read",
@@ -72,12 +77,93 @@ func main() {
 			authz.WriteForbidden(w, "inventory.balance.read")
 			return
 		}
-		balances, err := inventoryStore.ListBalances(req.Context(), subject.OrgID, branchID)
+		balances, err := inventoryStore.ListBalances(req.Context(), domain.BalanceFilter{
+			OrgRef:         subject.OrgID,
+			BranchCode:     branchID,
+			DepartmentCode: dept,
+			CategoryCode:   cat,
+		})
 		if err != nil {
 			http.Error(w, `{"error":"list_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, http.StatusOK, balances)
+	})
+
+	r.Get("/departments", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.Header.Get("X-Branch-Id")
+		if q := req.URL.Query().Get("branch_id"); q != "" {
+			branchID = q
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.catalog.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			// Fallback: anyone who can read balances can browse departments.
+			allowBal, err2 := opa.Allow(req.Context(), authz.Input{
+				Subject:  subject,
+				Action:   "inventory.balance.read",
+				Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+			})
+			if err2 != nil || !allowBal {
+				authz.WriteForbidden(w, "inventory.catalog.read")
+				return
+			}
+		}
+		deps, err := inventoryStore.ListDepartments(req.Context(), subject.OrgID, branchID)
+		if err != nil {
+			http.Error(w, `{"error":"list_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, deps)
+	})
+
+	r.Get("/catalog", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.Header.Get("X-Branch-Id")
+		if q := req.URL.Query().Get("branch_id"); q != "" {
+			branchID = q
+		}
+		dept := req.URL.Query().Get("department")
+		cat := req.URL.Query().Get("category")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.catalog.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			allowBal, err2 := opa.Allow(req.Context(), authz.Input{
+				Subject:  subject,
+				Action:   "inventory.balance.read",
+				Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+			})
+			if err2 != nil || !allowBal {
+				authz.WriteForbidden(w, "inventory.catalog.read")
+				return
+			}
+		}
+		items, err := inventoryStore.ListCatalog(req.Context(), domain.CatalogFilter{
+			OrgRef:         subject.OrgID,
+			BranchCode:     branchID,
+			DepartmentCode: dept,
+			CategoryCode:   cat,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"list_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
 	})
 
 	r.Get("/movements", func(w http.ResponseWriter, req *http.Request) {

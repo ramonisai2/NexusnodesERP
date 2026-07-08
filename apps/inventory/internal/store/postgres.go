@@ -22,9 +22,9 @@ func NewPostgres(pool *pgxpool.Pool) *Postgres {
 	return &Postgres{pool: pool}
 }
 
-func (s *Postgres) ListBalances(ctx context.Context, orgRef, branchCode string) ([]domain.StockBalance, error) {
+func (s *Postgres) ListBalances(ctx context.Context, filter domain.BalanceFilter) ([]domain.StockBalance, error) {
 	tx, _, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
-		return resolveOrgID(ctx, tx, orgRef)
+		return resolveOrgID(ctx, tx, filter.OrgRef)
 	})
 	if err != nil {
 		return nil, err
@@ -32,16 +32,59 @@ func (s *Postgres) ListBalances(ctx context.Context, orgRef, branchCode string) 
 	defer tx.Rollback(ctx)
 
 	q := `
-SELECT sb.id::text, w.code, b.code, ps.sku, ps.sku,
-       sb.on_hand::float8, sb.reserved::float8, sb.version
+SELECT sb.id::text, w.code, b.code, ps.sku, ps.sku, p.name,
+       sb.on_hand::float8, sb.reserved::float8, sb.version,
+       COALESCE((
+         SELECT array_agg(DISTINCT sd.code ORDER BY sd.code)
+         FROM product_placements pp
+         JOIN store_departments sd ON sd.id = pp.department_id
+         WHERE pp.product_id = p.id AND pp.active AND sd.branch_id = b.id
+       ), '{}') AS dept_codes,
+       COALESCE((
+         SELECT array_agg(DISTINCT dc.code ORDER BY dc.code)
+         FROM product_placements pp
+         JOIN department_categories dc ON dc.id = pp.category_id
+         JOIN store_departments sd ON sd.id = pp.department_id
+         WHERE pp.product_id = p.id AND pp.active AND sd.branch_id = b.id AND pp.category_id IS NOT NULL
+       ), '{}') AS cat_codes,
+       COALESCE((
+         SELECT array_agg(DISTINCT (sd.name || ' / ' || COALESCE(dc.name, '—')) ORDER BY (sd.name || ' / ' || COALESCE(dc.name, '—')))
+         FROM product_placements pp
+         JOIN store_departments sd ON sd.id = pp.department_id
+         LEFT JOIN department_categories dc ON dc.id = pp.category_id
+         WHERE pp.product_id = p.id AND pp.active AND sd.branch_id = b.id
+       ), '{}') AS placement_labels
 FROM stock_balances sb
 JOIN warehouses w ON w.id = sb.warehouse_id
 JOIN branches b ON b.id = w.branch_id
-JOIN product_skus ps ON ps.id = sb.sku_id`
+JOIN product_skus ps ON ps.id = sb.sku_id
+JOIN products p ON p.id = ps.product_id
+WHERE 1=1`
 	args := []any{}
-	if branchCode != "" {
-		q += ` WHERE b.code = $1`
-		args = append(args, branchCode)
+	argN := 1
+	if filter.BranchCode != "" {
+		q += fmt.Sprintf(` AND b.code = $%d`, argN)
+		args = append(args, filter.BranchCode)
+		argN++
+	}
+	if filter.DepartmentCode != "" {
+		q += fmt.Sprintf(` AND EXISTS (
+  SELECT 1 FROM product_placements pp
+  JOIN store_departments sd ON sd.id = pp.department_id
+  WHERE pp.product_id = p.id AND pp.active AND sd.branch_id = b.id AND sd.code = $%d
+)`, argN)
+		args = append(args, filter.DepartmentCode)
+		argN++
+	}
+	if filter.CategoryCode != "" {
+		q += fmt.Sprintf(` AND EXISTS (
+  SELECT 1 FROM product_placements pp
+  JOIN department_categories dc ON dc.id = pp.category_id
+  JOIN store_departments sd ON sd.id = pp.department_id
+  WHERE pp.product_id = p.id AND pp.active AND sd.branch_id = b.id AND dc.code = $%d
+)`, argN)
+		args = append(args, filter.CategoryCode)
+		argN++
 	}
 	q += ` ORDER BY b.code, w.code, ps.sku`
 
@@ -54,13 +97,189 @@ JOIN product_skus ps ON ps.id = sb.sku_id`
 	var out []domain.StockBalance
 	for rows.Next() {
 		var b domain.StockBalance
-		if err := rows.Scan(&b.ID, &b.WarehouseID, &b.BranchID, &b.SKUID, &b.SKU, &b.OnHand, &b.Reserved, &b.Version); err != nil {
+		if err := rows.Scan(
+			&b.ID, &b.WarehouseID, &b.BranchID, &b.SKUID, &b.SKU, &b.ProductName,
+			&b.OnHand, &b.Reserved, &b.Version,
+			&b.Departments, &b.Categories, &b.Placements,
+		); err != nil {
 			return nil, err
 		}
 		out = append(out, b)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *Postgres) ListDepartments(ctx context.Context, orgRef, branchCode string) ([]domain.Department, error) {
+	tx, _, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, orgRef)
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	q := `
+SELECT sd.code, sd.name, b.code, sd.sort_order,
+       COALESCE(dc.code, ''), COALESCE(dc.name, ''), COALESCE(dc.sort_order, 0)
+FROM store_departments sd
+JOIN branches b ON b.id = sd.branch_id
+LEFT JOIN department_categories dc ON dc.department_id = sd.id AND dc.active = TRUE
+WHERE sd.active = TRUE`
+	args := []any{}
+	if branchCode != "" {
+		q += ` AND b.code = $1`
+		args = append(args, branchCode)
+	}
+	q += ` ORDER BY sd.sort_order, sd.code, dc.sort_order, dc.code`
+
+	rows, err := tx.Query(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	byCode := map[string]*domain.Department{}
+	var order []string
+	for rows.Next() {
+		var deptCode, deptName, branchID, catCode, catName string
+		var deptSort, catSort int
+		if err := rows.Scan(&deptCode, &deptName, &branchID, &deptSort, &catCode, &catName, &catSort); err != nil {
+			return nil, err
+		}
+		d, ok := byCode[deptCode]
+		if !ok {
+			d = &domain.Department{
+				Code: deptCode, Name: deptName, BranchID: branchID, SortOrder: deptSort,
+				Categories: []domain.DepartmentCategory{},
+			}
+			byCode[deptCode] = d
+			order = append(order, deptCode)
+		}
+		if catCode != "" {
+			d.Categories = append(d.Categories, domain.DepartmentCategory{
+				Code: catCode, Name: catName, SortOrder: catSort,
+			})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]domain.Department, 0, len(order))
+	for _, code := range order {
+		out = append(out, *byCode[code])
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *Postgres) ListCatalog(ctx context.Context, filter domain.CatalogFilter) ([]domain.CatalogItem, error) {
+	tx, _, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, filter.OrgRef)
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	q := `
+SELECT DISTINCT p.id::text, p.sku_base, p.name,
+       sd.code, sd.name,
+       COALESCE(dc.code, ''), COALESCE(dc.name, ''),
+       pp.is_primary
+FROM products p
+JOIN product_placements pp ON pp.product_id = p.id AND pp.active
+JOIN store_departments sd ON sd.id = pp.department_id AND sd.active
+JOIN branches b ON b.id = sd.branch_id
+LEFT JOIN department_categories dc ON dc.id = pp.category_id
+WHERE 1=1`
+	args := []any{}
+	argN := 1
+	if filter.BranchCode != "" {
+		q += fmt.Sprintf(` AND b.code = $%d`, argN)
+		args = append(args, filter.BranchCode)
+		argN++
+	}
+	if filter.DepartmentCode != "" {
+		q += fmt.Sprintf(` AND sd.code = $%d`, argN)
+		args = append(args, filter.DepartmentCode)
+		argN++
+	}
+	if filter.CategoryCode != "" {
+		q += fmt.Sprintf(` AND dc.code = $%d`, argN)
+		args = append(args, filter.CategoryCode)
+		argN++
+	}
+	q += ` ORDER BY 3, 8 DESC, 4, 6`
+
+	rows, err := tx.Query(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	byID := map[string]*domain.CatalogItem{}
+	var order []string
+	for rows.Next() {
+		var productID, skuBase, name, deptCode, deptName, catCode, catName string
+		var isPrimary bool
+		if err := rows.Scan(&productID, &skuBase, &name, &deptCode, &deptName, &catCode, &catName, &isPrimary); err != nil {
+			return nil, err
+		}
+		item, ok := byID[productID]
+		if !ok {
+			item = &domain.CatalogItem{
+				ProductID: productID, SKUBase: skuBase, Name: name,
+				SKUs:       []string{},
+				Placements: []domain.CatalogPlacement{},
+			}
+			byID[productID] = item
+			order = append(order, productID)
+		}
+		item.Placements = append(item.Placements, domain.CatalogPlacement{
+			DepartmentCode: deptCode,
+			DepartmentName: deptName,
+			CategoryCode:   catCode,
+			CategoryName:   catName,
+			IsPrimary:      isPrimary,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Attach SKUs in a second pass.
+	for _, id := range order {
+		skuRows, err := tx.Query(ctx, `SELECT sku FROM product_skus WHERE product_id = $1::uuid ORDER BY sku`, id)
+		if err != nil {
+			return nil, err
+		}
+		var skus []string
+		for skuRows.Next() {
+			var sku string
+			if err := skuRows.Scan(&sku); err != nil {
+				skuRows.Close()
+				return nil, err
+			}
+			skus = append(skus, sku)
+		}
+		skuRows.Close()
+		if err := skuRows.Err(); err != nil {
+			return nil, err
+		}
+		byID[id].SKUs = skus
+	}
+
+	out := make([]domain.CatalogItem, 0, len(order))
+	for _, id := range order {
+		out = append(out, *byID[id])
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err

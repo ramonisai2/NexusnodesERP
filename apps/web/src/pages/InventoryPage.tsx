@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NAV_NODES, hasPermission } from "../auth/policy";
 import { PolicyGuard } from "../auth/PolicyGuard";
@@ -10,9 +11,13 @@ type Balance = {
   branch_id: string;
   sku_id: string;
   sku: string;
+  product_name?: string;
   on_hand: number;
   reserved: number;
   version: number;
+  departments?: string[];
+  categories?: string[];
+  placements?: string[];
 };
 
 type Movement = {
@@ -28,6 +33,20 @@ type Movement = {
   void_reason?: string;
   voided_by?: string;
   reversal_of?: string;
+};
+
+type DepartmentCategory = {
+  code: string;
+  name: string;
+  sort_order: number;
+};
+
+type Department = {
+  code: string;
+  name: string;
+  branch_id: string;
+  sort_order: number;
+  categories: DepartmentCategory[];
 };
 
 const inventoryNode = NAV_NODES.find((n) => n.id === "nav.inventory")!;
@@ -60,10 +79,31 @@ function InventoryPanel() {
   const canVoid = hasPermission(claims, "inventory.movement.void");
   const managed = (claims?.attrs?.managed_warehouses as string[] | undefined) ?? [];
 
-  const balances = useQuery({
-    queryKey: ["balances", activeBranchId],
+  const [department, setDepartment] = useState("");
+  const [category, setCategory] = useState("");
+
+  const departments = useQuery({
+    queryKey: ["departments", activeBranchId],
     queryFn: async () => {
-      const res = await apiFetch("/inventory/balances");
+      const res = await apiFetch("/inventory/departments");
+      if (!res.ok) throw new Error("departments_failed");
+      return (await res.json()) as Department[];
+    },
+  });
+
+  const selectedDept = useMemo(
+    () => departments.data?.find((d) => d.code === department) ?? null,
+    [departments.data, department],
+  );
+
+  const balances = useQuery({
+    queryKey: ["balances", activeBranchId, department, category],
+    queryFn: async () => {
+      const qs = new URLSearchParams();
+      if (department) qs.set("department", department);
+      if (category) qs.set("category", category);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      const res = await apiFetch(`/inventory/balances${suffix}`);
       if (!res.ok) throw new Error("balances_failed");
       return (await res.json()) as Balance[];
     },
@@ -138,11 +178,52 @@ function InventoryPanel() {
     return managed.includes(m.warehouse_id) || managed.includes("*");
   }
 
+  function onDepartmentChange(code: string) {
+    setDepartment(code);
+    setCategory("");
+  }
+
   return (
     <section className="panel">
       <h1>{t("invTitle")}</h1>
       <p className="muted">{t("invSubtitle")}</p>
+      <p className="muted tip">{t("invDeptTip")}</p>
       {canVoid ? <p className="muted tip">{t("invManagerTip")}</p> : null}
+
+      <div className="filter-bar">
+        <label className="filter-field">
+          <span>{t("invFilterDept")}</span>
+          <select
+            value={department}
+            onChange={(e) => onDepartmentChange(e.target.value)}
+            aria-label={t("invFilterDept")}
+          >
+            <option value="">{t("invFilterAll")}</option>
+            {(departments.data ?? []).map((d) => (
+              <option key={d.code} value={d.code}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="filter-field">
+          <span>{t("invFilterCategory")}</span>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            disabled={!selectedDept}
+            aria-label={t("invFilterCategory")}
+          >
+            <option value="">{t("invFilterAll")}</option>
+            {(selectedDept?.categories ?? []).map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       {balances.isLoading ? <p className="muted">{t("invLoading")}</p> : null}
       {balances.isError ? <p className="error">{t("invError")}</p> : null}
       {balances.data && rows.length === 0 ? <p className="muted">{t("invNoRows")}</p> : null}
@@ -151,8 +232,9 @@ function InventoryPanel() {
           <thead>
             <tr>
               <th>{t("invColSku")}</th>
+              <th>{t("invColName")}</th>
+              <th>{t("invColPlacements")}</th>
               <th>{t("invColWarehouse")}</th>
-              <th>{t("invColBranch")}</th>
               <th>{t("invColOnHand")}</th>
               <th />
             </tr>
@@ -161,8 +243,15 @@ function InventoryPanel() {
             {rows.map((b) => (
               <tr key={b.id}>
                 <td>{b.sku}</td>
+                <td>{b.product_name || b.sku}</td>
+                <td>
+                  {(b.placements?.length ?? 0) > 0 ? (
+                    <span className="placement-list">{b.placements?.join(" · ")}</span>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
+                </td>
                 <td>{b.warehouse_id.replace(/^wh_/, "").replace(/_/g, " ")}</td>
-                <td>{labelBranch(b.branch_id, locale)}</td>
                 <td>{b.on_hand}</td>
                 <td>
                   <button
@@ -237,6 +326,9 @@ function InventoryPanel() {
           {voidMove.isSuccess ? <p className="muted tip">{t("invVoidSuccess")}</p> : null}
         </>
       ) : null}
+
+      {/* keep branch label helper referenced for i18n consistency in filters */}
+      <span className="sr-only">{activeBranchId ? labelBranch(activeBranchId, locale) : ""}</span>
     </section>
   );
 }

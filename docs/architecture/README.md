@@ -26,6 +26,7 @@
 | [08 — Consumers + OTel + Keycloak](./08-consumers-otel-keycloak.md) | Notificaciones, traces, mappers |
 | [09 — UX e i18n ES/EN](./09-ux-i18n.md) | Copy amigable y selector de idioma |
 | [10 — Jerarquía de jefes y reversión](./10-manager-hierarchy-revert.md) | Jefe de área / regional y void de movimientos |
+| [11 — Departamentos y multi-colocación](./11-store-departments.md) | Electrónica/Juguetería; artículo en varios deptos |
 | [Diagrama de arquitectura](../diagrams/architecture-overview.mmd) | Mermaid — vista de componentes |
 | [Diagrama de flujo auth](../diagrams/auth-flow.mmd) | Mermaid — OAuth2/MFA/JWT |
 | [Diagrama de flujo inventario](../diagrams/inventory-flow.mmd) | Mermaid — movimiento de stock |

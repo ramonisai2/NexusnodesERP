@@ -24,6 +24,12 @@ allow if {
 }
 
 allow if {
+  input.action == "inventory.catalog.read"
+  catalog_read_allowed
+  branch_allowed
+}
+
+allow if {
   input.action == "inventory.movement.read"
   "inventory.movement.read" in input.subject.permissions
   branch_allowed
@@ -118,4 +124,12 @@ warehouse_managed if {
 
 warehouse_managed if {
   "*" in object.get(input.subject.attrs, "managed_warehouses", [])
+}
+
+catalog_read_allowed if {
+  "inventory.catalog.read" in input.subject.permissions
+}
+
+catalog_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
 }

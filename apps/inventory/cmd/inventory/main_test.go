@@ -95,3 +95,54 @@ func TestVoidMovementCompensatesAndIdempotent(t *testing.T) {
 		t.Fatalf("list movements: %v len=%d", err, len(list))
 	}
 }
+
+func TestDepartmentsAndMultiPlacementFilter(t *testing.T) {
+	s := store.NewMemory()
+	s.SeedDemo()
+
+	deps, err := s.ListDepartments(context.Background(), "org_demo", "br_norte")
+	if err != nil {
+		t.Fatalf("departments: %v", err)
+	}
+	if len(deps) < 2 {
+		t.Fatalf("expected electronica + jugueteria, got %#v", deps)
+	}
+
+	all, err := s.ListBalances(context.Background(), domain.BalanceFilter{BranchCode: "br_norte"})
+	if err != nil {
+		t.Fatalf("balances: %v", err)
+	}
+	if len(all) < 4 {
+		t.Fatalf("expected retail + warehouse skus, got %d", len(all))
+	}
+
+	toys, err := s.ListBalances(context.Background(), domain.BalanceFilter{
+		BranchCode: "br_norte", DepartmentCode: "jugueteria",
+	})
+	if err != nil {
+		t.Fatalf("toys filter: %v", err)
+	}
+	if len(toys) != 1 || toys[0].SKUID != "FIG-COL-01" {
+		t.Fatalf("collectible should appear in jugueteria, got %#v", toys)
+	}
+
+	games, err := s.ListBalances(context.Background(), domain.BalanceFilter{
+		BranchCode: "br_norte", DepartmentCode: "electronica", CategoryCode: "videojuegos",
+	})
+	if err != nil {
+		t.Fatalf("games filter: %v", err)
+	}
+	if len(games) != 1 || games[0].SKUID != "FIG-COL-01" {
+		t.Fatalf("same collectible should appear in electronica/videojuegos, got %#v", games)
+	}
+
+	catalog, err := s.ListCatalog(context.Background(), domain.CatalogFilter{
+		BranchCode: "br_norte", DepartmentCode: "jugueteria",
+	})
+	if err != nil || len(catalog) != 1 {
+		t.Fatalf("catalog jugueteria: %v %#v", err, catalog)
+	}
+	if len(catalog[0].Placements) < 1 || catalog[0].Placements[0].DepartmentCode != "jugueteria" {
+		t.Fatalf("expected jugueteria placement, got %#v", catalog[0].Placements)
+	}
+}
