@@ -223,9 +223,10 @@ INSERT INTO outbox (event_type, payload) VALUES ('PayrollRunPrepared', jsonb_bui
   'run_id', $1::text,
   'org_id', $2::text,
   'branch_id', $3::text,
-  'total_amount', $4::float8,
-  'prepared_by', $5::text
-))`, runID.String(), orgID, req.BranchID, total, req.PreparedBy)
+  'period_label', $4::text,
+  'total_amount', $5::float8,
+  'prepared_by', $6::text
+))`, runID.String(), orgID, req.BranchID, req.PeriodLabel, total, req.PreparedBy)
 
 	if err := tx.Commit(ctx); err != nil {
 		return domain.PayrollRun{}, err
@@ -304,9 +305,10 @@ INSERT INTO outbox (event_type, payload) VALUES ('PayrollRunApproved', jsonb_bui
   'run_id', $1::text,
   'org_id', $2::text,
   'branch_id', $3::text,
-  'approved_by', $4::text,
-  'total_amount', $5::float8
-))`, id, orgID, branchCode, actor, total)
+  'period_label', $4::text,
+  'approved_by', $5::text,
+  'total_amount', $6::float8
+))`, id, orgID, branchCode, periodLabel, actor, total)
 
 	if err := tx.Commit(ctx); err != nil {
 		return domain.PayrollRun{}, err

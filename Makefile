@@ -54,7 +54,10 @@ run-relay:
 	DATABASE_URL='$(DATABASE_URL)' NATS_URL='$(NATS_URL)' OUTBOX_POLL_INTERVAL=1s OTEL_EXPORTER='$(OTEL_EXPORTER)' go run ./apps/outbox-relay/cmd/relay
 
 run-notification:
-	DATABASE_URL='$(DATABASE_URL)' NATS_URL='$(NATS_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' go run ./apps/notification/cmd/notification
+	DATABASE_URL='$(DATABASE_URL)' NATS_URL='$(NATS_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' \
+	SMTP_ENABLED=true SMTP_HOST=127.0.0.1 SMTP_PORT=1025 SMTP_FROM=nexus@demo.local \
+	NOTIFY_EMAIL_TO=ops@demo.nexus,analyst@demo.nexus \
+	go run ./apps/notification/cmd/notification
 
 run-web:
 	pnpm --filter @nexus/web dev

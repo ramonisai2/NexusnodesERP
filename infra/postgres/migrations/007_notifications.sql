@@ -17,10 +17,11 @@ CREATE INDEX IF NOT EXISTS notifications_org_created_idx
   ON notifications (org_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS processed_events (
-  event_id UUID PRIMARY KEY,
+  event_id UUID NOT NULL,
   consumer TEXT NOT NULL,
   event_type TEXT NOT NULL,
-  processed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  processed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (event_id, consumer)
 );
 
 CREATE INDEX IF NOT EXISTS processed_events_consumer_idx

@@ -51,6 +51,6 @@ En runtime el gateway **también** enriquece desde BD (fuente de verdad de permi
 
 ## Siguiente
 
-- Reporting BFF GraphQL
-- Canal email real (SMTP/Mailhog)
+- ~~Reporting BFF GraphQL~~ → [13-reporting-bff-graphql.md](./13-reporting-bff-graphql.md)
+- ~~Canal email real (SMTP/Mailhog)~~ → [14-mailhog-email.md](./14-mailhog-email.md)
 - Dashboards Grafana / Tempo
