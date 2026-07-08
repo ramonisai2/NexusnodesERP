@@ -24,6 +24,21 @@ allow if {
 }
 
 allow if {
+  input.action == "inventory.movement.read"
+  "inventory.movement.read" in input.subject.permissions
+  branch_allowed
+}
+
+# Area / regional managers may void movements only in warehouses they manage.
+allow if {
+  input.action == "inventory.movement.void"
+  "inventory.movement.void" in input.subject.permissions
+  branch_allowed
+  mfa_ok
+  warehouse_managed
+}
+
+allow if {
   input.action == "payroll.run.prepare"
   "payroll.run.prepare" in input.subject.permissions
   branch_allowed
@@ -88,4 +103,19 @@ adjustment_within_limit if {
   qty := input.resource.quantity
   qty < 0
   -qty <= object.get(input.subject.attrs, "max_adjustment", 0)
+}
+
+warehouse_managed if {
+  "platform_admin" in input.subject.roles
+}
+
+warehouse_managed if {
+  wh := input.resource.warehouse_id
+  wh != ""
+  managed := object.get(input.subject.attrs, "managed_warehouses", [])
+  wh in managed
+}
+
+warehouse_managed if {
+  "*" in object.get(input.subject.attrs, "managed_warehouses", [])
 }

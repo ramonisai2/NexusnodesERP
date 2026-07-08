@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -98,6 +99,13 @@ LIMIT 1`, in.Sub).Scan(&userID, &orgID)
 		}
 		for k, v := range attrs {
 			out.Attrs[k] = v
+		}
+		managed, err := loadManagedWarehouses(ctx, tx, userID)
+		if err != nil {
+			return err
+		}
+		if len(managed) > 0 {
+			out.Attrs["managed_warehouses"] = managed
 		}
 		return nil
 	})
@@ -235,6 +243,46 @@ SELECT attr_key, attr_value FROM user_attributes WHERE user_id = $1::uuid`, user
 			continue
 		}
 		out[key] = v
+	}
+	return out, rows.Err()
+}
+
+// loadManagedWarehouses resolves warehouses under org units the user manages,
+// including descendant areas (regional manager → child areas → warehouses).
+func loadManagedWarehouses(ctx context.Context, tx pgx.Tx, userID string) ([]string, error) {
+	rows, err := tx.Query(ctx, `
+WITH RECURSIVE managed AS (
+  SELECT ou.id
+  FROM org_unit_managers oum
+  JOIN org_units ou ON ou.id = oum.org_unit_id
+  WHERE oum.user_id = $1::uuid
+    AND (oum.valid_to IS NULL OR oum.valid_to > now())
+    AND ou.active = TRUE
+  UNION
+  SELECT child.id
+  FROM org_units child
+  JOIN managed m ON child.parent_id = m.id
+  WHERE child.active = TRUE
+)
+SELECT DISTINCT w.code
+FROM warehouses w
+JOIN managed m ON w.org_unit_id = m.id
+ORDER BY w.code`, userID)
+	if err != nil {
+		// Hierarchy tables may not exist yet in older DBs.
+		if strings.Contains(err.Error(), "org_unit") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, err
+		}
+		out = append(out, code)
 	}
 	return out, rows.Err()
 }

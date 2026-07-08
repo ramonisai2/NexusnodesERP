@@ -192,6 +192,277 @@ INSERT INTO outbox (event_type, payload) VALUES ('InventoryMoved', jsonb_build_o
 	}, nil
 }
 
+func (s *Postgres) ListMovements(ctx context.Context, filter domain.MovementFilter) ([]domain.Movement, error) {
+	tx, _, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, filter.OrgRef)
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	limit := filter.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+
+	q := `
+SELECT m.id::text, m.org_id::text, b.code, w.code, ps.sku,
+       m.movement_type, m.quantity::float8, m.status,
+       COALESCE(u.idp_sub, COALESCE(m.posted_by::text, '')),
+       m.idempotency_key, m.created_at,
+       COALESCE(m.reversal_of::text, ''),
+       COALESCE(m.void_reason, ''),
+       COALESCE(vu.idp_sub, COALESCE(m.voided_by::text, '')),
+       m.voided_at
+FROM inventory_movements m
+JOIN branches b ON b.id = m.branch_id
+JOIN warehouses w ON w.id = m.warehouse_id
+JOIN product_skus ps ON ps.id = m.sku_id
+LEFT JOIN users u ON u.id = m.posted_by
+LEFT JOIN users vu ON vu.id = m.voided_by
+WHERE 1=1`
+	args := []any{}
+	argN := 1
+	if filter.BranchCode != "" {
+		q += fmt.Sprintf(` AND b.code = $%d`, argN)
+		args = append(args, filter.BranchCode)
+		argN++
+	}
+	if filter.WarehouseID != "" {
+		q += fmt.Sprintf(` AND w.code = $%d`, argN)
+		args = append(args, filter.WarehouseID)
+		argN++
+	}
+	q += fmt.Sprintf(` ORDER BY m.created_at DESC LIMIT $%d`, argN)
+	args = append(args, limit)
+
+	rows, err := tx.Query(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.Movement
+	for rows.Next() {
+		var m domain.Movement
+		var voidedAt *time.Time
+		if err := rows.Scan(
+			&m.ID, &m.OrgID, &m.BranchID, &m.WarehouseID, &m.SKUID,
+			&m.MovementType, &m.Quantity, &m.Status, &m.PostedBy,
+			&m.IdempotencyKey, &m.CreatedAt, &m.ReversalOf, &m.VoidReason, &m.VoidedBy, &voidedAt,
+		); err != nil {
+			return nil, err
+		}
+		m.VoidedAt = voidedAt
+		out = append(out, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *Postgres) GetMovement(ctx context.Context, orgRef, movementID string) (domain.Movement, error) {
+	tx, _, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, orgRef)
+	})
+	if err != nil {
+		return domain.Movement{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	m, err := scanMovementByID(ctx, tx, movementID)
+	if err != nil {
+		return domain.Movement{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.Movement{}, err
+	}
+	return m, nil
+}
+
+func (s *Postgres) VoidMovement(ctx context.Context, movementID string, req domain.VoidRequest) (domain.VoidResult, error) {
+	tx, orgID, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, req.OrgID)
+	})
+	if err != nil {
+		return domain.VoidResult{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	if req.Reason == "" {
+		return domain.VoidResult{}, errors.New("reason required")
+	}
+	if req.IdempotencyKey == "" {
+		return domain.VoidResult{}, errors.New("idempotency_key required")
+	}
+
+	// Idempotent replay: compensation already created for this key.
+	var existingComp domain.Movement
+	err = tx.QueryRow(ctx, `
+SELECT id::text FROM inventory_movements WHERE org_id = $1::uuid AND idempotency_key = $2`,
+		orgID, req.IdempotencyKey).Scan(&existingComp.ID)
+	if err == nil {
+		comp, err := scanMovementByID(ctx, tx, existingComp.ID)
+		if err != nil {
+			return domain.VoidResult{}, err
+		}
+		orig, err := scanMovementByID(ctx, tx, movementID)
+		if err != nil {
+			return domain.VoidResult{}, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return domain.VoidResult{}, err
+		}
+		return domain.VoidResult{Original: orig, Compensation: comp}, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return domain.VoidResult{}, err
+	}
+
+	var warehouseUUID, skuUUID, branchUUID string
+	var qty float64
+	var status string
+	err = tx.QueryRow(ctx, `
+SELECT warehouse_id::text, sku_id::text, branch_id::text, quantity::float8, status
+FROM inventory_movements
+WHERE id = $1::uuid AND org_id = $2::uuid
+FOR UPDATE`, movementID, orgID).Scan(&warehouseUUID, &skuUUID, &branchUUID, &qty, &status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.VoidResult{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.VoidResult{}, err
+	}
+	if status == "VOID" {
+		return domain.VoidResult{}, domain.ErrAlreadyVoided
+	}
+	if status != "POSTED" {
+		return domain.VoidResult{}, errors.New("only posted movements can be voided")
+	}
+
+	voidedBy, err := resolveUserID(ctx, tx, orgID, req.VoidedBy)
+	if err != nil {
+		return domain.VoidResult{}, err
+	}
+
+	var balID string
+	var onHand float64
+	var version int
+	err = tx.QueryRow(ctx, `
+SELECT id::text, on_hand::float8, version
+FROM stock_balances
+WHERE warehouse_id = $1::uuid AND sku_id = $2::uuid
+FOR UPDATE`, warehouseUUID, skuUUID).Scan(&balID, &onHand, &version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.VoidResult{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.VoidResult{}, err
+	}
+
+	compDelta := -qty
+	next := onHand + compDelta
+	if next < 0 {
+		return domain.VoidResult{}, domain.ErrInsufficientStock
+	}
+
+	ct, err := tx.Exec(ctx, `
+UPDATE stock_balances
+SET on_hand = $1, version = version + 1, updated_at = now()
+WHERE id = $2::uuid AND version = $3`, next, balID, version)
+	if err != nil {
+		return domain.VoidResult{}, err
+	}
+	if ct.RowsAffected() == 0 {
+		return domain.VoidResult{}, domain.ErrConflict
+	}
+
+	now := time.Now().UTC()
+	_, err = tx.Exec(ctx, `
+UPDATE inventory_movements
+SET status = 'VOID', void_reason = $1, voided_by = $2, voided_at = $3
+WHERE id = $4::uuid`, req.Reason, voidedBy, now, movementID)
+	if err != nil {
+		return domain.VoidResult{}, err
+	}
+
+	compID := uuid.New()
+	_, err = tx.Exec(ctx, `
+INSERT INTO inventory_movements (
+  id, org_id, branch_id, sku_id, warehouse_id, movement_type, quantity, status,
+  posted_by, idempotency_key, created_at, reversal_of
+) VALUES ($1,$2,$3,$4,$5,'REVERSAL',$6,'POSTED',$7,$8,$9,$10::uuid)`,
+		compID, orgID, branchUUID, skuUUID, warehouseUUID, compDelta, voidedBy, req.IdempotencyKey, now, movementID)
+	if err != nil {
+		return domain.VoidResult{}, err
+	}
+
+	orig, err := scanMovementByID(ctx, tx, movementID)
+	if err != nil {
+		return domain.VoidResult{}, err
+	}
+	comp, err := scanMovementByID(ctx, tx, compID.String())
+	if err != nil {
+		return domain.VoidResult{}, err
+	}
+
+	_, _ = tx.Exec(ctx, `
+INSERT INTO outbox (event_type, payload) VALUES ('InventoryMovedVoided', jsonb_build_object(
+  'movement_id', $1::text,
+  'compensation_id', $2::text,
+  'org_id', $3::text,
+  'branch_id', $4::text,
+  'warehouse_id', $5::text,
+  'sku_id', $6::text,
+  'quantity', $7::float8,
+  'reason', $8::text,
+  'voided_by', $9::text
+))`, orig.ID, comp.ID, orgID, orig.BranchID, orig.WarehouseID, orig.SKUID, compDelta, req.Reason, req.VoidedBy)
+
+	if err := tx.Commit(ctx); err != nil {
+		return domain.VoidResult{}, err
+	}
+	return domain.VoidResult{Original: orig, Compensation: comp}, nil
+}
+
+func scanMovementByID(ctx context.Context, tx pgx.Tx, movementID string) (domain.Movement, error) {
+	var m domain.Movement
+	var voidedAt *time.Time
+	err := tx.QueryRow(ctx, `
+SELECT m.id::text, m.org_id::text, b.code, w.code, ps.sku,
+       m.movement_type, m.quantity::float8, m.status,
+       COALESCE(u.idp_sub, COALESCE(m.posted_by::text, '')),
+       m.idempotency_key, m.created_at,
+       COALESCE(m.reversal_of::text, ''),
+       COALESCE(m.void_reason, ''),
+       COALESCE(vu.idp_sub, COALESCE(m.voided_by::text, '')),
+       m.voided_at
+FROM inventory_movements m
+JOIN branches b ON b.id = m.branch_id
+JOIN warehouses w ON w.id = m.warehouse_id
+JOIN product_skus ps ON ps.id = m.sku_id
+LEFT JOIN users u ON u.id = m.posted_by
+LEFT JOIN users vu ON vu.id = m.voided_by
+WHERE m.id = $1::uuid`, movementID).Scan(
+		&m.ID, &m.OrgID, &m.BranchID, &m.WarehouseID, &m.SKUID,
+		&m.MovementType, &m.Quantity, &m.Status, &m.PostedBy,
+		&m.IdempotencyKey, &m.CreatedAt, &m.ReversalOf, &m.VoidReason, &m.VoidedBy, &voidedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Movement{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.Movement{}, err
+	}
+	m.VoidedAt = voidedAt
+	return m, nil
+}
+
 func signedDelta(movementType string, qty float64) (float64, error) {
 	if qty == 0 {
 		return 0, errors.New("quantity required")

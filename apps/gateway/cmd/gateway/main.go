@@ -81,6 +81,10 @@ func main() {
 			claims = auth.ApproverClaims()
 		case "dual":
 			claims = auth.DualClaims()
+		case "wh_manager":
+			claims = auth.WarehouseManagerClaims()
+		case "regional":
+			claims = auth.RegionalManagerClaims()
 		}
 		// Issue a lean token; enrichment from DB happens on each authenticated request.
 		lean := claims

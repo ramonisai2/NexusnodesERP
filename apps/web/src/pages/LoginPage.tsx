@@ -4,6 +4,8 @@ import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLocaleStore } from "../i18n/locale";
 import { loginWithDevToken, useAuthStore } from "../auth/store";
 
+type Persona = "analyst" | "approver" | "wh_manager" | "regional";
+
 export function LoginPage() {
   const token = useAuthStore((s) => s.token);
   const t = useLocaleStore((s) => s.t);
@@ -13,7 +15,7 @@ export function LoginPage() {
 
   if (token) return <Navigate to="/" replace />;
 
-  async function onDevLogin(persona: "analyst" | "approver") {
+  async function onDevLogin(persona: Persona) {
     setLoading(true);
     setError(null);
     try {
@@ -52,6 +54,24 @@ export function LoginPage() {
             {t("loginApprover")}
           </button>
           <p className="hint">{t("loginApproverHint")}</p>
+          <button
+            type="button"
+            className="btn secondary"
+            disabled={loading}
+            onClick={() => void onDevLogin("wh_manager")}
+          >
+            {t("loginWhManager")}
+          </button>
+          <p className="hint">{t("loginWhManagerHint")}</p>
+          <button
+            type="button"
+            className="btn secondary"
+            disabled={loading}
+            onClick={() => void onDevLogin("regional")}
+          >
+            {t("loginRegional")}
+          </button>
+          <p className="hint">{t("loginRegionalHint")}</p>
         </div>
         <p className="muted secure-note">{t("loginSecureNote")}</p>
         {error ? <p className="error">{error}</p> : null}

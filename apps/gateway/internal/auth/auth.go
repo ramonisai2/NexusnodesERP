@@ -365,6 +365,51 @@ func DualClaims() Claims {
 	}
 }
 
+// WarehouseManagerClaims — area boss for Almacén Norte; can void in wh_norte only.
+func WarehouseManagerClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_wh_manager",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte"},
+		Roles:     []string{"warehouse_manager"},
+		Permissions: []string{
+			"inventory.balance.read",
+			"inventory.movement.read",
+			"inventory.movement.create",
+			"inventory.movement.void",
+		},
+		Attrs: map[string]any{
+			"max_adjustment":      50000.0,
+			"managed_warehouses":  []string{"wh_norte"},
+		},
+		AMR: []string{"pwd", "otp"},
+		SID: "sess_dev_wh_manager",
+	}
+}
+
+// RegionalManagerClaims — superior of area managers in Región Norte.
+func RegionalManagerClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_regional",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte", "br_sur"},
+		Roles:     []string{"regional_manager"},
+		Permissions: []string{
+			"inventory.balance.read",
+			"inventory.movement.read",
+			"inventory.movement.create",
+			"inventory.movement.void",
+			"payroll.run.read",
+		},
+		Attrs: map[string]any{
+			"max_adjustment":     50000.0,
+			"managed_warehouses": []string{"wh_norte"},
+		},
+		AMR: []string{"pwd", "otp"},
+		SID: "sess_dev_regional",
+	}
+}
+
 func FromContext(ctx context.Context) (Claims, bool) {
 	c, ok := ctx.Value(ClaimsContextKey).(Claims)
 	return c, ok

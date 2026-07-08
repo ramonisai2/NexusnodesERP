@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -79,6 +80,46 @@ func main() {
 		writeJSON(w, http.StatusOK, balances)
 	})
 
+	r.Get("/movements", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.Header.Get("X-Branch-Id")
+		if q := req.URL.Query().Get("branch_id"); q != "" {
+			branchID = q
+		}
+		warehouseID := req.URL.Query().Get("warehouse_id")
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject: subject,
+			Action:  "inventory.movement.read",
+			Resource: map[string]any{
+				"branch_id":    branchID,
+				"warehouse_id": warehouseID,
+				"org_id":       subject.OrgID,
+			},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.movement.read")
+			return
+		}
+
+		movements, err := inventoryStore.ListMovements(req.Context(), domain.MovementFilter{
+			OrgRef:      subject.OrgID,
+			BranchCode:  branchID,
+			WarehouseID: warehouseID,
+			Limit:       limit,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"list_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, movements)
+	})
+
 	r.Post("/movements", func(w http.ResponseWriter, req *http.Request) {
 		subject := authz.FromGatewayHeaders(req)
 		var body domain.MovementRequest
@@ -106,9 +147,10 @@ func main() {
 			Subject: subject,
 			Action:  "inventory.movement.create",
 			Resource: map[string]any{
-				"branch_id": body.BranchID,
-				"org_id":    body.OrgID,
-				"quantity":  body.Quantity,
+				"branch_id":    body.BranchID,
+				"warehouse_id": body.WarehouseID,
+				"org_id":       body.OrgID,
+				"quantity":     body.Quantity,
 			},
 		})
 		if err != nil {
@@ -134,6 +176,88 @@ func main() {
 			return
 		}
 		writeJSON(w, http.StatusCreated, mov)
+	})
+
+	r.Post("/movements/{id}/void", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		movementID := chi.URLParam(req, "id")
+		if movementID == "" {
+			http.Error(w, `{"error":"movement_id_required"}`, http.StatusBadRequest)
+			return
+		}
+
+		var body domain.VoidRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		idem := req.Header.Get("Idempotency-Key")
+		if idem == "" {
+			idem = body.IdempotencyKey
+		}
+		if idem == "" {
+			http.Error(w, `{"error":"idempotency_key_required"}`, http.StatusBadRequest)
+			return
+		}
+		body.IdempotencyKey = idem
+		if body.VoidedBy == "" {
+			body.VoidedBy = subject.Sub
+		}
+		if body.OrgID == "" {
+			body.OrgID = subject.OrgID
+		}
+
+		mov, err := inventoryStore.GetMovement(req.Context(), subject.OrgID, movementID)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
+			return
+		}
+
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject: subject,
+			Action:  "inventory.movement.void",
+			Resource: map[string]any{
+				"branch_id":    mov.BranchID,
+				"warehouse_id": mov.WarehouseID,
+				"org_id":       subject.OrgID,
+				"movement_id":  mov.ID,
+			},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.movement.void")
+			return
+		}
+
+		result, err := inventoryStore.VoidMovement(req.Context(), movementID, body)
+		if errors.Is(err, domain.ErrAlreadyVoided) {
+			http.Error(w, `{"error":"already_voided"}`, http.StatusConflict)
+			return
+		}
+		if errors.Is(err, domain.ErrInsufficientStock) {
+			http.Error(w, `{"error":"insufficient_stock"}`, http.StatusUnprocessableEntity)
+			return
+		}
+		if errors.Is(err, domain.ErrConflict) {
+			http.Error(w, `{"error":"version_conflict"}`, http.StatusConflict)
+			return
+		}
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"void_failed","detail":"`+err.Error()+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
 	})
 
 	log.Printf("inventory listening on %s", addr)

@@ -207,7 +207,48 @@ func localAllow(in Input) bool {
 			}
 		}
 	}
+	if in.Action == "inventory.movement.void" {
+		if !warehouseManaged(in) {
+			return false
+		}
+	}
 	return in.Subject.MFALevel() >= 1
+}
+
+func warehouseManaged(in Input) bool {
+	for _, r := range in.Subject.Roles {
+		if r == "platform_admin" {
+			return true
+		}
+	}
+	wh, _ := in.Resource["warehouse_id"].(string)
+	if wh == "" {
+		return false
+	}
+	managed := asStringSlice(in.Subject.Attrs["managed_warehouses"])
+	for _, m := range managed {
+		if m == wh || m == "*" {
+			return true
+		}
+	}
+	return false
+}
+
+func asStringSlice(v any) []string {
+	switch t := v.(type) {
+	case []string:
+		return t
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, item := range t {
+			if s, ok := item.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func asFloat(v any) (float64, bool) {
