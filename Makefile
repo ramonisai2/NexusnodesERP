@@ -1,4 +1,4 @@
-.PHONY: deps test-go test-go-pg run-gateway run-inventory run-payroll run-relay run-notification run-web tidy migrate
+.PHONY: deps test-go test-go-pg run-gateway run-inventory run-payroll run-reporting run-relay run-notification run-web tidy migrate
 
 DATABASE_URL ?= postgres://nexus:nexus@127.0.0.1:5432/nexus_erp?sslmode=disable
 OPA_URL ?= http://127.0.0.1:8181
@@ -13,6 +13,7 @@ deps:
 	cd apps/gateway && go mod tidy
 	cd apps/inventory && go mod tidy
 	cd apps/payroll && go mod tidy
+	cd apps/reporting-bff && go mod tidy
 	cd apps/outbox-relay && go mod tidy
 	cd apps/notification && go mod tidy
 	pnpm install
@@ -30,6 +31,7 @@ test-go:
 	cd apps/gateway && go test ./...
 	cd apps/inventory && go test ./...
 	cd apps/payroll && go test ./...
+	cd apps/reporting-bff && go test ./...
 	cd apps/outbox-relay && go test ./...
 	cd apps/notification && go test ./...
 
@@ -37,13 +39,16 @@ test-go-pg:
 	DATABASE_URL='$(DATABASE_URL)' go test ./apps/inventory/internal/store ./apps/payroll/internal/store ./apps/gateway/internal/enrich ./packages/go/db -count=1
 
 run-gateway:
-	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' go run ./apps/gateway/cmd/gateway
+	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' REPORTING_URL=http://127.0.0.1:8084 go run ./apps/gateway/cmd/gateway
 
 run-inventory:
 	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' go run ./apps/inventory/cmd/inventory
 
 run-payroll:
 	DEV_AUTH_BYPASS=true DATABASE_URL='$(DATABASE_URL)' OPA_URL='$(OPA_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' go run ./apps/payroll/cmd/payroll
+
+run-reporting:
+	DEV_AUTH_BYPASS=true OPA_URL='$(OPA_URL)' OTEL_EXPORTER='$(OTEL_EXPORTER)' INVENTORY_URL=http://127.0.0.1:8082 PAYROLL_URL=http://127.0.0.1:8083 go run ./apps/reporting-bff/cmd/reporting
 
 run-relay:
 	DATABASE_URL='$(DATABASE_URL)' NATS_URL='$(NATS_URL)' OUTBOX_POLL_INTERVAL=1s OTEL_EXPORTER='$(OTEL_EXPORTER)' go run ./apps/outbox-relay/cmd/relay

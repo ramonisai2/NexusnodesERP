@@ -28,6 +28,7 @@
 | [10 — Jerarquía de jefes y reversión](./10-manager-hierarchy-revert.md) | Jefe de área / regional y void de movimientos |
 | [11 — Departamentos y multi-colocación](./11-store-departments.md) | Electrónica/Juguetería; artículo en varios deptos |
 | [12 — Etiquetadora y precios por tienda](./12-store-labels-pricing.md) | Descripción pública, material, barcode, precios |
+| [13 — Reporting BFF GraphQL](./13-reporting-bff-graphql.md) | Agregaciones de solo lectura para la SPA |
 | [Diagrama de arquitectura](../diagrams/architecture-overview.mmd) | Mermaid — vista de componentes |
 | [Diagrama de flujo auth](../diagrams/auth-flow.mmd) | Mermaid — OAuth2/MFA/JWT |
 | [Diagrama de flujo inventario](../diagrams/inventory-flow.mmd) | Mermaid — movimiento de stock |

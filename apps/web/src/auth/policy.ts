@@ -47,14 +47,25 @@ export const NAV_NODES: NavNode[] = [
       minAmrCount: 1,
     },
   },
+  {
+    id: "nav.reports",
+    label: "Reportes",
+    path: "/reports",
+    require: {
+      permissions: ["inventory.balance.read", "payroll.run.read", "reporting.read"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
 ];
 
 export function canAccess(claims: SessionClaims | null, node: NavNode): boolean {
   if (!claims) return false;
   if (claims.roles.includes("platform_admin")) return true;
   const { permissions, anyBranch, minAmrCount } = node.require;
-  if (permissions.length > 0 && !permissions.some((p) => claims.permissions.includes(p))) {
-    return false;
+  if (permissions.length > 0) {
+    const ok = permissions.some((p) => claims.permissions.includes(p));
+    if (!ok) return false;
   }
   if (anyBranch && claims.branch_ids.length === 0) return false;
   if ((minAmrCount ?? 0) > (claims.amr?.length ?? 0)) return false;

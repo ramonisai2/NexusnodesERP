@@ -46,6 +46,7 @@ func main() {
 
 	inventoryURL := mustURL(envOr("INVENTORY_URL", "http://localhost:8082"))
 	payrollURL := mustURL(envOr("PAYROLL_URL", "http://localhost:8083"))
+	reportingURL := mustURL(envOr("REPORTING_URL", "http://localhost:8084"))
 
 	r := chi.NewRouter()
 	r.Use(otelx.Middleware("gateway"))
@@ -142,6 +143,8 @@ func main() {
 		pr.Handle("/inventory", reverseProxy(inventoryURL))
 		pr.Handle("/payroll/*", reverseProxy(payrollURL))
 		pr.Handle("/payroll", reverseProxy(payrollURL))
+		pr.Handle("/graphql", reverseProxy(reportingURL))
+		pr.Handle("/graphql/*", reverseProxy(reportingURL))
 	})
 
 	_ = opa
@@ -197,6 +200,9 @@ func reverseProxy(target *url.URL) http.Handler {
 			if req.URL.Path == "" {
 				req.URL.Path = "/"
 			}
+		case path == "/graphql" || strings.HasPrefix(path, "/graphql/"):
+			// keep /graphql path on reporting-bff
+			req.URL.Path = path
 		}
 		if claims, ok := auth.FromContext(req.Context()); ok {
 			req.Header.Set("X-User-Id", claims.Sub)

@@ -9,6 +9,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PayrollPage } from "./pages/PayrollPage";
+import { ReportsPage } from "./pages/ReportsPage";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ function Bootstrap() {
           <Route index element={<DashboardPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="payroll" element={<PayrollPage />} />
+          <Route path="reports" element={<ReportsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

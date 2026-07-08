@@ -36,6 +36,12 @@ allow if {
 }
 
 allow if {
+  input.action == "reporting.read"
+  reporting_read_allowed
+  branch_allowed
+}
+
+allow if {
   input.action == "inventory.movement.read"
   "inventory.movement.read" in input.subject.permissions
   branch_allowed
@@ -146,4 +152,16 @@ label_read_allowed if {
 
 label_read_allowed if {
   "inventory.balance.read" in input.subject.permissions
+}
+
+reporting_read_allowed if {
+  "reporting.read" in input.subject.permissions
+}
+
+reporting_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+reporting_read_allowed if {
+  "payroll.run.read" in input.subject.permissions
 }

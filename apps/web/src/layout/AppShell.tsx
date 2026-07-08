@@ -26,6 +26,16 @@ export function AppShell() {
       path: "/payroll",
       require: { permissions: ["payroll.run.read"], anyBranch: true, minAmrCount: 1 },
     },
+    {
+      id: "nav.reports",
+      label: t("navReports"),
+      path: "/reports",
+      require: {
+        permissions: ["inventory.balance.read", "payroll.run.read", "reporting.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
   ];
 
   const primaryRole = claims?.roles?.[0];
