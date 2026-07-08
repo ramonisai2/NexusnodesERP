@@ -30,6 +30,12 @@ allow if {
 }
 
 allow if {
+  input.action == "inventory.label.read"
+  label_read_allowed
+  branch_allowed
+}
+
+allow if {
   input.action == "inventory.movement.read"
   "inventory.movement.read" in input.subject.permissions
   branch_allowed
@@ -131,5 +137,13 @@ catalog_read_allowed if {
 }
 
 catalog_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+label_read_allowed if {
+  "inventory.label.read" in input.subject.permissions
+}
+
+label_read_allowed if {
   "inventory.balance.read" in input.subject.permissions
 }

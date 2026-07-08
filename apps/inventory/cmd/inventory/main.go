@@ -166,6 +166,47 @@ func main() {
 		writeJSON(w, http.StatusOK, items)
 	})
 
+	r.Get("/labels", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.Header.Get("X-Branch-Id")
+		if q := req.URL.Query().Get("branch_id"); q != "" {
+			branchID = q
+		}
+		sku := req.URL.Query().Get("sku")
+		dept := req.URL.Query().Get("department")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.label.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			allowBal, err2 := opa.Allow(req.Context(), authz.Input{
+				Subject:  subject,
+				Action:   "inventory.balance.read",
+				Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+			})
+			if err2 != nil || !allowBal {
+				authz.WriteForbidden(w, "inventory.label.read")
+				return
+			}
+		}
+		labels, err := inventoryStore.ListLabels(req.Context(), domain.LabelFilter{
+			OrgRef:         subject.OrgID,
+			BranchCode:     branchID,
+			SKUCode:        sku,
+			DepartmentCode: dept,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"list_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, labels)
+	})
+
 	r.Get("/movements", func(w http.ResponseWriter, req *http.Request) {
 		subject := authz.FromGatewayHeaders(req)
 		branchID := req.Header.Get("X-Branch-Id")

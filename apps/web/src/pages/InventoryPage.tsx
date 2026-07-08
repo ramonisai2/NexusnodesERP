@@ -49,6 +49,28 @@ type Department = {
   categories: DepartmentCategory[];
 };
 
+type StoreLabel = {
+  id: string;
+  branch_id: string;
+  store_display_name: string;
+  sku: string;
+  material_code: string;
+  barcode: string;
+  size_code?: string;
+  color_code?: string;
+  brand?: string;
+  public_description: string;
+  department_label?: string;
+  currency: string;
+  common_price?: number;
+  special_price?: number;
+  final_price?: number;
+  price_mode: "COMMON" | "SPECIAL" | "FINAL" | string;
+  effective_price?: number;
+  price_label?: string;
+  on_hand?: number;
+};
+
 const inventoryNode = NAV_NODES.find((n) => n.id === "nav.inventory")!;
 
 export function InventoryPage() {
@@ -119,6 +141,18 @@ function InventoryPanel() {
     },
   });
 
+  const labels = useQuery({
+    queryKey: ["labels", activeBranchId, department],
+    queryFn: async () => {
+      const qs = new URLSearchParams();
+      if (department) qs.set("department", department);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      const res = await apiFetch(`/inventory/labels${suffix}`);
+      if (!res.ok) throw new Error("labels_failed");
+      return (await res.json()) as StoreLabel[];
+    },
+  });
+
   const move = useMutation({
     mutationFn: async (row: Balance) => {
       const res = await apiFetch("/inventory/movements", {
@@ -183,11 +217,30 @@ function InventoryPanel() {
     setCategory("");
   }
 
+  function formatMoney(amount: number | undefined, currency: string): string {
+    if (amount == null) return "—";
+    try {
+      return new Intl.NumberFormat(locale === "en" ? "en-US" : "es-MX", {
+        style: "currency",
+        currency: currency || "MXN",
+      }).format(amount);
+    } catch {
+      return `${currency} ${amount.toFixed(2)}`;
+    }
+  }
+
+  function priceModeLabel(mode: string): string {
+    if (mode === "SPECIAL") return t("priceModeSpecial");
+    if (mode === "FINAL") return t("priceModeFinal");
+    return t("priceModeCommon");
+  }
+
   return (
     <section className="panel">
       <h1>{t("invTitle")}</h1>
       <p className="muted">{t("invSubtitle")}</p>
       <p className="muted tip">{t("invDeptTip")}</p>
+      <p className="muted tip">{t("invLabelTip")}</p>
       {canVoid ? <p className="muted tip">{t("invManagerTip")}</p> : null}
 
       <div className="filter-bar">
@@ -270,6 +323,71 @@ function InventoryPanel() {
       ) : null}
       {move.isError ? (
         <p className="error">{friendlyApiError((move.error as Error).message, locale)}</p>
+      ) : null}
+
+      <h2 style={{ marginTop: "2rem" }}>{t("invLabelsTitle")}</h2>
+      <p className="muted">{t("invLabelsSubtitle")}</p>
+      {labels.isLoading ? <p className="muted">{t("invLabelsLoading")}</p> : null}
+      {labels.isError ? <p className="error">{t("invLabelsError")}</p> : null}
+      {labels.data && labels.data.length === 0 ? <p className="muted">{t("invLabelsEmpty")}</p> : null}
+      {labels.data && labels.data.length > 0 ? (
+        <div className="label-grid">
+          {labels.data.map((l) => (
+            <article key={l.id} className="label-card" aria-label={l.public_description}>
+              <header className="label-card-head">
+                <strong>{l.store_display_name || "—"}</strong>
+                <span className={`price-mode mode-${l.price_mode.toLowerCase()}`}>
+                  {priceModeLabel(l.price_mode)}
+                </span>
+              </header>
+              <p className="label-dept">{l.department_label || "—"}</p>
+              <h3 className="label-desc">{l.public_description}</h3>
+              <dl className="label-meta">
+                <div>
+                  <dt>{t("invColMaterial")}</dt>
+                  <dd>{l.material_code}</dd>
+                </div>
+                <div>
+                  <dt>{t("invColBarcode")}</dt>
+                  <dd>{l.barcode || "—"}</dd>
+                </div>
+                <div>
+                  <dt>{t("invColSize")}</dt>
+                  <dd>{l.size_code ? `T: ${l.size_code}` : "—"}</dd>
+                </div>
+                <div>
+                  <dt>{t("invColColor")}</dt>
+                  <dd>{l.color_code ? `C: ${l.color_code}` : "—"}</dd>
+                </div>
+                <div>
+                  <dt>{t("invColBrand")}</dt>
+                  <dd>{l.brand || "—"}</dd>
+                </div>
+              </dl>
+              <div className="label-prices">
+                <div>
+                  <span className="muted">{t("priceCommon")}</span>
+                  <strong>{formatMoney(l.common_price, l.currency)}</strong>
+                </div>
+                <div>
+                  <span className="muted">{t("priceSpecial")}</span>
+                  <strong>{formatMoney(l.special_price, l.currency)}</strong>
+                </div>
+                <div>
+                  <span className="muted">{t("priceFinal")}</span>
+                  <strong>{formatMoney(l.final_price, l.currency)}</strong>
+                </div>
+              </div>
+              <p className="label-effective">
+                {t("priceEffective")}:{" "}
+                <strong>{formatMoney(l.effective_price, l.currency)}</strong>
+                {l.price_mode === "FINAL" ? (
+                  <span className="muted"> — {t("priceFinalHint")}</span>
+                ) : null}
+              </p>
+            </article>
+          ))}
+        </div>
       ) : null}
 
       {canReadMovements ? (

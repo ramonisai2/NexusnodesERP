@@ -72,6 +72,59 @@ type CatalogFilter struct {
 	CategoryCode   string
 }
 
+// PriceMode selects which store price the label printer should show.
+const (
+	PriceModeCommon  = "COMMON"
+	PriceModeSpecial = "SPECIAL"
+	PriceModeFinal   = "FINAL" // clearance until stock out
+)
+
+type LabelFilter struct {
+	OrgRef         string
+	BranchCode     string
+	SKUCode        string
+	DepartmentCode string
+}
+
+// StoreLabel is the payload a label printer needs per store + SKU.
+type StoreLabel struct {
+	ID                string         `json:"id"`
+	BranchID          string         `json:"branch_id"`
+	StoreDisplayName  string         `json:"store_display_name"`
+	SKU               string         `json:"sku"`
+	MaterialCode      string         `json:"material_code"`
+	Barcode           string         `json:"barcode"`
+	SizeCode          string         `json:"size_code,omitempty"`
+	ColorCode         string         `json:"color_code,omitempty"`
+	Brand             string         `json:"brand,omitempty"`
+	PublicDescription string         `json:"public_description"`
+	DepartmentLabel   string         `json:"department_label,omitempty"`
+	ExtraDescriptions map[string]any `json:"extra_descriptions,omitempty"`
+	Currency          string         `json:"currency"`
+	CommonPrice       *float64       `json:"common_price,omitempty"`
+	SpecialPrice      *float64       `json:"special_price,omitempty"`
+	FinalPrice        *float64       `json:"final_price,omitempty"`
+	PriceMode         string         `json:"price_mode"`
+	EffectivePrice    *float64       `json:"effective_price,omitempty"`
+	PriceLabel        string         `json:"price_label,omitempty"` // human: Común / Especial / Final
+	OnHand            *float64       `json:"on_hand,omitempty"`
+}
+
+// EffectivePrice returns the price the printer should print for the active mode.
+func (l StoreLabel) ResolveEffectivePrice() *float64 {
+	switch l.PriceMode {
+	case PriceModeSpecial:
+		if l.SpecialPrice != nil {
+			return l.SpecialPrice
+		}
+	case PriceModeFinal:
+		if l.FinalPrice != nil {
+			return l.FinalPrice
+		}
+	}
+	return l.CommonPrice
+}
+
 type MovementRequest struct {
 	OrgID           string  `json:"org_id"`
 	BranchID        string  `json:"branch_id"`
@@ -129,4 +182,5 @@ type Store interface {
 	VoidMovement(ctx context.Context, movementID string, req VoidRequest) (VoidResult, error)
 	ListDepartments(ctx context.Context, orgRef, branchCode string) ([]Department, error)
 	ListCatalog(ctx context.Context, filter CatalogFilter) ([]CatalogItem, error)
+	ListLabels(ctx context.Context, filter LabelFilter) ([]StoreLabel, error)
 }

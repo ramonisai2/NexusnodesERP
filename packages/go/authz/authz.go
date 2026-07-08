@@ -181,6 +181,10 @@ func localAllow(in Input) bool {
 		if !in.Subject.HasPermission("inventory.catalog.read") && !in.Subject.HasPermission("inventory.balance.read") {
 			return false
 		}
+	} else if in.Action == "inventory.label.read" {
+		if !in.Subject.HasPermission("inventory.label.read") && !in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
 	} else if !in.Subject.HasPermission(in.Action) {
 		return false
 	}

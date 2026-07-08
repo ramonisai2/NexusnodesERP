@@ -30,6 +30,7 @@ type Memory struct {
 	departments   []domain.Department
 	placements    []memPlacement
 	catalog       []domain.CatalogItem
+	labels        []domain.StoreLabel
 }
 
 func NewMemory() *Memory {
@@ -39,6 +40,8 @@ func NewMemory() *Memory {
 		movementsByID: map[string]domain.Movement{},
 	}
 }
+
+func f64(v float64) *float64 { return &v }
 
 func (s *Memory) SeedDemo() {
 	items := []domain.StockBalance{
@@ -62,6 +65,12 @@ func (s *Memory) SeedDemo() {
 			ProductName: "Figura coleccionable ed. limitada", OnHand: 15, Version: 1,
 			Departments: []string{"electronica", "jugueteria"}, Categories: []string{"videojuegos", "coleccionables"},
 			Placements: []string{"Electrónica / Videojuegos", "Juguetería / Coleccionables"},
+		},
+		{
+			ID: "bal_7", WarehouseID: "wh_norte", BranchID: "br_norte", SKUID: "CAAL686101YL1", SKU: "CAAL686101YL1",
+			ProductName: "Camiseta manga corta de hombre Club América", OnHand: 48, Version: 1,
+			Departments: []string{"ropa_deportiva"}, Categories: []string{"playeras"},
+			Placements: []string{"Ropa Deportiva / Playeras"},
 		},
 	}
 	for i := range items {
@@ -88,6 +97,12 @@ func (s *Memory) SeedDemo() {
 				{Code: "juegos_mesa", Name: "Juegos de mesa", SortOrder: 20},
 			},
 		},
+		{
+			Code: "ropa_deportiva", Name: "Ropa Deportiva", BranchID: "br_norte", SortOrder: 30,
+			Categories: []domain.DepartmentCategory{
+				{Code: "playeras", Name: "Playeras", SortOrder: 10},
+			},
+		},
 	}
 
 	s.placements = []memPlacement{
@@ -95,6 +110,7 @@ func (s *Memory) SeedDemo() {
 		{productSKU: "PHONE-X", branchID: "br_norte", deptCode: "electronica", deptName: "Electrónica", catCode: "telefonia", catName: "Telefonía", isPrimary: true},
 		{productSKU: "FIG-COL-01", branchID: "br_norte", deptCode: "electronica", deptName: "Electrónica", catCode: "videojuegos", catName: "Videojuegos", isPrimary: true},
 		{productSKU: "FIG-COL-01", branchID: "br_norte", deptCode: "jugueteria", deptName: "Juguetería", catCode: "coleccionables", catName: "Coleccionables", isPrimary: false},
+		{productSKU: "CAAL686101YL1", branchID: "br_norte", deptCode: "ropa_deportiva", deptName: "Ropa Deportiva", catCode: "playeras", catName: "Playeras", isPrimary: true},
 	}
 
 	s.catalog = []domain.CatalogItem{
@@ -117,6 +133,52 @@ func (s *Memory) SeedDemo() {
 				{DepartmentCode: "jugueteria", DepartmentName: "Juguetería", CategoryCode: "coleccionables", CategoryName: "Coleccionables", IsPrimary: false},
 			},
 		},
+		{
+			ProductID: "p_jersey", SKUBase: "CAAL686", Name: "Camiseta manga corta de hombre Club América", SKUs: []string{"CAAL686101YL1"},
+			Placements: []domain.CatalogPlacement{
+				{DepartmentCode: "ropa_deportiva", DepartmentName: "Ropa Deportiva", CategoryCode: "playeras", CategoryName: "Playeras", IsPrimary: true},
+			},
+		},
+	}
+
+	s.labels = []domain.StoreLabel{
+		{
+			ID: "lbl_jersey_norte", BranchID: "br_norte", StoreDisplayName: "LA MARINA",
+			SKU: "CAAL686101YL1", MaterialCode: "CAAL686101YL1", Barcode: "7450130556398",
+			SizeCode: "M", ColorCode: "YL1", Brand: "FEXPRO",
+			PublicDescription: "CAMISETA MANGA CORTA DE HOMBRE", DepartmentLabel: "ROPA DEPORTIVA",
+			ExtraDescriptions: map[string]any{"license": "Producto oficial Club América"},
+			Currency: "MXN", CommonPrice: f64(899), SpecialPrice: f64(749), FinalPrice: f64(499),
+			PriceMode: domain.PriceModeCommon, OnHand: f64(48),
+		},
+		{
+			ID: "lbl_jersey_sur", BranchID: "br_sur", StoreDisplayName: "LA MARINA SUR",
+			SKU: "CAAL686101YL1", MaterialCode: "CAAL686101YL1", Barcode: "7450130556398",
+			SizeCode: "M", ColorCode: "YL1", Brand: "FEXPRO",
+			PublicDescription: "CAMISETA MANGA CORTA DE HOMBRE", DepartmentLabel: "ROPA DEPORTIVA",
+			Currency: "MXN", CommonPrice: f64(879), SpecialPrice: f64(699), FinalPrice: f64(449),
+			PriceMode: domain.PriceModeSpecial, OnHand: f64(20),
+		},
+		{
+			ID: "lbl_fig_norte", BranchID: "br_norte", StoreDisplayName: "NEXUS NORTE",
+			SKU: "FIG-COL-01", MaterialCode: "FIG-COL-01", Barcode: "7500000000001",
+			SizeCode: "U", ColorCode: "STD", Brand: "NEXUS",
+			PublicDescription: "FIGURA COLECCIONABLE EDICIÓN LIMITADA", DepartmentLabel: "JUGUETERÍA",
+			Currency: "MXN", CommonPrice: f64(599), SpecialPrice: f64(499), FinalPrice: f64(299),
+			PriceMode: domain.PriceModeFinal, OnHand: f64(15),
+		},
+		{
+			ID: "lbl_laptop_norte", BranchID: "br_norte", StoreDisplayName: "NEXUS NORTE",
+			SKU: "LAPTOP-14", MaterialCode: "LAPTOP-14", Barcode: "7500000000014",
+			SizeCode: "U", ColorCode: "STD", Brand: "NEXUS",
+			PublicDescription: "LAPTOP 14 PULGADAS", DepartmentLabel: "ELECTRÓNICA",
+			Currency: "MXN", CommonPrice: f64(12999), SpecialPrice: f64(11999),
+			PriceMode: domain.PriceModeCommon, OnHand: f64(25),
+		},
+	}
+	for i := range s.labels {
+		s.labels[i].EffectivePrice = s.labels[i].ResolveEffectivePrice()
+		s.labels[i].PriceLabel = priceLabel(s.labels[i].PriceMode)
 	}
 }
 
@@ -196,6 +258,54 @@ func (s *Memory) ListCatalog(_ context.Context, filter domain.CatalogFilter) ([]
 		}
 		cp := item
 		cp.Placements = placements
+		out = append(out, cp)
+	}
+	return out, nil
+}
+
+func priceLabel(mode string) string {
+	switch mode {
+	case domain.PriceModeSpecial:
+		return "Especial"
+	case domain.PriceModeFinal:
+		return "Final"
+	default:
+		return "Común"
+	}
+}
+
+func (s *Memory) ListLabels(_ context.Context, filter domain.LabelFilter) ([]domain.StoreLabel, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]domain.StoreLabel, 0, len(s.labels))
+	for _, l := range s.labels {
+		if filter.BranchCode != "" && l.BranchID != filter.BranchCode {
+			continue
+		}
+		if filter.SKUCode != "" && l.SKU != filter.SKUCode && l.MaterialCode != filter.SKUCode && l.Barcode != filter.SKUCode {
+			continue
+		}
+		if filter.DepartmentCode != "" {
+			match := false
+			for _, p := range s.placements {
+				if p.productSKU != l.SKU {
+					continue
+				}
+				if filter.BranchCode != "" && p.branchID != filter.BranchCode {
+					continue
+				}
+				if p.deptCode == filter.DepartmentCode {
+					match = true
+					break
+				}
+			}
+			if !match {
+				continue
+			}
+		}
+		cp := l
+		cp.EffectivePrice = cp.ResolveEffectivePrice()
+		cp.PriceLabel = priceLabel(cp.PriceMode)
 		out = append(out, cp)
 	}
 	return out, nil

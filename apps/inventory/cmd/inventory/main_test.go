@@ -146,3 +146,41 @@ func TestDepartmentsAndMultiPlacementFilter(t *testing.T) {
 		t.Fatalf("expected jugueteria placement, got %#v", catalog[0].Placements)
 	}
 }
+
+func TestStoreLabelsPriceModes(t *testing.T) {
+	s := store.NewMemory()
+	s.SeedDemo()
+
+	norte, err := s.ListLabels(context.Background(), domain.LabelFilter{
+		BranchCode: "br_norte", SKUCode: "CAAL686101YL1",
+	})
+	if err != nil || len(norte) != 1 {
+		t.Fatalf("norte jersey label: %v %#v", err, norte)
+	}
+	if norte[0].Barcode != "7450130556398" || norte[0].SizeCode != "M" || norte[0].ColorCode != "YL1" {
+		t.Fatalf("hangtag attrs mismatch: %#v", norte[0])
+	}
+	if norte[0].PriceMode != domain.PriceModeCommon || norte[0].EffectivePrice == nil || *norte[0].EffectivePrice != 899 {
+		t.Fatalf("common price expected 899, got mode=%s eff=%v", norte[0].PriceMode, norte[0].EffectivePrice)
+	}
+
+	sur, err := s.ListLabels(context.Background(), domain.LabelFilter{
+		BranchCode: "br_sur", SKUCode: "7450130556398",
+	})
+	if err != nil || len(sur) != 1 {
+		t.Fatalf("sur by barcode: %v %#v", err, sur)
+	}
+	if sur[0].PriceMode != domain.PriceModeSpecial || sur[0].EffectivePrice == nil || *sur[0].EffectivePrice != 699 {
+		t.Fatalf("special price expected 699, got %#v", sur[0])
+	}
+
+	finals, err := s.ListLabels(context.Background(), domain.LabelFilter{
+		BranchCode: "br_norte", SKUCode: "FIG-COL-01",
+	})
+	if err != nil || len(finals) != 1 {
+		t.Fatalf("final label: %v %#v", err, finals)
+	}
+	if finals[0].PriceMode != domain.PriceModeFinal || finals[0].EffectivePrice == nil || *finals[0].EffectivePrice != 299 {
+		t.Fatalf("final price expected 299, got %#v", finals[0])
+	}
+}

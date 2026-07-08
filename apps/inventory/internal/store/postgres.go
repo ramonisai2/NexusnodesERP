@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -280,6 +281,104 @@ WHERE 1=1`
 	out := make([]domain.CatalogItem, 0, len(order))
 	for _, id := range order {
 		out = append(out, *byID[id])
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *Postgres) ListLabels(ctx context.Context, filter domain.LabelFilter) ([]domain.StoreLabel, error) {
+	tx, _, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, filter.OrgRef)
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	q := `
+SELECT l.id::text, b.code,
+       COALESCE(l.store_display_name, ''),
+       ps.sku,
+       COALESCE(ps.material_code, ps.sku),
+       COALESCE(ps.barcode, ''),
+       COALESCE(ps.size_code, ''),
+       COALESCE(ps.color_code, ''),
+       COALESCE(NULLIF(l.brand_label, ''), ps.brand, ''),
+       l.public_description,
+       COALESCE(l.department_label, ''),
+       l.extra_descriptions,
+       l.currency,
+       l.common_price::float8,
+       l.special_price::float8,
+       l.final_price::float8,
+       l.price_mode,
+       (
+         SELECT SUM(sb.on_hand)::float8
+         FROM stock_balances sb
+         JOIN warehouses w ON w.id = sb.warehouse_id
+         WHERE sb.sku_id = ps.id AND w.branch_id = b.id
+       )
+FROM store_sku_labels l
+JOIN branches b ON b.id = l.branch_id
+JOIN product_skus ps ON ps.id = l.sku_id
+WHERE l.active = TRUE`
+	args := []any{}
+	argN := 1
+	if filter.BranchCode != "" {
+		q += fmt.Sprintf(` AND b.code = $%d`, argN)
+		args = append(args, filter.BranchCode)
+		argN++
+	}
+	if filter.SKUCode != "" {
+		q += fmt.Sprintf(` AND (ps.sku = $%d OR ps.material_code = $%d OR ps.barcode = $%d)`, argN, argN, argN)
+		args = append(args, filter.SKUCode)
+		argN++
+	}
+	if filter.DepartmentCode != "" {
+		q += fmt.Sprintf(` AND EXISTS (
+  SELECT 1 FROM product_placements pp
+  JOIN store_departments sd ON sd.id = pp.department_id
+  JOIN products p ON p.id = pp.product_id
+  WHERE p.id = ps.product_id AND pp.active AND sd.branch_id = b.id AND sd.code = $%d
+)`, argN)
+		args = append(args, filter.DepartmentCode)
+		argN++
+	}
+	q += ` ORDER BY b.code, ps.sku`
+
+	rows, err := tx.Query(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.StoreLabel
+	for rows.Next() {
+		var l domain.StoreLabel
+		var extraRaw []byte
+		var common, special, final, onHand *float64
+		if err := rows.Scan(
+			&l.ID, &l.BranchID, &l.StoreDisplayName, &l.SKU, &l.MaterialCode, &l.Barcode,
+			&l.SizeCode, &l.ColorCode, &l.Brand, &l.PublicDescription, &l.DepartmentLabel,
+			&extraRaw, &l.Currency, &common, &special, &final, &l.PriceMode, &onHand,
+		); err != nil {
+			return nil, err
+		}
+		l.CommonPrice = common
+		l.SpecialPrice = special
+		l.FinalPrice = final
+		l.OnHand = onHand
+		if len(extraRaw) > 0 {
+			_ = json.Unmarshal(extraRaw, &l.ExtraDescriptions)
+		}
+		l.EffectivePrice = l.ResolveEffectivePrice()
+		l.PriceLabel = priceLabel(l.PriceMode)
+		out = append(out, l)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
