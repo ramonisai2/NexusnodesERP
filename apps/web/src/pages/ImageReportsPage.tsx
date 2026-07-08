@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { hasPermission, NAV_NODES } from "../auth/policy";
 import { PolicyGuard } from "../auth/PolicyGuard";
@@ -20,6 +21,15 @@ type ImageReport = {
   original_byte_size?: number;
   created_at: string;
   content_url?: string;
+};
+
+type UploadSession = {
+  token: string;
+  expires_at: string;
+  max_files: number;
+  remaining: number;
+  upload_url: string;
+  title_hint?: string;
 };
 
 const imageNode = NAV_NODES.find((n) => n.id === "nav.imageReports")!;
@@ -53,6 +63,9 @@ function ImageReportsPanel() {
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [qrSession, setQrSession] = useState<UploadSession | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrHint, setQrHint] = useState("");
 
   const list = useQuery({
     queryKey: ["image-reports", branchId],
@@ -61,6 +74,7 @@ function ImageReportsPanel() {
       if (!res.ok) throw new Error("list_failed");
       return (await res.json()) as ImageReport[];
     },
+    refetchInterval: qrSession ? 4000 : false,
   });
 
   const upload = useMutation({
@@ -88,57 +102,154 @@ function ImageReportsPanel() {
     onError: () => setMessage(t("imgUploadError")),
   });
 
+  const createQr = useMutation({
+    mutationFn: async () => {
+      const res = await apiFetch("/reports/images/upload-sessions", {
+        method: "POST",
+        body: JSON.stringify({
+          branch_id: branchId,
+          title_hint: qrHint.trim() || title.trim() || undefined,
+          max_files: 8,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "session_failed");
+      return body as UploadSession;
+    },
+    onSuccess: async (sess) => {
+      // Prefer current browser origin so LAN phones hit the same SPA host.
+      const url = `${window.location.origin}/upload/${sess.token}`;
+      const dataUrl = await QRCode.toDataURL(url, {
+        margin: 1,
+        width: 280,
+        color: { dark: "#0f1c17", light: "#ffffff" },
+      });
+      setQrSession({ ...sess, upload_url: url });
+      setQrDataUrl(dataUrl);
+    },
+  });
+
+  useEffect(() => {
+    if (!qrSession) return;
+    const expires = new Date(qrSession.expires_at).getTime();
+    const ms = expires - Date.now();
+    if (ms <= 0) {
+      setQrSession(null);
+      setQrDataUrl(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setQrSession(null);
+      setQrDataUrl(null);
+    }, ms);
+    return () => window.clearTimeout(timer);
+  }, [qrSession]);
+
   return (
     <section className="panel">
       <h1>{t("imgTitle")}</h1>
       <p className="muted">{t("imgSubtitle")}</p>
 
       {canCreate ? (
-        <form
-          className="image-upload"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setMessage(null);
-            upload.mutate();
-          }}
-        >
-          <h2>{t("imgUploadTitle")}</h2>
-          <label>
-            <span className="muted">{t("imgFieldTitle")}</span>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              maxLength={120}
-              placeholder="Ej. Anaquel dañado — pasillo 3"
-            />
-          </label>
-          <label>
-            <span className="muted">{t("imgFieldNotes")}</span>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              maxLength={500}
-            />
-          </label>
-          <label className="file-picker">
-            <span className="muted">{t("imgFieldFile")}</span>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              required
-            />
-            <span className="file-name">{file ? file.name : t("imgChooseFile")}</span>
-          </label>
-          <button type="submit" className="btn" disabled={upload.isPending || !file || !title.trim()}>
-            {upload.isPending ? t("imgSubmitting") : t("imgSubmit")}
-          </button>
-          {message ? (
-            <p className={upload.isError ? "error" : "muted tip"}>{message}</p>
-          ) : null}
-        </form>
+        <>
+          <div className="qr-upload-panel">
+            <h2>{t("qrTitle")}</h2>
+            <p className="muted">{t("qrSubtitle")}</p>
+            <label>
+              <span className="muted">{t("qrHintLabel")}</span>
+              <input
+                value={qrHint}
+                onChange={(e) => setQrHint(e.target.value)}
+                placeholder={t("qrHintPh")}
+                maxLength={120}
+              />
+            </label>
+            <div className="setup-actions">
+              <button
+                type="button"
+                className="btn"
+                disabled={createQr.isPending}
+                onClick={() => createQr.mutate()}
+              >
+                {createQr.isPending ? t("qrGenerating") : t("qrGenerate")}
+              </button>
+              {qrSession ? (
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => {
+                    setQrSession(null);
+                    setQrDataUrl(null);
+                  }}
+                >
+                  {t("qrClose")}
+                </button>
+              ) : null}
+            </div>
+            {createQr.isError ? <p className="error">{t("qrError")}</p> : null}
+            {qrSession && qrDataUrl ? (
+              <div className="qr-box">
+                <img src={qrDataUrl} alt={t("qrAlt")} width={280} height={280} />
+                <div>
+                  <p className="muted tip">{t("qrScanHint")}</p>
+                  <p className="muted tip">
+                    {t("qrExpires")}: {new Date(qrSession.expires_at).toLocaleTimeString()} ·{" "}
+                    {t("qrMaxFiles")}: {qrSession.max_files}
+                  </p>
+                  <a className="linkish" href={qrSession.upload_url} target="_blank" rel="noreferrer">
+                    {t("qrOpenLink")}
+                  </a>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <form
+            className="image-upload"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setMessage(null);
+              upload.mutate();
+            }}
+          >
+            <h2>{t("imgUploadTitle")}</h2>
+            <label>
+              <span className="muted">{t("imgFieldTitle")}</span>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                maxLength={120}
+                placeholder="Ej. Anaquel dañado — pasillo 3"
+              />
+            </label>
+            <label>
+              <span className="muted">{t("imgFieldNotes")}</span>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                maxLength={500}
+              />
+            </label>
+            <label className="file-picker">
+              <span className="muted">{t("imgFieldFile")}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                required
+              />
+              <span className="file-name">{file ? file.name : t("imgChooseFile")}</span>
+            </label>
+            <button type="submit" className="btn" disabled={upload.isPending || !file || !title.trim()}>
+              {upload.isPending ? t("imgSubmitting") : t("imgSubmit")}
+            </button>
+            {message ? (
+              <p className={upload.isError ? "error" : "muted tip"}>{message}</p>
+            ) : null}
+          </form>
+        </>
       ) : null}
 
       {list.isLoading ? <p className="muted">{t("imgLoading")}</p> : null}

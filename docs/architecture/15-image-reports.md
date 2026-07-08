@@ -45,3 +45,5 @@ make run-gateway   # proxy /reports/*
 ```
 
 SPA: menú **Fotos** → `/reports/images`.
+
+Para subir desde el teléfono con QR (sin login en el celular), ver [18 — Subida móvil por QR](./18-qr-mobile-upload.md).

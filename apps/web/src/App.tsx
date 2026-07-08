@@ -10,6 +10,7 @@ import { InventoryPage } from "./pages/InventoryPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PayrollPage } from "./pages/PayrollPage";
 import { ImageReportsPage } from "./pages/ImageReportsPage";
+import { MobileUploadPage } from "./pages/MobileUploadPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SetupPage, SetupRedirect } from "./pages/SetupPage";
 import "./styles.css";
@@ -41,6 +42,7 @@ function Bootstrap() {
   return (
     <Routes>
       <Route path="/setup" element={<SetupPage />} />
+      <Route path="/upload/:token" element={<MobileUploadPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
         element={

@@ -119,6 +119,10 @@ func main() {
 		writeJSON(w, http.StatusCreated, resp)
 	})
 
+	// Public QR mobile upload (no JWT): phone opens /upload/{token} and POSTs files.
+	r.Get("/reports/images/upload/{token}", reverseProxy(reportsURL))
+	r.Post("/reports/images/upload/{token}", reverseProxy(reportsURL))
+
 	// Dev helper: mint a JWT for local SPA / curl without Keycloak.
 	// persona=analyst|approver|dual|owner (default analyst) to exercise payroll SoD.
 	r.Post("/auth/dev-token", func(w http.ResponseWriter, req *http.Request) {
