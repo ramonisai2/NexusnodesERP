@@ -192,6 +192,16 @@ export function AppShell() {
       },
     },
     {
+      id: "nav.webmasterReports",
+      label: t("navWebmasterReports"),
+      path: "/reports/webmaster",
+      require: {
+        permissions: ["reporting.catalog.read", "reporting.export", "reporting.print", "reporting.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
       id: "nav.security",
       label: t("navSecurity"),
       path: "/reports/seguridad",

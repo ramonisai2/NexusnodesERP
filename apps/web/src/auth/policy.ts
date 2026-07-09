@@ -180,6 +180,16 @@ export const NAV_NODES: NavNode[] = [
     },
   },
   {
+    id: "nav.webmasterReports",
+    label: "Reportes webmaster",
+    path: "/reports/webmaster",
+    require: {
+      permissions: ["reporting.catalog.read", "reporting.export", "reporting.print", "reporting.read"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
     id: "nav.security",
     label: "Seguridad",
     path: "/reports/seguridad",

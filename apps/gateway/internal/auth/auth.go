@@ -785,6 +785,34 @@ func HROfficerClaims() Claims {
 	}
 }
 
+// WebmasterClaims — broad read + print/export of administered domains.
+func WebmasterClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_webmaster",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte", "br_sur", "br_cedi"},
+		Roles:     []string{"webmaster"},
+		Permissions: []string{
+			"reporting.read", "reporting.export", "reporting.print", "reporting.catalog.read",
+			"reporting.image.read", "reporting.security.read",
+			"inventory.balance.read", "inventory.catalog.read", "inventory.label.read",
+			"inventory.warehouse.read", "inventory.movement.read",
+			"inventory.receipt.read", "inventory.shipment.read",
+			"inventory.transfer.read", "inventory.slip.read", "inventory.transport.read",
+			"inventory.parcel.read", "inventory.warranty.read", "inventory.return.read",
+			"inventory.adjustment.read", "inventory.seal.verify",
+			"pos.sale.read", "pos.invoice.read", "customer.read", "customer.card.read",
+			"employee.read", "payroll.run.read",
+			"store.storefront.read", "store.department.manager.read",
+			"purchasing.order.read", "facilities.workorder.read",
+			"approval.read", "session.operator",
+		},
+		Attrs: map[string]any{"profile": "webmaster"},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_webmaster",
+	}
+}
+
 // RegionalManagerClaims — superior of area managers in Región Norte.
 func RegionalManagerClaims() Claims {
 	return Claims{

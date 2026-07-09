@@ -220,6 +220,40 @@ func localAllow(in Input) bool {
 			!in.Subject.HasPermission("payroll.run.read") {
 			return false
 		}
+	} else if in.Action == "reporting.catalog.read" {
+		if !in.Subject.HasPermission("reporting.catalog.read") &&
+			!in.Subject.HasPermission("reporting.export") &&
+			!in.Subject.HasPermission("reporting.print") &&
+			!in.Subject.HasPermission("reporting.read") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "reporting.export" {
+		if !in.Subject.HasPermission("reporting.export") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "webmaster" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
+	} else if in.Action == "reporting.print" {
+		if !in.Subject.HasPermission("reporting.print") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "webmaster" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
 	} else if in.Action == "reporting.image.read" {
 		if !in.Subject.HasPermission("reporting.image.read") &&
 			!in.Subject.HasPermission("reporting.read") &&

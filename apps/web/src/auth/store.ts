@@ -100,7 +100,8 @@ export type DevPersona =
   | "purchasing"
   | "purchasing_mgr"
   | "facilities"
-  | "hr";
+  | "hr"
+  | "webmaster";
 
 /** Demo personas for the advanced login selector (enterprise matrix). */
 export const DEV_PERSONAS: { id: DevPersona; labelKey: string; hintKey: string }[] = [
@@ -109,6 +110,7 @@ export const DEV_PERSONAS: { id: DevPersona; labelKey: string; hintKey: string }
   { id: "wh_manager", labelKey: "loginWhManager", hintKey: "loginWhManagerHint" },
   { id: "regional", labelKey: "loginRegional", hintKey: "loginRegionalHint" },
   { id: "security", labelKey: "loginSecurity", hintKey: "loginSecurityHint" },
+  { id: "webmaster", labelKey: "loginWebmaster", hintKey: "loginWebmasterHint" },
   { id: "warehouse", labelKey: "loginWarehouse", hintKey: "loginWarehouseHint" },
   { id: "cedi", labelKey: "loginCedi", hintKey: "loginCediHint" },
   { id: "dispatch", labelKey: "loginDispatch", hintKey: "loginDispatchHint" },

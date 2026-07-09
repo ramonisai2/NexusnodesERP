@@ -42,6 +42,26 @@ allow if {
 }
 
 allow if {
+  input.action == "reporting.catalog.read"
+  reporting_catalog_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "reporting.export"
+  reporting_export_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "reporting.print"
+  reporting_print_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "reporting.image.read"
   image_report_read_allowed
   branch_allowed
@@ -650,6 +670,46 @@ reporting_read_allowed if {
 
 reporting_read_allowed if {
   "payroll.run.read" in input.subject.permissions
+}
+
+reporting_catalog_allowed if {
+  "reporting.catalog.read" in input.subject.permissions
+}
+
+reporting_catalog_allowed if {
+  "reporting.export" in input.subject.permissions
+}
+
+reporting_catalog_allowed if {
+  "reporting.print" in input.subject.permissions
+}
+
+reporting_catalog_allowed if {
+  reporting_read_allowed
+}
+
+reporting_export_allowed if {
+  "reporting.export" in input.subject.permissions
+}
+
+reporting_export_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+reporting_export_allowed if {
+  "webmaster" in input.subject.roles
+}
+
+reporting_print_allowed if {
+  "reporting.print" in input.subject.permissions
+}
+
+reporting_print_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+reporting_print_allowed if {
+  "webmaster" in input.subject.roles
 }
 
 image_report_read_allowed if {

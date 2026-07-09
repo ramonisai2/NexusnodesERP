@@ -1405,10 +1405,13 @@ td {
     visibility: hidden !important;
   }
   .slip-print-sheet,
-  .slip-print-sheet * {
+  .slip-print-sheet *,
+  .wm-print-sheet,
+  .wm-print-sheet * {
     visibility: visible !important;
   }
-  .slip-print-sheet {
+  .slip-print-sheet,
+  .wm-print-sheet {
     position: absolute;
     left: 0;
     top: 0;
@@ -2383,4 +2386,60 @@ td {
     margin: 0.5rem 0.75rem 1rem;
     padding: 1.75rem 1.1rem;
   }
+}
+
+.webmaster-reports .wm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.webmaster-reports .wm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.webmaster-reports .wm-catalog {
+  margin-bottom: 1rem;
+  max-width: 28rem;
+}
+
+.webmaster-reports .wm-catalog label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.webmaster-reports .wm-catalog select {
+  width: 100%;
+}
+
+.wm-print-sheet {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--panel) 92%, white);
+}
+
+.wm-print-header h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+}
+
+.wm-print-header p {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.webmaster-reports .table-wrap {
+  overflow-x: auto;
+}
+
+.webmaster-reports table {
+  font-size: 0.85rem;
 }

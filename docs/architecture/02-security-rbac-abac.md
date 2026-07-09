@@ -85,6 +85,7 @@ User ──N:M── Role ──N:M── Permission
 | `purchasing_clerk` / `purchasing_manager` | Órdenes de compra |
 | `facilities_staff` | Limpieza / mantenimiento (work orders) |
 | `security_officer` | Vigilancia / sellos (ver [35](./35-security-officer-seals.md)) |
+| `webmaster` | Reportes impresos/digitales de dominios administrados (ver [37](./37-webmaster-reports.md)) |
 
 ### 3.2 ABAC — bajo qué condiciones
 
