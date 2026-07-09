@@ -1,0 +1,14 @@
+.git
+.cursor
+**/node_modules
+**/dist
+**/data
+**/*.tsbuildinfo
+tmp
+*.md
+!README.md
+docs
+infra/observability
+.env
+.env.*
+!.env.example

@@ -116,6 +116,87 @@ services:
     depends_on:
       - tempo
 
+  # -------------------------------------------------------------------------
+  # Application profile: docker compose --profile app up -d --build
+  # Bundles Go services + SPA. Requires only Docker (no local Go/Node).
+  # -------------------------------------------------------------------------
+  inventory:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/inventory/Dockerfile
+    environment:
+      DATABASE_URL: postgres://nexus:nexus@postgres:5432/nexus_erp?sslmode=disable
+      OPA_URL: http://opa:8181
+      DEV_AUTH_BYPASS: "true"
+      OTEL_EXPORTER: none
+      INVENTORY_ADDR: ":8082"
+      PUBLIC_WEB_BASE: ${PUBLIC_WEB_BASE:-http://localhost:8088}
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opa:
+        condition: service_started
+
+  payroll:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/payroll/Dockerfile
+    environment:
+      DATABASE_URL: postgres://nexus:nexus@postgres:5432/nexus_erp?sslmode=disable
+      OPA_URL: http://opa:8181
+      DEV_AUTH_BYPASS: "true"
+      OTEL_EXPORTER: none
+      PAYROLL_ADDR: ":8083"
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opa:
+        condition: service_started
+
+  gateway:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    environment:
+      DATABASE_URL: postgres://nexus:nexus@postgres:5432/nexus_erp?sslmode=disable
+      OPA_URL: http://opa:8181
+      DEV_AUTH_BYPASS: "true"
+      DEV_JWT_SECRET: ${DEV_JWT_SECRET:-nexus-dev-secret-change-me}
+      OTEL_EXPORTER: none
+      GATEWAY_ADDR: ":8080"
+      INVENTORY_URL: http://inventory:8082
+      PAYROLL_URL: http://payroll:8083
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8088}
+      PUBLIC_WEB_BASE: ${PUBLIC_WEB_BASE:-http://localhost:8088}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opa:
+        condition: service_started
+      inventory:
+        condition: service_started
+      payroll:
+        condition: service_started
+
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "${WEB_PORT:-8088}:80"
+    depends_on:
+      - gateway
+
 volumes:
   pgdata:
   tempo-data:

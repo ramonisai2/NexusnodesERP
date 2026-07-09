@@ -1,10 +1,21 @@
-.PHONY: deps test-go test-go-pg run-gateway run-inventory run-payroll run-reporting run-reports run-search run-messaging run-relay run-notification run-web tidy migrate obs-up obs-down run-otel
+.PHONY: deps test-go test-go-pg run-gateway run-inventory run-payroll run-reporting run-reports run-search run-messaging run-relay run-notification run-web tidy migrate obs-up obs-down run-otel install install-down install-status
 
 DATABASE_URL ?= postgres://nexus:nexus@127.0.0.1:5432/nexus_erp?sslmode=disable
 OPA_URL ?= http://127.0.0.1:8181
 NATS_URL ?= nats://127.0.0.1:4222
 OTEL_EXPORTER ?= none
 OTEL_EXPORTER_OTLP_ENDPOINT ?= localhost:4318
+
+# One-command installer: Docker pulls/builds Postgres, OPA, apps, and SPA.
+# No local Go/Node required.
+install:
+	bash infra/scripts/install.sh up
+
+install-down:
+	bash infra/scripts/install.sh down
+
+install-status:
+	bash infra/scripts/install.sh status
 
 deps:
 	cd packages/go/db && go mod tidy

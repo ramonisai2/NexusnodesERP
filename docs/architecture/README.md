@@ -47,6 +47,7 @@
 | [39 — Modo demo](./39-demo-mode.md) | Recorrido guiado del sistema con datos de ejemplo |
 | [40 — Espera pagos tarjeta](./40-card-payment-wait.md) | Cola hasta autorización del terminal bancario |
 | [41 — Intranet vs internet](./41-network-mode.md) | Modo solo red interna vs salida pública a internet |
+| [42 — Instalador con deps](./42-installer-with-deps.md) | Un comando Docker: Postgres, OPA, apps y SPA |
 | [21 — Easter eggs héroes](./21-hero-easter-eggs.md) | Aliases con justificación lógica |
 | [22 — Operadores compartidos y jefes](./22-shared-operators-approvals.md) | Misma cuenta, estaciones concurrentes, cola de aprobación |
 | [23 — Papeletas entre tiendas](./23-shipping-slips.md) | Papelería: notas imprimibles con tipo de contenedor |

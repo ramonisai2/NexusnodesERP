@@ -6,6 +6,18 @@ ERP Web empresarial enfocado en **Inventarios** y **Nóminas**, con arquitectura
 
 Para operadores (caja, almacén, CEDI, dueño): [`docs/manuales/uso-rapido.md`](./docs/manuales/uso-rapido.md)
 
+## Instalador (con dependencias)
+
+Solo necesitas **Docker**. No instales Go ni Node a mano:
+
+```bash
+./infra/scripts/install.sh
+# o: make install
+```
+
+Abre http://localhost:8088 → **Explorar modo demo**.  
+Detalle: [`docs/architecture/42-installer-with-deps.md`](./docs/architecture/42-installer-with-deps.md)
+
 ## Documentación de arquitectura
 
 La especificación técnica completa está en [`docs/architecture/`](./docs/architecture/README.md):

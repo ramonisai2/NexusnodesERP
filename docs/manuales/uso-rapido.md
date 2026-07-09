@@ -4,9 +4,20 @@ Guía corta para operar el sistema día a día. No sustituye la documentación t
 
 ---
 
+## 0. Instalar en tu PC (con dependencias)
+
+Solo hace falta **Docker**. El instalador trae Postgres, OPA, backend y la web:
+
+```bash
+./infra/scripts/install.sh
+```
+
+Luego abre **http://localhost:8088**.  
+(Si desarrollas con Vite a mano, la URL sigue siendo `http://localhost:5173`.)
+
 ## 1. Entrar
 
-1. Abre la aplicación (en local: `http://localhost:5173`).
+1. Abre la aplicación (instalador: `http://localhost:8088` · Vite: `http://localhost:5173`).
 2. Elige idioma (ES / EN) arriba a la derecha.
 3. Opciones típicas:
    - **Explorar modo demo** — recorre todo con datos de ejemplo (sin instalar tu tienda).
