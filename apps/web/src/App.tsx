@@ -26,6 +26,7 @@ import { CustomerAccountPage } from "./pages/CustomerAccountPage";
 import { CustomersAdminPage } from "./pages/CustomersAdminPage";
 import { DepartmentManagersPage } from "./pages/DepartmentManagersPage";
 import { PosCashierPage } from "./pages/PosCashierPage";
+import { CardPaymentWaitPage } from "./pages/CardPaymentWaitPage";
 import { StorefrontSettingsPage } from "./pages/StorefrontSettingsPage";
 import { AdjustmentsPage } from "./pages/AdjustmentsPage";
 import { HRPage } from "./pages/HRPage";
@@ -84,6 +85,7 @@ function Bootstrap() {
           <Route path="settings/tienda" element={<StorefrontSettingsPage />} />
           <Route path="settings/jefes" element={<DepartmentManagersPage />} />
           <Route path="caja" element={<PosCashierPage />} />
+          <Route path="caja/espera-tarjeta" element={<CardPaymentWaitPage />} />
           <Route path="customers" element={<CustomersAdminPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="mail" element={<MailPage />} />

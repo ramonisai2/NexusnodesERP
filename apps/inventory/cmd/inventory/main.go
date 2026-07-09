@@ -2117,6 +2117,178 @@ func main() {
 		writeJSON(w, http.StatusOK, inv)
 	})
 
+	// —— Card payment wait queue (bank terminal) ——
+	r.Get("/pos/card-waits", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.URL.Query().Get("branch_id")
+		if branchID == "" {
+			branchID = req.Header.Get("X-Branch-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "pos.card.wait.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "pos.card.wait.read")
+			return
+		}
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		items, err := inventoryStore.ListCardPaymentWaits(req.Context(), domain.CardPaymentWaitFilter{
+			OrgRef: subject.OrgID, BranchCode: branchID, Status: req.URL.Query().Get("status"), Limit: limit,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"list_failed"}`, http.StatusInternalServerError)
+			return
+		}
+		if items == nil {
+			items = []domain.CardPaymentWait{}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	})
+
+	r.Get("/pos/card-waits/{id}", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "pos.card.wait.read",
+			Resource: map[string]any{"branch_id": req.Header.Get("X-Branch-Id"), "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "pos.card.wait.read")
+			return
+		}
+		item, err := inventoryStore.GetCardPaymentWait(req.Context(), subject.OrgID, id)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	})
+
+	r.Post("/pos/card-waits", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		var body domain.CreateCardPaymentWaitRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.OrgID = subject.OrgID
+		body.CreatedBy = subject.Sub
+		if body.BranchID == "" {
+			body.BranchID = req.Header.Get("X-Branch-Id")
+		}
+		if body.OperatorLabel == "" {
+			body.OperatorLabel = req.Header.Get("X-Operator-Label")
+		}
+		if body.StationID == "" {
+			body.StationID = req.Header.Get("X-Station-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "pos.card.wait.create",
+			Resource: map[string]any{"branch_id": body.BranchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "pos.card.wait.create")
+			return
+		}
+		item, err := inventoryStore.CreateCardPaymentWait(req.Context(), body)
+		if err != nil {
+			http.Error(w, `{"error":"create_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusCreated, item)
+	})
+
+	r.Post("/pos/card-waits/{id}/confirm", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		var body domain.ConfirmCardPaymentWaitRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.ConfirmedBy = subject.Sub
+		if body.OperatorLabel == "" {
+			body.OperatorLabel = req.Header.Get("X-Operator-Label")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "pos.card.wait.confirm",
+			Resource: map[string]any{"branch_id": req.Header.Get("X-Branch-Id"), "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "pos.card.wait.confirm")
+			return
+		}
+		item, err := inventoryStore.ConfirmCardPaymentWait(req.Context(), subject.OrgID, id, body)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"confirm_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	})
+
+	r.Post("/pos/card-waits/{id}/cancel", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		var body domain.CancelCardPaymentWaitRequest
+		_ = json.NewDecoder(req.Body).Decode(&body)
+		body.CancelledBy = subject.Sub
+		if body.OperatorLabel == "" {
+			body.OperatorLabel = req.Header.Get("X-Operator-Label")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "pos.card.wait.cancel",
+			Resource: map[string]any{"branch_id": req.Header.Get("X-Branch-Id"), "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "pos.card.wait.cancel")
+			return
+		}
+		item, err := inventoryStore.CancelCardPaymentWait(req.Context(), subject.OrgID, id, body)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"cancel_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	})
+
 	// —— CEDI inbound trucks / tarimas ——
 	r.Get("/inbound-shipments", func(w http.ResponseWriter, req *http.Request) {
 		subject := authz.FromGatewayHeaders(req)

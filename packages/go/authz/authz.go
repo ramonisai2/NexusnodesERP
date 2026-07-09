@@ -585,6 +585,35 @@ func localAllow(in Input) bool {
 				return false
 			}
 		}
+	} else if in.Action == "pos.card.wait.read" {
+		if !in.Subject.HasPermission("pos.card.wait.read") &&
+			!in.Subject.HasPermission("pos.card.wait.create") &&
+			!in.Subject.HasPermission("pos.sale.create") {
+			return false
+		}
+	} else if in.Action == "pos.card.wait.create" {
+		if !in.Subject.HasPermission("pos.card.wait.create") &&
+			!in.Subject.HasPermission("pos.sale.create") {
+			return false
+		}
+	} else if in.Action == "pos.card.wait.confirm" {
+		if !in.Subject.HasPermission("pos.card.wait.confirm") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "store_owner" || r == "cashier" || r == "store_admin" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
+	} else if in.Action == "pos.card.wait.cancel" {
+		if !in.Subject.HasPermission("pos.card.wait.cancel") &&
+			!in.Subject.HasPermission("pos.card.wait.create") {
+			return false
+		}
 	} else if in.Action == "inventory.movement.void.request" {
 		if !in.Subject.HasPermission("inventory.movement.void.request") {
 			return false

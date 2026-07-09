@@ -56,9 +56,12 @@ Desglose en ticket: **subtotal (base)** + **IVA** + **total**. Si `prices_includ
 
 Ruta **`/caja`** (nav “Caja”): carrito, cobro, checkbox “quiere factura”, historial e impresión.
 
+Con el módulo de instalación **`card_payments`** activo, el método **Tarjeta** encola en `/caja/espera-tarjeta` hasta autorización del terminal (ver [40 — Espera pagos tarjeta](./40-card-payment-wait.md)).
+
 ## Fuera de alcance (siguiente)
 
 - Timbrado real con PAC (XML/PDF UUID)
 - Cancelación CFDI / notas de crédito
 - Arqueo de caja / corte Z
 - Propina y pagos mixtos avanzados
+- Integración directa con SDK de terminal (hoy la autorización se confirma en la cola)

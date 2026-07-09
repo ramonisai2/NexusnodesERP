@@ -62,6 +62,18 @@ func ModuleCatalog() []ModuleDef {
 			},
 		},
 		{
+			Code:      "card_payments",
+			Required:  false,
+			DefaultOn: false,
+			LabelKey:  "modCardPayments",
+			HintKey:   "modCardPaymentsHint",
+			NavIDs:    []string{"nav.cardWaits"},
+			Permissions: []string{
+				"pos.card.wait.read", "pos.card.wait.create",
+				"pos.card.wait.confirm", "pos.card.wait.cancel",
+			},
+		},
+		{
 			Code:      "customers",
 			Required:  false,
 			DefaultOn: true,

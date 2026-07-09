@@ -675,6 +675,21 @@ func (s *Memory) ListSales(_ context.Context, _ domain.SaleFilter) ([]domain.POS
 func (s *Memory) RequestSaleInvoice(_ context.Context, _, _ string, _ domain.RequestInvoiceRequest) (domain.FiscalInvoice, error) {
 	return domain.FiscalInvoice{}, errors.New("pos invoices require postgres store")
 }
+func (s *Memory) CreateCardPaymentWait(_ context.Context, _ domain.CreateCardPaymentWaitRequest) (domain.CardPaymentWait, error) {
+	return domain.CardPaymentWait{}, errors.New("card payment waits require postgres store")
+}
+func (s *Memory) ListCardPaymentWaits(_ context.Context, _ domain.CardPaymentWaitFilter) ([]domain.CardPaymentWait, error) {
+	return nil, nil
+}
+func (s *Memory) GetCardPaymentWait(_ context.Context, _, _ string) (domain.CardPaymentWait, error) {
+	return domain.CardPaymentWait{}, domain.ErrNotFound
+}
+func (s *Memory) ConfirmCardPaymentWait(_ context.Context, _, _ string, _ domain.ConfirmCardPaymentWaitRequest) (domain.CardPaymentWait, error) {
+	return domain.CardPaymentWait{}, errors.New("card payment waits require postgres store")
+}
+func (s *Memory) CancelCardPaymentWait(_ context.Context, _, _ string, _ domain.CancelCardPaymentWaitRequest) (domain.CardPaymentWait, error) {
+	return domain.CardPaymentWait{}, errors.New("card payment waits require postgres store")
+}
 
 func (s *Memory) CreateInboundShipment(_ context.Context, _ domain.CreateInboundShipmentRequest) (domain.InboundShipment, error) {
 	return domain.InboundShipment{}, errors.New("inbound shipments require postgres store")

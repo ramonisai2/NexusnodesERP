@@ -153,6 +153,17 @@ export const NAV_NODES: NavNode[] = [
     },
   },
   {
+    id: "nav.cardWaits",
+    label: "Espera tarjeta",
+    path: "/caja/espera-tarjeta",
+    require: {
+      permissions: ["pos.card.wait.read", "pos.card.wait.create", "pos.card.wait.confirm"],
+      modules: ["card_payments"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
     id: "nav.deptManagers",
     label: "Jefes depto",
     path: "/settings/jefes",

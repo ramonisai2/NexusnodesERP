@@ -1,9 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { hasPermission } from "../auth/policy";
 import { PolicyGuard } from "../auth/PolicyGuard";
 import { apiFetch, useAuthStore } from "../auth/store";
 import { friendlyApiError, useLocaleStore } from "../i18n/locale";
+
+function moduleUnlocked(claims: { attrs?: Record<string, unknown> } | null, code: string): boolean {
+  const raw = claims?.attrs?.enabled_modules;
+  if (raw == null) return true;
+  if (!Array.isArray(raw)) return true;
+  return raw.map(String).includes(code);
+}
 
 type Label = {
   sku: string;
@@ -118,6 +126,8 @@ function PosCashierPanel() {
   const claims = useAuthStore((s) => s.claims);
   const branchId = useAuthStore((s) => s.activeBranchId) || claims?.branch_ids?.[0] || "";
   const canSell = hasPermission(claims, "pos.sale.create") || hasPermission(claims, "inventory.movement.create");
+  const useCardWait =
+    moduleUnlocked(claims, "card_payments") && hasPermission(claims, "pos.card.wait.create");
   const qc = useQueryClient();
 
   const [scan, setScan] = useState("");
@@ -130,6 +140,7 @@ function PosCashierPanel() {
   const [invEmail, setInvEmail] = useState("");
   const [invUso, setInvUso] = useState("G03");
   const [error, setError] = useState("");
+  const [waitQueued, setWaitQueued] = useState("");
   const [lastSale, setLastSale] = useState<Sale | null>(null);
 
   const fiscal = useQuery({
@@ -231,6 +242,28 @@ function PosCashierPanel() {
         throw new Error(t("posInvoiceRequired"));
       }
       const amount = totals.grand;
+      const idem = `pos-${branchId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      if (payMethod === "CARD" && useCardWait) {
+        const res = await apiFetch("/pos/card-waits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            branch_id: branchId,
+            lines: cart.map((l) => ({ sku: l.sku, quantity: l.quantity })),
+            amount,
+            request_invoice: wantInvoice,
+            invoice_rfc: invRfc,
+            invoice_name: invName,
+            invoice_email: invEmail,
+            invoice_uso_cfdi: invUso,
+            idempotency_key: `cardwait-${idem}`,
+          }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return { kind: "wait" as const, wait: (await res.json()) as { id: string; status: string; amount: number } };
+      }
+
       const payload = {
         branch_id: branchId,
         lines: cart.map((l) => ({ sku: l.sku, quantity: l.quantity })),
@@ -246,7 +279,7 @@ function PosCashierPanel() {
         invoice_name: invName,
         invoice_email: invEmail,
         invoice_uso_cfdi: invUso,
-        idempotency_key: `pos-${branchId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        idempotency_key: idem,
       };
       const res = await apiFetch("/pos/sales/complete", {
         method: "POST",
@@ -254,10 +287,9 @@ function PosCashierPanel() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
-      return (await res.json()) as Sale;
+      return { kind: "sale" as const, sale: (await res.json()) as Sale };
     },
-    onSuccess: (sale) => {
-      setLastSale(sale);
+    onSuccess: (result) => {
       setCart([]);
       setReceived("");
       setWantInvoice(false);
@@ -265,6 +297,14 @@ function PosCashierPanel() {
       setInvName("");
       setInvEmail("");
       setError("");
+      if (result.kind === "wait") {
+        setLastSale(null);
+        setWaitQueued(t("posCardWaitQueued"));
+        void qc.invalidateQueries({ queryKey: ["pos-card-waits"] });
+        return;
+      }
+      setWaitQueued("");
+      setLastSale(result.sale);
       void qc.invalidateQueries({ queryKey: ["pos-sales"] });
       setTimeout(() => window.print(), 300);
     },
@@ -278,20 +318,33 @@ function PosCashierPanel() {
           <h1>{t("posTitle")}</h1>
           <p className="muted">{t("posSubtitle")}</p>
         </div>
-        {fiscal.data ? (
-          <div className="pos-fiscal-chip muted">
-            <div>
-              <strong>{fiscal.data.trade_name || fiscal.data.legal_name}</strong>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start", flexWrap: "wrap" }}>
+          {useCardWait ? (
+            <Link className="btn secondary" to="/caja/espera-tarjeta">
+              {t("posCardWaitLink")}
+            </Link>
+          ) : null}
+          {fiscal.data ? (
+            <div className="pos-fiscal-chip muted">
+              <div>
+                <strong>{fiscal.data.trade_name || fiscal.data.legal_name}</strong>
+              </div>
+              <div>
+                RFC {fiscal.data.rfc || "—"} · IVA {(rate * 100).toFixed(0)}%
+                {includeTax ? ` (${t("posTaxIncluded")})` : ""}
+              </div>
             </div>
-            <div>
-              RFC {fiscal.data.rfc || "—"} · IVA {(rate * 100).toFixed(0)}%
-              {includeTax ? ` (${t("posTaxIncluded")})` : ""}
-            </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </header>
 
       {error ? <p className="error">{error}</p> : null}
+      {waitQueued ? (
+        <p className="ok">
+          {waitQueued}{" "}
+          <Link to="/caja/espera-tarjeta">{t("posCardWaitOpenQueue")}</Link>
+        </p>
+      ) : null}
 
       <div className="pos-layout">
         <div className="pos-cart">
@@ -411,6 +464,7 @@ function PosCashierPanel() {
               {t("posChange")}: {money(change)}
             </p>
           ) : null}
+          {payMethod === "CARD" && useCardWait ? <p className="muted tip">{t("posCardWaitHint")}</p> : null}
 
           <label className="pos-check">
             <input type="checkbox" checked={wantInvoice} onChange={(e) => setWantInvoice(e.target.checked)} />
@@ -447,9 +501,18 @@ function PosCashierPanel() {
             type="button"
             className="btn"
             disabled={!canSell || cart.length === 0 || complete.isPending}
-            onClick={() => complete.mutate()}
+            onClick={() => {
+              setWaitQueued("");
+              complete.mutate();
+            }}
           >
-            {complete.isPending ? t("posCharging") : t("posCharge")}
+            {complete.isPending
+              ? payMethod === "CARD" && useCardWait
+                ? t("posCardWaitSending")
+                : t("posCharging")
+              : payMethod === "CARD" && useCardWait
+                ? t("posCardWaitSend")
+                : t("posCharge")}
           </button>
         </aside>
       </div>

@@ -446,6 +446,33 @@ allow if {
 }
 
 allow if {
+  input.action == "pos.card.wait.read"
+  pos_card_wait_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "pos.card.wait.create"
+  pos_card_wait_create_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "pos.card.wait.confirm"
+  pos_card_wait_confirm_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "pos.card.wait.cancel"
+  pos_card_wait_cancel_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "customer.read"
   customer_read_allowed
   branch_allowed
@@ -1154,6 +1181,46 @@ pos_settings_manage_allowed if {
 
 pos_settings_manage_allowed if {
   "platform_admin" in input.subject.roles
+}
+
+pos_card_wait_read_allowed if {
+  "pos.card.wait.read" in input.subject.permissions
+}
+
+pos_card_wait_read_allowed if {
+  "pos.card.wait.create" in input.subject.permissions
+}
+
+pos_card_wait_read_allowed if {
+  "pos.sale.create" in input.subject.permissions
+}
+
+pos_card_wait_create_allowed if {
+  "pos.card.wait.create" in input.subject.permissions
+}
+
+pos_card_wait_create_allowed if {
+  "pos.sale.create" in input.subject.permissions
+}
+
+pos_card_wait_confirm_allowed if {
+  "pos.card.wait.confirm" in input.subject.permissions
+}
+
+pos_card_wait_confirm_allowed if {
+  "store_owner" in input.subject.roles
+}
+
+pos_card_wait_confirm_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+pos_card_wait_cancel_allowed if {
+  "pos.card.wait.cancel" in input.subject.permissions
+}
+
+pos_card_wait_cancel_allowed if {
+  "pos.card.wait.create" in input.subject.permissions
 }
 
 customer_read_allowed if {

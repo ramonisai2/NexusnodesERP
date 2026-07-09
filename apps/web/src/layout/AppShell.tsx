@@ -19,6 +19,7 @@ const NAV_LABEL_KEYS: Record<string, string> = {
   "nav.storefront": "navStorefront",
   "nav.customers": "navCustomers",
   "nav.pos": "navPos",
+  "nav.cardWaits": "navCardWaits",
   "nav.deptManagers": "navDeptManagers",
   "nav.approvals": "navApprovals",
   "nav.mail": "navMail",

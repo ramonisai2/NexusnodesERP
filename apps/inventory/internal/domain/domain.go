@@ -1182,6 +1182,97 @@ type POSPayment struct {
 	Reference      string  `json:"reference,omitempty"`
 }
 
+const (
+	CardWaitWaiting   = "WAITING"
+	CardWaitApproved  = "APPROVED"
+	CardWaitDeclined  = "DECLINED"
+	CardWaitCancelled = "CANCELLED"
+	CardWaitExpired   = "EXPIRED"
+)
+
+type CardPaymentWaitLine struct {
+	SKU         string  `json:"sku"`
+	Description string  `json:"description,omitempty"`
+	Quantity    float64 `json:"quantity"`
+	UnitPrice   float64 `json:"unit_price,omitempty"`
+	LineTotal   float64 `json:"line_total,omitempty"`
+}
+
+type CreateCardPaymentWaitRequest struct {
+	OrgID          string                 `json:"org_id"`
+	BranchID       string                 `json:"branch_id"`
+	WarehouseID    string                 `json:"warehouse_id,omitempty"`
+	CustomerName   string                 `json:"customer_name,omitempty"`
+	Lines          []POSLineInput         `json:"lines"`
+	Amount         float64                `json:"amount,omitempty"`
+	Currency       string                 `json:"currency,omitempty"`
+	RequestInvoice bool                   `json:"request_invoice"`
+	InvoiceRFC     string                 `json:"invoice_rfc,omitempty"`
+	InvoiceName    string                 `json:"invoice_name,omitempty"`
+	InvoiceEmail   string                 `json:"invoice_email,omitempty"`
+	InvoiceUsoCFDI string                 `json:"invoice_uso_cfdi,omitempty"`
+	Notes          string                 `json:"notes,omitempty"`
+	TerminalRef    string                 `json:"terminal_ref,omitempty"`
+	IdempotencyKey string                 `json:"idempotency_key"`
+	CreatedBy      string                 `json:"created_by,omitempty"`
+	OperatorLabel  string                 `json:"operator_label,omitempty"`
+	StationID      string                 `json:"station_id,omitempty"`
+}
+
+type ConfirmCardPaymentWaitRequest struct {
+	Approved      bool   `json:"approved"`
+	AuthCode      string `json:"auth_code,omitempty"`
+	TerminalRef   string `json:"terminal_ref,omitempty"`
+	DeclineReason string `json:"decline_reason,omitempty"`
+	ConfirmedBy   string `json:"confirmed_by,omitempty"`
+	OperatorLabel string `json:"operator_label,omitempty"`
+}
+
+type CancelCardPaymentWaitRequest struct {
+	Reason        string `json:"reason,omitempty"`
+	CancelledBy   string `json:"cancelled_by,omitempty"`
+	OperatorLabel string `json:"operator_label,omitempty"`
+}
+
+type CardPaymentWaitFilter struct {
+	OrgRef     string
+	BranchCode string
+	Status     string
+	Limit      int
+}
+
+type CardPaymentWait struct {
+	ID             string                 `json:"id"`
+	OrgID          string                 `json:"org_id"`
+	BranchID       string                 `json:"branch_id"`
+	Status         string                 `json:"status"`
+	StatusLabel    string                 `json:"status_label,omitempty"`
+	Amount         float64                `json:"amount"`
+	Currency       string                 `json:"currency"`
+	CustomerName   string                 `json:"customer_name,omitempty"`
+	Lines          []CardPaymentWaitLine  `json:"lines"`
+	WarehouseCode  string                 `json:"warehouse_code,omitempty"`
+	RequestInvoice bool                   `json:"request_invoice"`
+	InvoiceRFC     string                 `json:"invoice_rfc,omitempty"`
+	InvoiceName    string                 `json:"invoice_name,omitempty"`
+	InvoiceEmail   string                 `json:"invoice_email,omitempty"`
+	InvoiceUsoCFDI string                 `json:"invoice_uso_cfdi,omitempty"`
+	Notes          string                 `json:"notes,omitempty"`
+	TerminalRef    string                 `json:"terminal_ref,omitempty"`
+	AuthCode       string                 `json:"auth_code,omitempty"`
+	DeclineReason  string                 `json:"decline_reason,omitempty"`
+	SaleID         string                 `json:"sale_id,omitempty"`
+	Sale           *POSSale               `json:"sale,omitempty"`
+	CreatedBy      string                 `json:"created_by,omitempty"`
+	OperatorLabel  string                 `json:"operator_label,omitempty"`
+	StationID      string                 `json:"station_id,omitempty"`
+	ConfirmedBy    string                 `json:"confirmed_by,omitempty"`
+	IdempotencyKey string                 `json:"idempotency_key"`
+	CreatedAt      time.Time              `json:"created_at"`
+	UpdatedAt      time.Time              `json:"updated_at"`
+	ResolvedAt     *time.Time             `json:"resolved_at,omitempty"`
+}
+
 type FiscalInvoice struct {
 	ID                 string     `json:"id"`
 	SaleID             string     `json:"sale_id"`
@@ -1310,6 +1401,11 @@ type Store interface {
 	GetSale(ctx context.Context, orgRef, saleID string) (POSSale, error)
 	ListSales(ctx context.Context, filter SaleFilter) ([]POSSale, error)
 	RequestSaleInvoice(ctx context.Context, orgRef, saleID string, req RequestInvoiceRequest) (FiscalInvoice, error)
+	CreateCardPaymentWait(ctx context.Context, req CreateCardPaymentWaitRequest) (CardPaymentWait, error)
+	ListCardPaymentWaits(ctx context.Context, filter CardPaymentWaitFilter) ([]CardPaymentWait, error)
+	GetCardPaymentWait(ctx context.Context, orgRef, waitID string) (CardPaymentWait, error)
+	ConfirmCardPaymentWait(ctx context.Context, orgRef, waitID string, req ConfirmCardPaymentWaitRequest) (CardPaymentWait, error)
+	CancelCardPaymentWait(ctx context.Context, orgRef, waitID string, req CancelCardPaymentWaitRequest) (CardPaymentWait, error)
 	CreateInboundShipment(ctx context.Context, req CreateInboundShipmentRequest) (InboundShipment, error)
 	GetInboundShipment(ctx context.Context, orgRef, shipmentID string) (InboundShipment, error)
 	ListInboundShipments(ctx context.Context, filter InboundShipmentFilter) ([]InboundShipment, error)
