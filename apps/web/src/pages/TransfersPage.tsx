@@ -21,6 +21,8 @@ type InventoryTransfer = {
   to_branch_id: string;
   from_warehouse_id: string;
   to_warehouse_id: string;
+  parcel_kind?: string;
+  parcel_kind_label?: string;
   status: string;
   notes?: string;
   created_at: string;
@@ -28,6 +30,16 @@ type InventoryTransfer = {
   received_at?: string;
   lines?: TransferLine[];
 };
+
+const PARCEL_KINDS: { code: string; key: MessageKey }[] = [
+  { code: "TRANSFER", key: "parcelKindTransfer" },
+  { code: "CEDI_DISTRIBUTION", key: "parcelKindCedi" },
+  { code: "DEFECTIVE", key: "parcelKindDefective" },
+  { code: "WARRANTY", key: "parcelKindWarranty" },
+  { code: "RETURN_TO_CEDI", key: "parcelKindReturnCedi" },
+  { code: "REPAIR_OUT", key: "parcelKindRepairOut" },
+  { code: "REPAIR_IN", key: "parcelKindRepairIn" },
+];
 
 type DraftLine = { key: string; sku: string; quantity: string };
 
@@ -95,6 +107,7 @@ function TransfersPanel() {
   const [toBranch, setToBranch] = useState("");
   const [fromWh, setFromWh] = useState("");
   const [toWh, setToWh] = useState("");
+  const [parcelKind, setParcelKind] = useState("TRANSFER");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([newLine()]);
   const [error, setError] = useState("");
@@ -152,6 +165,7 @@ function TransfersPanel() {
         to_branch_id: destBranch,
         from_warehouse_id: fromWh || fromWarehouses[0]?.id,
         to_warehouse_id: toWh || toWarehouses[0]?.id,
+        parcel_kind: parcelKind,
         notes,
         idempotency_key: `trf-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         lines: lines
@@ -380,6 +394,16 @@ function TransfersPanel() {
                   </select>
                 </label>
               </div>
+              <label className="mail-field">
+                <span>{t("parcelColKind")}</span>
+                <select value={parcelKind} onChange={(e) => setParcelKind(e.target.value)}>
+                  {PARCEL_KINDS.map((k) => (
+                    <option key={k.code} value={k.code}>
+                      {t(k.key)}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="mail-field">
                 <span>{t("transferNotes")}</span>
                 <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />

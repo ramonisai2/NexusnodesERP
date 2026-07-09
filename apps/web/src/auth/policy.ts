@@ -90,6 +90,16 @@ export const NAV_NODES: NavNode[] = [
     },
   },
   {
+    id: "nav.parcels",
+    label: "Paquetería",
+    path: "/inventory/parcels",
+    require: {
+      permissions: ["inventory.parcel.read", "inventory.slip.read", "inventory.balance.read"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
     id: "nav.storefront",
     label: "Tienda en línea",
     path: "/settings/tienda",

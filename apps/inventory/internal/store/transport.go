@@ -24,6 +24,13 @@ func (s *Postgres) CreateTransportSheet(ctx context.Context, req domain.CreateTr
 	if req.FromBranchID == req.ToBranchID {
 		return domain.TransportSheet{}, errors.New("from and to branch must differ")
 	}
+	parcelKind := strings.ToUpper(strings.TrimSpace(req.ParcelKind))
+	if parcelKind == "" {
+		parcelKind = domain.ParcelTransfer
+	}
+	if !domain.ValidParcelKind(parcelKind) {
+		return domain.TransportSheet{}, errors.New("invalid parcel_kind")
+	}
 	if len(req.Sections) == 0 {
 		return domain.TransportSheet{}, errors.New("at least one department section required")
 	}
@@ -75,15 +82,15 @@ SELECT id::text FROM transport_sheets WHERE org_id = $1::uuid AND idempotency_ke
 		_, err = tx.Exec(ctx, `
 INSERT INTO transport_sheets (
   id, org_id, sheet_number, from_branch_id, to_branch_id,
-  carrier_name, vehicle_ref, driver_name, status,
+  carrier_name, vehicle_ref, driver_name, parcel_kind, status,
   created_by, operator_label, session_id, notes, idempotency_key, created_at, updated_at
 ) VALUES (
   $1, $2::uuid, $3, $4::uuid, $5::uuid,
-  $6, $7, $8, 'DRAFT',
-  $9, $10, $11, $12, $13, $14, $14
+  $6, $7, $8, $9, 'DRAFT',
+  $10, $11, $12, $13, $14, $15, $15
 )`, id, orgID, sheetNumber, fromBranch, toBranch,
 			strings.TrimSpace(req.CarrierName), strings.TrimSpace(req.VehicleRef), strings.TrimSpace(req.DriverName),
-			req.CreatedBy, strings.TrimSpace(req.OperatorLabel), sess,
+			parcelKind, req.CreatedBy, strings.TrimSpace(req.OperatorLabel), sess,
 			strings.TrimSpace(req.Notes), req.IdempotencyKey, now)
 		if err != nil {
 			return err
@@ -172,8 +179,8 @@ func (s *Postgres) ListTransportSheets(ctx context.Context, filter domain.Transp
 		q := `
 SELECT t.id::text, t.org_id::text, t.sheet_number,
        fb.code, tb.code,
-       t.carrier_name, t.vehicle_ref, t.driver_name, t.status,
-       t.printed_at, t.departed_at, t.delivered_at,
+       t.carrier_name, t.vehicle_ref, t.driver_name, COALESCE(t.parcel_kind,'TRANSFER'), t.status,
+       t.printed_at, t.departed_at, t.delivered_at, t.cancelled_at, COALESCE(t.cancel_reason,''),
        t.created_by, t.operator_label, COALESCE(t.session_id::text, ''),
        t.notes, t.idempotency_key, t.created_at, t.updated_at
 FROM transport_sheets t
@@ -195,6 +202,11 @@ WHERE 1=1`
 		if filter.Status != "" {
 			q += fmt.Sprintf(` AND t.status = $%d`, n)
 			args = append(args, strings.ToUpper(filter.Status))
+			n++
+		}
+		if filter.ParcelKind != "" {
+			q += fmt.Sprintf(` AND t.parcel_kind = $%d`, n)
+			args = append(args, strings.ToUpper(filter.ParcelKind))
 			n++
 		}
 		q += fmt.Sprintf(` ORDER BY t.created_at DESC LIMIT $%d`, n)
@@ -231,8 +243,8 @@ func (s *Postgres) GetTransportSheet(ctx context.Context, orgRef, sheetID string
 		row := tx.QueryRow(ctx, `
 SELECT t.id::text, t.org_id::text, t.sheet_number,
        fb.code, tb.code,
-       t.carrier_name, t.vehicle_ref, t.driver_name, t.status,
-       t.printed_at, t.departed_at, t.delivered_at,
+       t.carrier_name, t.vehicle_ref, t.driver_name, COALESCE(t.parcel_kind,'TRANSFER'), t.status,
+       t.printed_at, t.departed_at, t.delivered_at, t.cancelled_at, COALESCE(t.cancel_reason,''),
        t.created_by, t.operator_label, COALESCE(t.session_id::text, ''),
        t.notes, t.idempotency_key, t.created_at, t.updated_at
 FROM transport_sheets t
@@ -302,12 +314,12 @@ type transportScanner interface {
 
 func scanTransportSheet(row transportScanner) (domain.TransportSheet, error) {
 	var t domain.TransportSheet
-	var printed, departed, delivered *time.Time
+	var printed, departed, delivered, cancelled *time.Time
 	err := row.Scan(
 		&t.ID, &t.OrgID, &t.SheetNumber,
 		&t.FromBranchID, &t.ToBranchID,
-		&t.CarrierName, &t.VehicleRef, &t.DriverName, &t.Status,
-		&printed, &departed, &delivered,
+		&t.CarrierName, &t.VehicleRef, &t.DriverName, &t.ParcelKind, &t.Status,
+		&printed, &departed, &delivered, &cancelled, &t.CancelReason,
 		&t.CreatedBy, &t.OperatorLabel, &t.SessionID,
 		&t.Notes, &t.IdempotencyKey, &t.CreatedAt, &t.UpdatedAt,
 	)
@@ -317,6 +329,8 @@ func scanTransportSheet(row transportScanner) (domain.TransportSheet, error) {
 	t.PrintedAt = printed
 	t.DepartedAt = departed
 	t.DeliveredAt = delivered
+	t.CancelledAt = cancelled
+	t.ParcelKindLabel = domain.ParcelKindLabelES(t.ParcelKind)
 	return t, nil
 }
 

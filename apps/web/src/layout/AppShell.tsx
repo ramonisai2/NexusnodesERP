@@ -78,6 +78,16 @@ export function AppShell() {
       },
     },
     {
+      id: "nav.parcels",
+      label: t("navParcels"),
+      path: "/inventory/parcels",
+      require: {
+        permissions: ["inventory.parcel.read", "inventory.slip.read", "inventory.balance.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
       id: "nav.storefront",
       label: t("navStorefront"),
       path: "/settings/tienda",

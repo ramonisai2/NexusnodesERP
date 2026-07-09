@@ -175,6 +175,26 @@ allow if {
 }
 
 allow if {
+  input.action == "inventory.slip.ship"
+  slip_lifecycle_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.slip.receive"
+  slip_lifecycle_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.slip.cancel"
+  slip_cancel_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "inventory.transport.read"
   transport_read_allowed
   branch_allowed
@@ -190,6 +210,58 @@ allow if {
 allow if {
   input.action == "inventory.transport.print"
   transport_write_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.transport.depart"
+  transport_lifecycle_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.transport.deliver"
+  transport_lifecycle_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.transport.cancel"
+  transport_cancel_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.parcel.read"
+  parcel_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "inventory.warranty.read"
+  warranty_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "inventory.warranty.create"
+  warranty_write_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.return.read"
+  return_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "inventory.return.create"
+  return_write_allowed
   branch_allowed
   mfa_ok
 }
@@ -433,6 +505,42 @@ slip_write_allowed if {
   "inventory.movement.create" in input.subject.permissions
 }
 
+slip_lifecycle_allowed if {
+  "inventory.slip.ship" in input.subject.permissions
+}
+
+slip_lifecycle_allowed if {
+  "inventory.slip.receive" in input.subject.permissions
+}
+
+slip_lifecycle_allowed if {
+  "inventory.slip.create" in input.subject.permissions
+}
+
+slip_lifecycle_allowed if {
+  "inventory.movement.create" in input.subject.permissions
+}
+
+slip_cancel_allowed if {
+  "inventory.slip.cancel" in input.subject.permissions
+}
+
+slip_cancel_allowed if {
+  "warehouse_manager" in input.subject.roles
+}
+
+slip_cancel_allowed if {
+  "regional_manager" in input.subject.roles
+}
+
+slip_cancel_allowed if {
+  "store_owner" in input.subject.roles
+}
+
+slip_cancel_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
 transport_read_allowed if {
   "inventory.transport.read" in input.subject.permissions
 }
@@ -450,6 +558,102 @@ transport_write_allowed if {
 }
 
 transport_write_allowed if {
+  "inventory.movement.create" in input.subject.permissions
+}
+
+transport_lifecycle_allowed if {
+  "inventory.transport.depart" in input.subject.permissions
+}
+
+transport_lifecycle_allowed if {
+  "inventory.transport.deliver" in input.subject.permissions
+}
+
+transport_lifecycle_allowed if {
+  "inventory.transport.create" in input.subject.permissions
+}
+
+transport_lifecycle_allowed if {
+  "inventory.movement.create" in input.subject.permissions
+}
+
+transport_cancel_allowed if {
+  "inventory.transport.cancel" in input.subject.permissions
+}
+
+transport_cancel_allowed if {
+  "warehouse_manager" in input.subject.roles
+}
+
+transport_cancel_allowed if {
+  "regional_manager" in input.subject.roles
+}
+
+transport_cancel_allowed if {
+  "store_owner" in input.subject.roles
+}
+
+transport_cancel_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+parcel_read_allowed if {
+  "inventory.parcel.read" in input.subject.permissions
+}
+
+parcel_read_allowed if {
+  "inventory.slip.read" in input.subject.permissions
+}
+
+parcel_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+warranty_read_allowed if {
+  "inventory.warranty.read" in input.subject.permissions
+}
+
+warranty_read_allowed if {
+  "inventory.parcel.read" in input.subject.permissions
+}
+
+warranty_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+warranty_write_allowed if {
+  "inventory.warranty.create" in input.subject.permissions
+}
+
+warranty_write_allowed if {
+  "inventory.slip.create" in input.subject.permissions
+}
+
+warranty_write_allowed if {
+  "inventory.movement.create" in input.subject.permissions
+}
+
+return_read_allowed if {
+  "inventory.return.read" in input.subject.permissions
+}
+
+return_read_allowed if {
+  "inventory.parcel.read" in input.subject.permissions
+}
+
+return_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+return_write_allowed if {
+  "inventory.return.create" in input.subject.permissions
+}
+
+return_write_allowed if {
+  "inventory.slip.create" in input.subject.permissions
+}
+
+return_write_allowed if {
   "inventory.movement.create" in input.subject.permissions
 }
 

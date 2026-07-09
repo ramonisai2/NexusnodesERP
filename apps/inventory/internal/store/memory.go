@@ -529,6 +529,15 @@ func (s *Memory) GetShippingSlip(_ context.Context, _, _ string) (domain.Shippin
 func (s *Memory) MarkShippingSlipPrinted(_ context.Context, _, _, _ string) (domain.ShippingSlip, error) {
 	return domain.ShippingSlip{}, domain.ErrNotFound
 }
+func (s *Memory) ShipShippingSlip(_ context.Context, _, _, _ string) (domain.ShippingSlip, error) {
+	return domain.ShippingSlip{}, domain.ErrNotFound
+}
+func (s *Memory) ReceiveShippingSlip(_ context.Context, _, _, _ string) (domain.ShippingSlip, error) {
+	return domain.ShippingSlip{}, domain.ErrNotFound
+}
+func (s *Memory) CancelShippingSlip(_ context.Context, _, _ string, _ domain.CancelParcelRequest) (domain.ShippingSlip, error) {
+	return domain.ShippingSlip{}, domain.ErrNotFound
+}
 
 func (s *Memory) CreateTransportSheet(_ context.Context, _ domain.CreateTransportSheetRequest) (domain.TransportSheet, error) {
 	return domain.TransportSheet{}, errors.New("transport sheets require postgres store")
@@ -540,6 +549,15 @@ func (s *Memory) GetTransportSheet(_ context.Context, _, _ string) (domain.Trans
 	return domain.TransportSheet{}, domain.ErrNotFound
 }
 func (s *Memory) MarkTransportSheetPrinted(_ context.Context, _, _, _ string) (domain.TransportSheet, error) {
+	return domain.TransportSheet{}, domain.ErrNotFound
+}
+func (s *Memory) DepartTransportSheet(_ context.Context, _, _, _ string) (domain.TransportSheet, error) {
+	return domain.TransportSheet{}, domain.ErrNotFound
+}
+func (s *Memory) DeliverTransportSheet(_ context.Context, _, _, _ string) (domain.TransportSheet, error) {
+	return domain.TransportSheet{}, domain.ErrNotFound
+}
+func (s *Memory) CancelTransportSheet(_ context.Context, _, _ string, _ domain.CancelParcelRequest) (domain.TransportSheet, error) {
 	return domain.TransportSheet{}, domain.ErrNotFound
 }
 
@@ -560,6 +578,28 @@ func (s *Memory) ReceiveTransfer(_ context.Context, _, _, _ string) (domain.Inve
 }
 func (s *Memory) CancelTransfer(_ context.Context, _, _ string, _ domain.CancelTransferRequest) (domain.InventoryTransfer, error) {
 	return domain.InventoryTransfer{}, domain.ErrNotFound
+}
+
+func (s *Memory) CreateWarrantyCase(_ context.Context, _ domain.CreateWarrantyCaseRequest) (domain.WarrantyCase, error) {
+	return domain.WarrantyCase{}, errors.New("warranty cases require postgres store")
+}
+func (s *Memory) ListWarrantyCases(_ context.Context, _ domain.WarrantyCaseFilter) ([]domain.WarrantyCase, error) {
+	return nil, nil
+}
+func (s *Memory) GetWarrantyCase(_ context.Context, _, _ string) (domain.WarrantyCase, error) {
+	return domain.WarrantyCase{}, domain.ErrNotFound
+}
+func (s *Memory) CreateReturnCase(_ context.Context, _ domain.CreateReturnCaseRequest) (domain.ReturnCase, error) {
+	return domain.ReturnCase{}, errors.New("return cases require postgres store")
+}
+func (s *Memory) ListReturnCases(_ context.Context, _ domain.ReturnCaseFilter) ([]domain.ReturnCase, error) {
+	return nil, nil
+}
+func (s *Memory) GetReturnCase(_ context.Context, _, _ string) (domain.ReturnCase, error) {
+	return domain.ReturnCase{}, domain.ErrNotFound
+}
+func (s *Memory) ListParcelHub(_ context.Context, _ domain.ParcelHubFilter) ([]domain.ParcelHubItem, error) {
+	return nil, nil
 }
 
 func (s *Memory) GetStorefrontSettings(_ context.Context, _, _ string) (domain.StorefrontSettings, error) {

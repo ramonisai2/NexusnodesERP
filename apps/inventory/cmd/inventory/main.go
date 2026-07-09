@@ -612,9 +612,10 @@ func main() {
 		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
 		direction := req.URL.Query().Get("direction") // from|to|both
 		filter := domain.ShippingSlipFilter{
-			OrgRef: subject.OrgID,
-			Status: req.URL.Query().Get("status"),
-			Limit:  limit,
+			OrgRef:     subject.OrgID,
+			Status:     req.URL.Query().Get("status"),
+			ParcelKind: req.URL.Query().Get("parcel_kind"),
+			Limit:      limit,
 		}
 		switch direction {
 		case "to":
@@ -739,6 +740,96 @@ func main() {
 		writeJSON(w, http.StatusOK, slip)
 	})
 
+	r.Post("/slips/{id}/ship", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.slip.ship",
+			Resource: map[string]any{"org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.slip.ship")
+			return
+		}
+		slip, err := inventoryStore.ShipShippingSlip(req.Context(), subject.OrgID, id, subject.Sub)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"ship_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, slip)
+	})
+
+	r.Post("/slips/{id}/receive", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.slip.receive",
+			Resource: map[string]any{"org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.slip.receive")
+			return
+		}
+		slip, err := inventoryStore.ReceiveShippingSlip(req.Context(), subject.OrgID, id, subject.Sub)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"receive_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, slip)
+	})
+
+	r.Post("/slips/{id}/cancel", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		var body domain.CancelParcelRequest
+		_ = json.NewDecoder(req.Body).Decode(&body)
+		body.Actor = subject.Sub
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.slip.cancel",
+			Resource: map[string]any{"org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.slip.cancel")
+			return
+		}
+		slip, err := inventoryStore.CancelShippingSlip(req.Context(), subject.OrgID, id, body)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"cancel_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, slip)
+	})
+
 	r.Get("/transport-sheets", func(w http.ResponseWriter, req *http.Request) {
 		subject := authz.FromGatewayHeaders(req)
 		branchID := req.URL.Query().Get("branch_id")
@@ -760,9 +851,10 @@ func main() {
 		}
 		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
 		filter := domain.TransportSheetFilter{
-			OrgRef: subject.OrgID,
-			Status: req.URL.Query().Get("status"),
-			Limit:  limit,
+			OrgRef:     subject.OrgID,
+			Status:     req.URL.Query().Get("status"),
+			ParcelKind: req.URL.Query().Get("parcel_kind"),
+			Limit:      limit,
 		}
 		if req.URL.Query().Get("direction") == "to" {
 			filter.ToBranch = branchID
@@ -886,6 +978,96 @@ func main() {
 		writeJSON(w, http.StatusOK, sheet)
 	})
 
+	r.Post("/transport-sheets/{id}/depart", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.transport.depart",
+			Resource: map[string]any{"org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.transport.depart")
+			return
+		}
+		sheet, err := inventoryStore.DepartTransportSheet(req.Context(), subject.OrgID, id, subject.Sub)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"depart_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, sheet)
+	})
+
+	r.Post("/transport-sheets/{id}/deliver", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.transport.deliver",
+			Resource: map[string]any{"org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.transport.deliver")
+			return
+		}
+		sheet, err := inventoryStore.DeliverTransportSheet(req.Context(), subject.OrgID, id, subject.Sub)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"deliver_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, sheet)
+	})
+
+	r.Post("/transport-sheets/{id}/cancel", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		var body domain.CancelParcelRequest
+		_ = json.NewDecoder(req.Body).Decode(&body)
+		body.Actor = subject.Sub
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.transport.cancel",
+			Resource: map[string]any{"org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.transport.cancel")
+			return
+		}
+		sheet, err := inventoryStore.CancelTransportSheet(req.Context(), subject.OrgID, id, body)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"cancel_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, sheet)
+	})
+
 	r.Get("/transfers", func(w http.ResponseWriter, req *http.Request) {
 		subject := authz.FromGatewayHeaders(req)
 		branchID := req.URL.Query().Get("branch_id")
@@ -907,9 +1089,10 @@ func main() {
 		}
 		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
 		filter := domain.TransferFilter{
-			OrgRef: subject.OrgID,
-			Status: req.URL.Query().Get("status"),
-			Limit:  limit,
+			OrgRef:     subject.OrgID,
+			Status:     req.URL.Query().Get("status"),
+			ParcelKind: req.URL.Query().Get("parcel_kind"),
+			Limit:      limit,
 		}
 		switch req.URL.Query().Get("direction") {
 		case "to":
@@ -1116,6 +1299,256 @@ func main() {
 			return
 		}
 		writeJSON(w, http.StatusOK, out)
+	})
+
+	r.Get("/parcels", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.URL.Query().Get("branch_id")
+		if branchID == "" {
+			branchID = req.Header.Get("X-Branch-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.parcel.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.parcel.read")
+			return
+		}
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		items, err := inventoryStore.ListParcelHub(req.Context(), domain.ParcelHubFilter{
+			OrgRef:     subject.OrgID,
+			BranchID:   branchID,
+			ParcelKind: req.URL.Query().Get("parcel_kind"),
+			Limit:      limit,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"list_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusInternalServerError)
+			return
+		}
+		if items == nil {
+			items = []domain.ParcelHubItem{}
+		}
+		writeJSON(w, http.StatusOK, items)
+	})
+
+	r.Get("/warranty-cases", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.URL.Query().Get("branch_id")
+		if branchID == "" {
+			branchID = req.Header.Get("X-Branch-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.warranty.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.warranty.read")
+			return
+		}
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		items, err := inventoryStore.ListWarrantyCases(req.Context(), domain.WarrantyCaseFilter{
+			OrgRef:   subject.OrgID,
+			BranchID: branchID,
+			Status:   req.URL.Query().Get("status"),
+			Limit:    limit,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"list_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusInternalServerError)
+			return
+		}
+		if items == nil {
+			items = []domain.WarrantyCase{}
+		}
+		writeJSON(w, http.StatusOK, items)
+	})
+
+	r.Get("/warranty-cases/{id}", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.warranty.read",
+			Resource: map[string]any{"org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.warranty.read")
+			return
+		}
+		item, err := inventoryStore.GetWarrantyCase(req.Context(), subject.OrgID, id)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	})
+
+	r.Post("/warranty-cases", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		var body domain.CreateWarrantyCaseRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.OrgID = subject.OrgID
+		body.CreatedBy = subject.Sub
+		if body.OperatorLabel == "" {
+			body.OperatorLabel = subject.OperatorLabel
+		}
+		if body.BranchID == "" {
+			body.BranchID = req.Header.Get("X-Branch-Id")
+		}
+		if body.IdempotencyKey == "" {
+			body.IdempotencyKey = req.Header.Get("Idempotency-Key")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject: subject,
+			Action:  "inventory.warranty.create",
+			Resource: map[string]any{
+				"branch_id": body.BranchID,
+				"org_id":    body.OrgID,
+			},
+			Context: map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.warranty.create")
+			return
+		}
+		item, err := inventoryStore.CreateWarrantyCase(req.Context(), body)
+		if err != nil {
+			http.Error(w, `{"error":"create_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusCreated, item)
+	})
+
+	r.Get("/return-cases", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.URL.Query().Get("branch_id")
+		if branchID == "" {
+			branchID = req.Header.Get("X-Branch-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.return.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.return.read")
+			return
+		}
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		items, err := inventoryStore.ListReturnCases(req.Context(), domain.ReturnCaseFilter{
+			OrgRef:     subject.OrgID,
+			FromBranch: branchID,
+			Status:     req.URL.Query().Get("status"),
+			Limit:      limit,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"list_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusInternalServerError)
+			return
+		}
+		if items == nil {
+			items = []domain.ReturnCase{}
+		}
+		writeJSON(w, http.StatusOK, items)
+	})
+
+	r.Get("/return-cases/{id}", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.return.read",
+			Resource: map[string]any{"org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.return.read")
+			return
+		}
+		item, err := inventoryStore.GetReturnCase(req.Context(), subject.OrgID, id)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	})
+
+	r.Post("/return-cases", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		var body domain.CreateReturnCaseRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.OrgID = subject.OrgID
+		body.CreatedBy = subject.Sub
+		if body.OperatorLabel == "" {
+			body.OperatorLabel = subject.OperatorLabel
+		}
+		if body.FromBranchID == "" {
+			body.FromBranchID = req.Header.Get("X-Branch-Id")
+		}
+		if body.IdempotencyKey == "" {
+			body.IdempotencyKey = req.Header.Get("Idempotency-Key")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject: subject,
+			Action:  "inventory.return.create",
+			Resource: map[string]any{
+				"branch_id": body.FromBranchID,
+				"org_id":    body.OrgID,
+			},
+			Context: map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.return.create")
+			return
+		}
+		item, err := inventoryStore.CreateReturnCase(req.Context(), body)
+		if err != nil {
+			http.Error(w, `{"error":"create_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusCreated, item)
 	})
 
 	r.Get("/storefront/settings", func(w http.ResponseWriter, req *http.Request) {

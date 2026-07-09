@@ -34,6 +34,13 @@ func (s *Postgres) CreateTransfer(ctx context.Context, req domain.CreateTransfer
 			return domain.InventoryTransfer{}, fmt.Errorf("line %d: quantity must be positive", i)
 		}
 	}
+	parcelKind := strings.ToUpper(strings.TrimSpace(req.ParcelKind))
+	if parcelKind == "" {
+		parcelKind = domain.ParcelTransfer
+	}
+	if !domain.ValidParcelKind(parcelKind) {
+		return domain.InventoryTransfer{}, errors.New("invalid parcel_kind")
+	}
 
 	tx, orgID, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
 		return resolveOrgID(ctx, tx, req.OrgID)
@@ -83,6 +90,25 @@ SELECT id::text FROM inventory_transfers WHERE org_id = $1 AND idempotency_key =
 			sess = req.SessionID
 		}
 	}
+	var transportSheetID, warrantyCaseID, returnCaseID any
+	if strings.TrimSpace(req.TransportSheetID) != "" {
+		if _, err := uuid.Parse(req.TransportSheetID); err != nil {
+			return domain.InventoryTransfer{}, errors.New("invalid transport_sheet_id")
+		}
+		transportSheetID = req.TransportSheetID
+	}
+	if strings.TrimSpace(req.WarrantyCaseID) != "" {
+		if _, err := uuid.Parse(req.WarrantyCaseID); err != nil {
+			return domain.InventoryTransfer{}, errors.New("invalid warranty_case_id")
+		}
+		warrantyCaseID = req.WarrantyCaseID
+	}
+	if strings.TrimSpace(req.ReturnCaseID) != "" {
+		if _, err := uuid.Parse(req.ReturnCaseID); err != nil {
+			return domain.InventoryTransfer{}, errors.New("invalid return_case_id")
+		}
+		returnCaseID = req.ReturnCaseID
+	}
 
 	id := uuid.New()
 	now := time.Now().UTC()
@@ -91,11 +117,14 @@ SELECT id::text FROM inventory_transfers WHERE org_id = $1 AND idempotency_key =
 	_, err = tx.Exec(ctx, `
 INSERT INTO inventory_transfers (
   id, org_id, transfer_number, from_branch_id, to_branch_id, from_warehouse_id, to_warehouse_id,
+  parcel_kind, transport_sheet_id, warranty_case_id, return_case_id,
   status, notes, created_by, operator_label, session_id, idempotency_key, created_at, updated_at
 ) VALUES (
   $1, $2::uuid, $3, $4::uuid, $5::uuid, $6::uuid, $7::uuid,
-  'DRAFT', $8, $9, $10, $11, $12, $13, $13
+  $8, $9, $10, $11,
+  'DRAFT', $12, $13, $14, $15, $16, $17, $17
 )`, id, orgID, number, fromBranch, toBranch, fromWH, toWH,
+		parcelKind, transportSheetID, warrantyCaseID, returnCaseID,
 		strings.TrimSpace(req.Notes), req.CreatedBy, strings.TrimSpace(req.OperatorLabel),
 		sess, req.IdempotencyKey, now)
 	if err != nil {
@@ -157,6 +186,8 @@ func (s *Postgres) ListTransfers(ctx context.Context, filter domain.TransferFilt
 		q := `
 SELECT t.id::text, t.org_id::text, t.transfer_number,
        fb.code, tb.code, fw.code, tw.code,
+       COALESCE(t.parcel_kind,'TRANSFER'),
+       COALESCE(t.transport_sheet_id::text,''), COALESCE(t.warranty_case_id::text,''), COALESCE(t.return_case_id::text,''),
        t.status, t.notes, t.created_by, t.operator_label,
        t.shipped_by, t.shipped_at, t.received_by, t.received_at,
        t.cancelled_by, t.cancelled_at, t.cancel_reason,
@@ -184,6 +215,11 @@ WHERE t.org_id = $1::uuid`
 			args = append(args, strings.ToUpper(filter.Status))
 			n++
 		}
+		if filter.ParcelKind != "" {
+			q += fmt.Sprintf(` AND t.parcel_kind = $%d`, n)
+			args = append(args, strings.ToUpper(filter.ParcelKind))
+			n++
+		}
 		q += fmt.Sprintf(` ORDER BY t.created_at DESC LIMIT $%d`, n)
 		args = append(args, limit)
 
@@ -197,6 +233,7 @@ WHERE t.org_id = $1::uuid`
 			if err := rows.Scan(
 				&t.ID, &t.OrgID, &t.TransferNumber,
 				&t.FromBranchID, &t.ToBranchID, &t.FromWarehouseID, &t.ToWarehouseID,
+				&t.ParcelKind, &t.TransportSheetID, &t.WarrantyCaseID, &t.ReturnCaseID,
 				&t.Status, &t.Notes, &t.CreatedBy, &t.OperatorLabel,
 				&t.ShippedBy, &t.ShippedAt, &t.ReceivedBy, &t.ReceivedAt,
 				&t.CancelledBy, &t.CancelledAt, &t.CancelReason,
@@ -204,6 +241,7 @@ WHERE t.org_id = $1::uuid`
 			); err != nil {
 				return err
 			}
+			t.ParcelKindLabel = domain.ParcelKindLabelES(t.ParcelKind)
 			out = append(out, t)
 		}
 		return rows.Err()
@@ -224,6 +262,8 @@ func (s *Postgres) GetTransfer(ctx context.Context, orgRef, transferID string) (
 		err = tx.QueryRow(ctx, `
 SELECT t.id::text, t.org_id::text, t.transfer_number,
        fb.code, tb.code, fw.code, tw.code,
+       COALESCE(t.parcel_kind,'TRANSFER'),
+       COALESCE(t.transport_sheet_id::text,''), COALESCE(t.warranty_case_id::text,''), COALESCE(t.return_case_id::text,''),
        t.status, t.notes, t.created_by, t.operator_label,
        t.shipped_by, t.shipped_at, t.received_by, t.received_at,
        t.cancelled_by, t.cancelled_at, t.cancel_reason,
@@ -236,6 +276,7 @@ JOIN warehouses tw ON tw.id = t.to_warehouse_id
 WHERE t.org_id = $1::uuid AND t.id = $2::uuid`, orgID, transferID).Scan(
 			&out.ID, &out.OrgID, &out.TransferNumber,
 			&out.FromBranchID, &out.ToBranchID, &out.FromWarehouseID, &out.ToWarehouseID,
+			&out.ParcelKind, &out.TransportSheetID, &out.WarrantyCaseID, &out.ReturnCaseID,
 			&out.Status, &out.Notes, &out.CreatedBy, &out.OperatorLabel,
 			&out.ShippedBy, &out.ShippedAt, &out.ReceivedBy, &out.ReceivedAt,
 			&out.CancelledBy, &out.CancelledAt, &out.CancelReason,
@@ -247,6 +288,7 @@ WHERE t.org_id = $1::uuid AND t.id = $2::uuid`, orgID, transferID).Scan(
 		if err != nil {
 			return err
 		}
+		out.ParcelKindLabel = domain.ParcelKindLabelES(out.ParcelKind)
 		lines, err := loadTransferLines(ctx, tx, transferID)
 		if err != nil {
 			return err

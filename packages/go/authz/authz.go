@@ -271,6 +271,26 @@ func localAllow(in Input) bool {
 			!in.Subject.HasPermission("inventory.movement.create") {
 			return false
 		}
+	} else if in.Action == "inventory.slip.ship" || in.Action == "inventory.slip.receive" {
+		if !in.Subject.HasPermission("inventory.slip.ship") &&
+			!in.Subject.HasPermission("inventory.slip.receive") &&
+			!in.Subject.HasPermission("inventory.slip.create") &&
+			!in.Subject.HasPermission("inventory.movement.create") {
+			return false
+		}
+	} else if in.Action == "inventory.slip.cancel" {
+		if !in.Subject.HasPermission("inventory.slip.cancel") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "store_owner" || r == "regional_manager" || r == "warehouse_manager" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
 	} else if in.Action == "inventory.transport.read" {
 		if !in.Subject.HasPermission("inventory.transport.read") &&
 			!in.Subject.HasPermission("inventory.balance.read") {
@@ -279,6 +299,56 @@ func localAllow(in Input) bool {
 	} else if in.Action == "inventory.transport.create" || in.Action == "inventory.transport.print" {
 		if !in.Subject.HasPermission("inventory.transport.create") &&
 			!in.Subject.HasPermission("inventory.transport.print") &&
+			!in.Subject.HasPermission("inventory.movement.create") {
+			return false
+		}
+	} else if in.Action == "inventory.transport.depart" || in.Action == "inventory.transport.deliver" {
+		if !in.Subject.HasPermission("inventory.transport.depart") &&
+			!in.Subject.HasPermission("inventory.transport.deliver") &&
+			!in.Subject.HasPermission("inventory.transport.create") &&
+			!in.Subject.HasPermission("inventory.movement.create") {
+			return false
+		}
+	} else if in.Action == "inventory.transport.cancel" {
+		if !in.Subject.HasPermission("inventory.transport.cancel") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "store_owner" || r == "regional_manager" || r == "warehouse_manager" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
+	} else if in.Action == "inventory.parcel.read" {
+		if !in.Subject.HasPermission("inventory.parcel.read") &&
+			!in.Subject.HasPermission("inventory.slip.read") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "inventory.warranty.read" {
+		if !in.Subject.HasPermission("inventory.warranty.read") &&
+			!in.Subject.HasPermission("inventory.parcel.read") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "inventory.warranty.create" {
+		if !in.Subject.HasPermission("inventory.warranty.create") &&
+			!in.Subject.HasPermission("inventory.slip.create") &&
+			!in.Subject.HasPermission("inventory.movement.create") {
+			return false
+		}
+	} else if in.Action == "inventory.return.read" {
+		if !in.Subject.HasPermission("inventory.return.read") &&
+			!in.Subject.HasPermission("inventory.parcel.read") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "inventory.return.create" {
+		if !in.Subject.HasPermission("inventory.return.create") &&
+			!in.Subject.HasPermission("inventory.slip.create") &&
 			!in.Subject.HasPermission("inventory.movement.create") {
 			return false
 		}

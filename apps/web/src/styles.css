@@ -1752,6 +1752,29 @@ td {
   }
 }
 
+/* —— Paquetería —— */
+.parcels-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: rise 0.55s var(--ease) both;
+}
+
+.slip-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.parcels-page .filter-bar .btn {
+  animation: rise 0.45s var(--ease) both;
+}
+
+.parcels-page table {
+  animation: rise 0.65s var(--ease) 0.06s both;
+}
+
 /* —— Traslados de stock —— */
 .transfer-page {
   display: flex;

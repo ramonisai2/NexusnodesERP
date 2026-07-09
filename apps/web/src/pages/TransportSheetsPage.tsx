@@ -45,6 +45,8 @@ type TransportSheet = {
   carrier_name?: string;
   vehicle_ref?: string;
   driver_name?: string;
+  parcel_kind?: string;
+  parcel_kind_label?: string;
   status: string;
   notes?: string;
   operator_label?: string;
@@ -52,6 +54,16 @@ type TransportSheet = {
   printed_at?: string;
   sections?: TransportSection[];
 };
+
+const PARCEL_KINDS = [
+  { code: "TRANSFER", key: "parcelKindTransfer" as const },
+  { code: "CEDI_DISTRIBUTION", key: "parcelKindCedi" as const },
+  { code: "DEFECTIVE", key: "parcelKindDefective" as const },
+  { code: "WARRANTY", key: "parcelKindWarranty" as const },
+  { code: "RETURN_TO_CEDI", key: "parcelKindReturnCedi" as const },
+  { code: "REPAIR_OUT", key: "parcelKindRepairOut" as const },
+  { code: "REPAIR_IN", key: "parcelKindRepairIn" as const },
+];
 
 type DraftSection = {
   key: string;
@@ -97,6 +109,14 @@ function TransportSheetsPanel() {
   const qc = useQueryClient();
   const canCreate =
     hasPermission(claims, "inventory.transport.create") || hasPermission(claims, "inventory.movement.create");
+  const canDepart =
+    hasPermission(claims, "inventory.transport.depart") ||
+    hasPermission(claims, "inventory.transport.create") ||
+    hasPermission(claims, "inventory.movement.create");
+  const canDeliver =
+    hasPermission(claims, "inventory.transport.deliver") ||
+    hasPermission(claims, "inventory.transport.create") ||
+    hasPermission(claims, "inventory.movement.create");
 
   const otherBranches = useMemo(
     () => (claims?.branch_ids ?? []).filter((b) => b !== fromBranch),
@@ -107,6 +127,7 @@ function TransportSheetsPanel() {
   const [carrier, setCarrier] = useState("");
   const [vehicle, setVehicle] = useState("");
   const [driver, setDriver] = useState("");
+  const [parcelKind, setParcelKind] = useState("TRANSFER");
   const [notes, setNotes] = useState("");
   const [sections, setSections] = useState<DraftSection[]>([newSection()]);
   const [printSheet, setPrintSheet] = useState<TransportSheet | null>(null);
@@ -154,6 +175,7 @@ function TransportSheetsPanel() {
         carrier_name: carrier.trim(),
         vehicle_ref: vehicle.trim(),
         driver_name: driver.trim(),
+        parcel_kind: parcelKind,
         notes: notes.trim(),
         sections: sections
           .filter((s) => s.department_code && (s.notes.trim() || s.slip_ids.length > 0))
@@ -177,6 +199,7 @@ function TransportSheetsPanel() {
     },
     onSuccess: (sheet) => {
       void qc.invalidateQueries({ queryKey: ["transport-sheets"] });
+      void qc.invalidateQueries({ queryKey: ["parcels"] });
       setPrintSheet(sheet);
       setCarrier("");
       setVehicle("");
@@ -195,6 +218,32 @@ function TransportSheetsPanel() {
     onSuccess: (sheet) => {
       void qc.invalidateQueries({ queryKey: ["transport-sheets"] });
       setPrintSheet(sheet);
+    },
+  });
+
+  const departSheet = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiFetch(`/inventory/transport-sheets/${id}/depart`, { method: "POST" });
+      if (!res.ok) throw new Error((await res.text()) || "depart_failed");
+      return (await res.json()) as TransportSheet;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["transport-sheets"] });
+      void qc.invalidateQueries({ queryKey: ["slips"] });
+      void qc.invalidateQueries({ queryKey: ["parcels"] });
+    },
+  });
+
+  const deliverSheet = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiFetch(`/inventory/transport-sheets/${id}/deliver`, { method: "POST" });
+      if (!res.ok) throw new Error((await res.text()) || "deliver_failed");
+      return (await res.json()) as TransportSheet;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["transport-sheets"] });
+      void qc.invalidateQueries({ queryKey: ["slips"] });
+      void qc.invalidateQueries({ queryKey: ["parcels"] });
     },
   });
 
@@ -275,6 +324,16 @@ function TransportSheetsPanel() {
             <label className="filter-field">
               <span>{t("trDriver")}</span>
               <input value={driver} onChange={(e) => setDriver(e.target.value)} />
+            </label>
+            <label className="filter-field">
+              <span>{t("parcelColKind")}</span>
+              <select value={parcelKind} onChange={(e) => setParcelKind(e.target.value)}>
+                {PARCEL_KINDS.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {t(c.key)}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 
@@ -361,6 +420,7 @@ function TransportSheetsPanel() {
             <tr>
               <th>{t("trColNumber")}</th>
               <th>{t("trColTo")}</th>
+              <th>{t("parcelColKind")}</th>
               <th>{t("trColStatus")}</th>
               <th />
             </tr>
@@ -370,11 +430,22 @@ function TransportSheetsPanel() {
               <tr key={s.id}>
                 <td>{s.sheet_number}</td>
                 <td>{labelBranch(s.to_branch_id, locale)}</td>
+                <td>{s.parcel_kind_label || s.parcel_kind || "TRANSFER"}</td>
                 <td>{s.status}</td>
-                <td>
+                <td className="slip-row-actions">
                   <button type="button" className="btn secondary" onClick={() => openPrint(s)}>
                     {t("trPrint")}
                   </button>
+                  {canDepart && (s.status === "DRAFT" || s.status === "PRINTED") ? (
+                    <button type="button" className="btn secondary" onClick={() => departSheet.mutate(s.id)}>
+                      {t("trDepart")}
+                    </button>
+                  ) : null}
+                  {canDeliver && s.status === "IN_TRANSIT" ? (
+                    <button type="button" className="btn secondary" onClick={() => deliverSheet.mutate(s.id)}>
+                      {t("trDeliver")}
+                    </button>
+                  ) : null}
                 </td>
               </tr>
             ))}

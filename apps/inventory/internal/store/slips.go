@@ -23,8 +23,26 @@ func (s *Postgres) CreateShippingSlip(ctx context.Context, req domain.CreateShip
 	if strings.TrimSpace(req.FromBranchID) == "" || strings.TrimSpace(req.ToBranchID) == "" {
 		return domain.ShippingSlip{}, errors.New("from_branch_id and to_branch_id required")
 	}
-	if req.FromBranchID == req.ToBranchID {
-		return domain.ShippingSlip{}, errors.New("from and to branch must differ")
+	parcelKind := strings.ToUpper(strings.TrimSpace(req.ParcelKind))
+	if parcelKind == "" {
+		parcelKind = domain.ParcelTransfer
+	}
+	if !domain.ValidParcelKind(parcelKind) {
+		return domain.ShippingSlip{}, errors.New("invalid parcel_kind")
+	}
+	sameBranch := req.FromBranchID == req.ToBranchID
+	if sameBranch {
+		switch parcelKind {
+		case domain.ParcelDefective, domain.ParcelRepairOut, domain.ParcelRepairIn, domain.ParcelWarranty:
+			if strings.TrimSpace(req.FromWarehouseID) == "" || strings.TrimSpace(req.ToWarehouseID) == "" {
+				return domain.ShippingSlip{}, errors.New("same-branch slips require distinct warehouses")
+			}
+			if req.FromWarehouseID == req.ToWarehouseID {
+				return domain.ShippingSlip{}, errors.New("from and to warehouse must differ")
+			}
+		default:
+			return domain.ShippingSlip{}, errors.New("from and to branch must differ")
+		}
 	}
 	if strings.TrimSpace(req.Description) == "" && strings.TrimSpace(req.ContentsSummary) == "" && len(req.Lines) == 0 {
 		return domain.ShippingSlip{}, errors.New("description, contents_summary, or lines required")
@@ -92,15 +110,15 @@ SELECT id::text FROM shipping_slips WHERE org_id = $1 AND idempotency_key = $2`,
 	_, err = tx.Exec(ctx, `
 INSERT INTO shipping_slips (
   id, org_id, slip_number, from_branch_id, to_branch_id, from_warehouse_id, to_warehouse_id,
-  container_type, description, contents_summary, quantity_units, status,
+  container_type, parcel_kind, tracking_code, description, contents_summary, quantity_units, status,
   created_by, operator_label, session_id, notes, idempotency_key, created_at, updated_at
 ) VALUES (
   $1, $2::uuid, $3, $4::uuid, $5::uuid, $6, $7,
-  $8, $9, $10, $11, 'DRAFT',
-  $12, $13, $14, $15, $16, $17, $17
+  $8, $9, $10, $11, $12, $13, 'DRAFT',
+  $14, $15, $16, $17, $18, $19, $19
 )`, id, orgID, slipNumber, fromBranch, toBranch, fromWH, toWH,
-		strings.ToUpper(req.ContainerType), strings.TrimSpace(req.Description),
-		strings.TrimSpace(req.ContentsSummary), req.QuantityUnits,
+		strings.ToUpper(req.ContainerType), parcelKind, strings.TrimSpace(req.TrackingCode),
+		strings.TrimSpace(req.Description), strings.TrimSpace(req.ContentsSummary), req.QuantityUnits,
 		req.CreatedBy, strings.TrimSpace(req.OperatorLabel), sess,
 		strings.TrimSpace(req.Notes), req.IdempotencyKey, now)
 	if err != nil {
@@ -156,8 +174,9 @@ func (s *Postgres) ListShippingSlips(ctx context.Context, filter domain.Shipping
 SELECT s.id::text, s.org_id::text, s.slip_number,
        fb.code, tb.code,
        COALESCE(fw.code, ''), COALESCE(tw.code, ''),
-       s.container_type, s.description, s.contents_summary, s.quantity_units, s.status,
-       s.printed_at, s.shipped_at, s.received_at,
+       s.container_type, COALESCE(s.parcel_kind,'TRANSFER'), COALESCE(s.tracking_code,''),
+       s.description, s.contents_summary, s.quantity_units, s.status,
+       s.printed_at, s.shipped_at, s.received_at, s.cancelled_at, COALESCE(s.cancel_reason,''),
        s.created_by, s.operator_label, COALESCE(s.session_id::text, ''),
        s.notes, s.idempotency_key, s.created_at, s.updated_at
 FROM shipping_slips s
@@ -181,6 +200,11 @@ WHERE 1=1`
 	if filter.Status != "" {
 		q += fmt.Sprintf(` AND s.status = $%d`, n)
 		args = append(args, strings.ToUpper(filter.Status))
+		n++
+	}
+	if filter.ParcelKind != "" {
+		q += fmt.Sprintf(` AND s.parcel_kind = $%d`, n)
+		args = append(args, strings.ToUpper(filter.ParcelKind))
 		n++
 	}
 	q += fmt.Sprintf(` ORDER BY s.created_at DESC LIMIT $%d`, n)
@@ -222,8 +246,9 @@ func (s *Postgres) GetShippingSlip(ctx context.Context, orgRef, slipID string) (
 SELECT s.id::text, s.org_id::text, s.slip_number,
        fb.code, tb.code,
        COALESCE(fw.code, ''), COALESCE(tw.code, ''),
-       s.container_type, s.description, s.contents_summary, s.quantity_units, s.status,
-       s.printed_at, s.shipped_at, s.received_at,
+       s.container_type, COALESCE(s.parcel_kind,'TRANSFER'), COALESCE(s.tracking_code,''),
+       s.description, s.contents_summary, s.quantity_units, s.status,
+       s.printed_at, s.shipped_at, s.received_at, s.cancelled_at, COALESCE(s.cancel_reason,''),
        s.created_by, s.operator_label, COALESCE(s.session_id::text, ''),
        s.notes, s.idempotency_key, s.created_at, s.updated_at
 FROM shipping_slips s
@@ -296,13 +321,14 @@ type slipScanner interface {
 
 func scanShippingSlip(row slipScanner) (domain.ShippingSlip, error) {
 	var s domain.ShippingSlip
-	var printed, shipped, received *time.Time
+	var printed, shipped, received, cancelled *time.Time
 	err := row.Scan(
 		&s.ID, &s.OrgID, &s.SlipNumber,
 		&s.FromBranchID, &s.ToBranchID,
 		&s.FromWarehouseID, &s.ToWarehouseID,
-		&s.ContainerType, &s.Description, &s.ContentsSummary, &s.QuantityUnits, &s.Status,
-		&printed, &shipped, &received,
+		&s.ContainerType, &s.ParcelKind, &s.TrackingCode,
+		&s.Description, &s.ContentsSummary, &s.QuantityUnits, &s.Status,
+		&printed, &shipped, &received, &cancelled, &s.CancelReason,
 		&s.CreatedBy, &s.OperatorLabel, &s.SessionID,
 		&s.Notes, &s.IdempotencyKey, &s.CreatedAt, &s.UpdatedAt,
 	)
@@ -312,7 +338,9 @@ func scanShippingSlip(row slipScanner) (domain.ShippingSlip, error) {
 	s.PrintedAt = printed
 	s.ShippedAt = shipped
 	s.ReceivedAt = received
+	s.CancelledAt = cancelled
 	s.ContainerLabel = domain.ContainerTypeLabelES(s.ContainerType)
+	s.ParcelKindLabel = domain.ParcelKindLabelES(s.ParcelKind)
 	return s, nil
 }
 

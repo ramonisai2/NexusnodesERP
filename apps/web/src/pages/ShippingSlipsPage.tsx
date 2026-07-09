@@ -19,6 +19,9 @@ type ShippingSlip = {
   to_branch_id: string;
   container_type: string;
   container_label?: string;
+  parcel_kind?: string;
+  parcel_kind_label?: string;
+  tracking_code?: string;
   description: string;
   contents_summary?: string;
   quantity_units: number;
@@ -27,8 +30,20 @@ type ShippingSlip = {
   notes?: string;
   created_at: string;
   printed_at?: string;
+  shipped_at?: string;
+  received_at?: string;
   lines?: SlipLine[];
 };
+
+const PARCEL_KINDS = [
+  { code: "TRANSFER", key: "parcelKindTransfer" as const },
+  { code: "CEDI_DISTRIBUTION", key: "parcelKindCedi" as const },
+  { code: "DEFECTIVE", key: "parcelKindDefective" as const },
+  { code: "WARRANTY", key: "parcelKindWarranty" as const },
+  { code: "RETURN_TO_CEDI", key: "parcelKindReturnCedi" as const },
+  { code: "REPAIR_OUT", key: "parcelKindRepairOut" as const },
+  { code: "REPAIR_IN", key: "parcelKindRepairIn" as const },
+];
 
 type DraftLine = { key: string; sku: string; description: string; quantity: string };
 
@@ -76,6 +91,14 @@ function ShippingSlipsPanel() {
   const fromBranch = activeBranchId || claims?.branch_ids?.[0] || "";
   const qc = useQueryClient();
   const canCreate = hasPermission(claims, "inventory.slip.create") || hasPermission(claims, "inventory.movement.create");
+  const canShip =
+    hasPermission(claims, "inventory.slip.ship") ||
+    hasPermission(claims, "inventory.slip.create") ||
+    hasPermission(claims, "inventory.movement.create");
+  const canReceive =
+    hasPermission(claims, "inventory.slip.receive") ||
+    hasPermission(claims, "inventory.slip.create") ||
+    hasPermission(claims, "inventory.movement.create");
 
   const otherBranches = useMemo(
     () => (claims?.branch_ids ?? []).filter((b) => b !== fromBranch),
@@ -84,6 +107,8 @@ function ShippingSlipsPanel() {
 
   const [toBranch, setToBranch] = useState("");
   const [container, setContainer] = useState("BOX");
+  const [parcelKind, setParcelKind] = useState("TRANSFER");
+  const [tracking, setTracking] = useState("");
   const [description, setDescription] = useState("");
   const [contents, setContents] = useState("");
   const [qtyUnits, setQtyUnits] = useState("1");
@@ -109,6 +134,8 @@ function ShippingSlipsPanel() {
         from_branch_id: fromBranch,
         to_branch_id: selectedTo,
         container_type: container,
+        parcel_kind: parcelKind,
+        tracking_code: tracking.trim() || undefined,
         description: description.trim(),
         contents_summary: contents.trim(),
         quantity_units: Math.max(1, Number(qtyUnits) || 1),
@@ -133,10 +160,12 @@ function ShippingSlipsPanel() {
     },
     onSuccess: (slip) => {
       void qc.invalidateQueries({ queryKey: ["slips"] });
+      void qc.invalidateQueries({ queryKey: ["parcels"] });
       setPrintSlip(slip);
       setDescription("");
       setContents("");
       setNotes("");
+      setTracking("");
       setLines([newLine()]);
     },
   });
@@ -150,6 +179,30 @@ function ShippingSlipsPanel() {
     onSuccess: (slip) => {
       void qc.invalidateQueries({ queryKey: ["slips"] });
       setPrintSlip(slip);
+    },
+  });
+
+  const shipSlip = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiFetch(`/inventory/slips/${id}/ship`, { method: "POST" });
+      if (!res.ok) throw new Error((await res.text()) || "ship_failed");
+      return (await res.json()) as ShippingSlip;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["slips"] });
+      void qc.invalidateQueries({ queryKey: ["parcels"] });
+    },
+  });
+
+  const receiveSlip = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiFetch(`/inventory/slips/${id}/receive`, { method: "POST" });
+      if (!res.ok) throw new Error((await res.text()) || "receive_failed");
+      return (await res.json()) as ShippingSlip;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["slips"] });
+      void qc.invalidateQueries({ queryKey: ["parcels"] });
     },
   });
 
@@ -202,10 +255,24 @@ function ShippingSlipsPanel() {
               </select>
             </label>
             <label className="filter-field">
+              <span>{t("parcelColKind")}</span>
+              <select value={parcelKind} onChange={(e) => setParcelKind(e.target.value)}>
+                {PARCEL_KINDS.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {t(c.key)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="filter-field">
               <span>{t("slipQtyUnits")}</span>
               <input type="number" min={1} value={qtyUnits} onChange={(e) => setQtyUnits(e.target.value)} />
             </label>
           </div>
+          <label className="filter-field block">
+            <span>{t("slipTracking")}</span>
+            <input value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder={t("slipTrackingPh")} />
+          </label>
 
           <label className="filter-field block">
             <span>{t("slipDescription")}</span>
@@ -293,6 +360,7 @@ function ShippingSlipsPanel() {
               <th>{t("slipColNumber")}</th>
               <th>{t("slipColTo")}</th>
               <th>{t("slipContainer")}</th>
+              <th>{t("parcelColKind")}</th>
               <th>{t("slipColStatus")}</th>
               <th />
             </tr>
@@ -303,11 +371,22 @@ function ShippingSlipsPanel() {
                 <td>{s.slip_number}</td>
                 <td>{labelBranch(s.to_branch_id, locale)}</td>
                 <td>{s.container_label || s.container_type}</td>
+                <td>{s.parcel_kind_label || s.parcel_kind || "TRANSFER"}</td>
                 <td>{s.status}</td>
-                <td>
+                <td className="slip-row-actions">
                   <button type="button" className="btn secondary" onClick={() => openPrint(s)}>
                     {t("slipPrint")}
                   </button>
+                  {canShip && (s.status === "DRAFT" || s.status === "PRINTED") ? (
+                    <button type="button" className="btn secondary" onClick={() => shipSlip.mutate(s.id)}>
+                      {t("slipShip")}
+                    </button>
+                  ) : null}
+                  {canReceive && s.status === "IN_TRANSIT" ? (
+                    <button type="button" className="btn secondary" onClick={() => receiveSlip.mutate(s.id)}>
+                      {t("slipReceive")}
+                    </button>
+                  ) : null}
                 </td>
               </tr>
             ))}

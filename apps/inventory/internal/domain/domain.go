@@ -286,6 +286,51 @@ const (
 	SlipStatusCancelled = "CANCELLED"
 )
 
+// ParcelKind classifies inter-site packages (stores, CEDI, defective, warranty).
+const (
+	ParcelTransfer         = "TRANSFER"
+	ParcelCEDIDistribution = "CEDI_DISTRIBUTION"
+	ParcelDefective        = "DEFECTIVE"
+	ParcelWarranty         = "WARRANTY"
+	ParcelReturnToCEDI     = "RETURN_TO_CEDI"
+	ParcelReturnToVendor   = "RETURN_TO_VENDOR"
+	ParcelRepairOut        = "REPAIR_OUT"
+	ParcelRepairIn         = "REPAIR_IN"
+)
+
+func ValidParcelKind(code string) bool {
+	switch strings.ToUpper(strings.TrimSpace(code)) {
+	case ParcelTransfer, ParcelCEDIDistribution, ParcelDefective, ParcelWarranty,
+		ParcelReturnToCEDI, ParcelReturnToVendor, ParcelRepairOut, ParcelRepairIn:
+		return true
+	default:
+		return false
+	}
+}
+
+func ParcelKindLabelES(code string) string {
+	switch strings.ToUpper(code) {
+	case ParcelTransfer:
+		return "Traslado"
+	case ParcelCEDIDistribution:
+		return "Distribución CEDI"
+	case ParcelDefective:
+		return "Defectuoso"
+	case ParcelWarranty:
+		return "Garantía"
+	case ParcelReturnToCEDI:
+		return "Devolución a CEDI"
+	case ParcelReturnToVendor:
+		return "Devolución a proveedor"
+	case ParcelRepairOut:
+		return "Envío a taller"
+	case ParcelRepairIn:
+		return "Regreso de taller"
+	default:
+		return code
+	}
+}
+
 func ValidContainerType(code string) bool {
 	switch strings.ToUpper(strings.TrimSpace(code)) {
 	case ContainerEnvelope, ContainerBox, ContainerPlasticBox, ContainerBundle, ContainerOriginalPack:
@@ -325,6 +370,8 @@ type CreateShippingSlipRequest struct {
 	FromWarehouseID string                  `json:"from_warehouse_id,omitempty"`
 	ToWarehouseID   string                  `json:"to_warehouse_id,omitempty"`
 	ContainerType   string                  `json:"container_type"`
+	ParcelKind      string                  `json:"parcel_kind,omitempty"`
+	TrackingCode    string                  `json:"tracking_code,omitempty"`
 	Description     string                  `json:"description"`
 	ContentsSummary string                  `json:"contents_summary,omitempty"`
 	QuantityUnits   int                     `json:"quantity_units,omitempty"`
@@ -354,6 +401,9 @@ type ShippingSlip struct {
 	ToWarehouseID   string             `json:"to_warehouse_id,omitempty"`
 	ContainerType   string             `json:"container_type"`
 	ContainerLabel  string             `json:"container_label,omitempty"`
+	ParcelKind      string             `json:"parcel_kind"`
+	ParcelKindLabel string             `json:"parcel_kind_label,omitempty"`
+	TrackingCode    string             `json:"tracking_code,omitempty"`
 	Description     string             `json:"description"`
 	ContentsSummary string             `json:"contents_summary,omitempty"`
 	QuantityUnits   int                `json:"quantity_units"`
@@ -361,6 +411,8 @@ type ShippingSlip struct {
 	PrintedAt       *time.Time         `json:"printed_at,omitempty"`
 	ShippedAt       *time.Time         `json:"shipped_at,omitempty"`
 	ReceivedAt      *time.Time         `json:"received_at,omitempty"`
+	CancelledAt     *time.Time         `json:"cancelled_at,omitempty"`
+	CancelReason    string             `json:"cancel_reason,omitempty"`
 	CreatedBy       string             `json:"created_by,omitempty"`
 	OperatorLabel   string             `json:"operator_label,omitempty"`
 	SessionID       string             `json:"session_id,omitempty"`
@@ -376,6 +428,7 @@ type ShippingSlipFilter struct {
 	FromBranch string
 	ToBranch   string
 	Status     string
+	ParcelKind string
 	Limit      int
 }
 
@@ -401,6 +454,7 @@ type CreateTransportSheetRequest struct {
 	CarrierName    string                  `json:"carrier_name,omitempty"`
 	VehicleRef     string                  `json:"vehicle_ref,omitempty"`
 	DriverName     string                  `json:"driver_name,omitempty"`
+	ParcelKind     string                  `json:"parcel_kind,omitempty"`
 	Notes          string                  `json:"notes,omitempty"`
 	IdempotencyKey string                  `json:"idempotency_key"`
 	CreatedBy      string                  `json:"created_by"`
@@ -436,10 +490,14 @@ type TransportSheet struct {
 	CarrierName    string                  `json:"carrier_name,omitempty"`
 	VehicleRef     string                  `json:"vehicle_ref,omitempty"`
 	DriverName     string                  `json:"driver_name,omitempty"`
+	ParcelKind     string                  `json:"parcel_kind"`
+	ParcelKindLabel string                 `json:"parcel_kind_label,omitempty"`
 	Status         string                  `json:"status"`
 	PrintedAt      *time.Time              `json:"printed_at,omitempty"`
 	DepartedAt     *time.Time              `json:"departed_at,omitempty"`
 	DeliveredAt    *time.Time              `json:"delivered_at,omitempty"`
+	CancelledAt    *time.Time              `json:"cancelled_at,omitempty"`
+	CancelReason   string                  `json:"cancel_reason,omitempty"`
 	CreatedBy      string                  `json:"created_by,omitempty"`
 	OperatorLabel  string                  `json:"operator_label,omitempty"`
 	SessionID      string                  `json:"session_id,omitempty"`
@@ -455,6 +513,7 @@ type TransportSheetFilter struct {
 	FromBranch string
 	ToBranch   string
 	Status     string
+	ParcelKind string
 	Limit      int
 }
 
@@ -472,18 +531,22 @@ type TransferLineInput struct {
 }
 
 type CreateTransferRequest struct {
-	OrgID           string              `json:"org_id"`
-	FromBranchID    string              `json:"from_branch_id"`
-	ToBranchID      string              `json:"to_branch_id"`
-	FromWarehouseID string              `json:"from_warehouse_id"`
-	ToWarehouseID   string              `json:"to_warehouse_id"`
-	Notes           string              `json:"notes,omitempty"`
-	IdempotencyKey  string              `json:"idempotency_key"`
-	CreatedBy       string              `json:"created_by"`
-	OperatorLabel   string              `json:"operator_label,omitempty"`
-	SessionID       string              `json:"session_id,omitempty"`
-	SlipIDs         []string            `json:"slip_ids,omitempty"`
-	Lines           []TransferLineInput `json:"lines"`
+	OrgID             string              `json:"org_id"`
+	FromBranchID      string              `json:"from_branch_id"`
+	ToBranchID        string              `json:"to_branch_id"`
+	FromWarehouseID   string              `json:"from_warehouse_id"`
+	ToWarehouseID     string              `json:"to_warehouse_id"`
+	ParcelKind        string              `json:"parcel_kind,omitempty"`
+	TransportSheetID  string              `json:"transport_sheet_id,omitempty"`
+	WarrantyCaseID    string              `json:"warranty_case_id,omitempty"`
+	ReturnCaseID      string              `json:"return_case_id,omitempty"`
+	Notes             string              `json:"notes,omitempty"`
+	IdempotencyKey    string              `json:"idempotency_key"`
+	CreatedBy         string              `json:"created_by"`
+	OperatorLabel     string              `json:"operator_label,omitempty"`
+	SessionID         string              `json:"session_id,omitempty"`
+	SlipIDs           []string            `json:"slip_ids,omitempty"`
+	Lines             []TransferLineInput `json:"lines"`
 }
 
 type TransferLine struct {
@@ -496,28 +559,33 @@ type TransferLine struct {
 }
 
 type InventoryTransfer struct {
-	ID              string         `json:"id"`
-	OrgID           string         `json:"org_id"`
-	TransferNumber  string         `json:"transfer_number"`
-	FromBranchID    string         `json:"from_branch_id"`
-	ToBranchID      string         `json:"to_branch_id"`
-	FromWarehouseID string         `json:"from_warehouse_id"`
-	ToWarehouseID   string         `json:"to_warehouse_id"`
-	Status          string         `json:"status"`
-	Notes           string         `json:"notes,omitempty"`
-	CreatedBy       string         `json:"created_by,omitempty"`
-	OperatorLabel   string         `json:"operator_label,omitempty"`
-	ShippedBy       string         `json:"shipped_by,omitempty"`
-	ShippedAt       *time.Time     `json:"shipped_at,omitempty"`
-	ReceivedBy      string         `json:"received_by,omitempty"`
-	ReceivedAt      *time.Time     `json:"received_at,omitempty"`
-	CancelledBy     string         `json:"cancelled_by,omitempty"`
-	CancelledAt     *time.Time     `json:"cancelled_at,omitempty"`
-	CancelReason    string         `json:"cancel_reason,omitempty"`
-	IdempotencyKey  string         `json:"idempotency_key"`
-	CreatedAt       time.Time      `json:"created_at"`
-	SlipIDs         []string       `json:"slip_ids,omitempty"`
-	Lines           []TransferLine `json:"lines,omitempty"`
+	ID               string         `json:"id"`
+	OrgID            string         `json:"org_id"`
+	TransferNumber   string         `json:"transfer_number"`
+	FromBranchID     string         `json:"from_branch_id"`
+	ToBranchID       string         `json:"to_branch_id"`
+	FromWarehouseID  string         `json:"from_warehouse_id"`
+	ToWarehouseID    string         `json:"to_warehouse_id"`
+	ParcelKind       string         `json:"parcel_kind"`
+	ParcelKindLabel  string         `json:"parcel_kind_label,omitempty"`
+	TransportSheetID string         `json:"transport_sheet_id,omitempty"`
+	WarrantyCaseID   string         `json:"warranty_case_id,omitempty"`
+	ReturnCaseID     string         `json:"return_case_id,omitempty"`
+	Status           string         `json:"status"`
+	Notes            string         `json:"notes,omitempty"`
+	CreatedBy        string         `json:"created_by,omitempty"`
+	OperatorLabel    string         `json:"operator_label,omitempty"`
+	ShippedBy        string         `json:"shipped_by,omitempty"`
+	ShippedAt        *time.Time     `json:"shipped_at,omitempty"`
+	ReceivedBy       string         `json:"received_by,omitempty"`
+	ReceivedAt       *time.Time     `json:"received_at,omitempty"`
+	CancelledBy      string         `json:"cancelled_by,omitempty"`
+	CancelledAt      *time.Time     `json:"cancelled_at,omitempty"`
+	CancelReason     string         `json:"cancel_reason,omitempty"`
+	IdempotencyKey   string         `json:"idempotency_key"`
+	CreatedAt        time.Time      `json:"created_at"`
+	SlipIDs          []string       `json:"slip_ids,omitempty"`
+	Lines            []TransferLine `json:"lines,omitempty"`
 }
 
 type TransferFilter struct {
@@ -525,12 +593,132 @@ type TransferFilter struct {
 	FromBranch string
 	ToBranch   string
 	Status     string
+	ParcelKind string
 	Limit      int
 }
 
 type CancelTransferRequest struct {
 	Reason string `json:"reason,omitempty"`
 	Actor  string `json:"actor,omitempty"`
+}
+
+type CancelParcelRequest struct {
+	Reason string `json:"reason,omitempty"`
+	Actor  string `json:"actor,omitempty"`
+}
+
+const (
+	WarrantyStatusOpen     = "OPEN"
+	WarrantyStatusShipped  = "SHIPPED"
+	WarrantyStatusReceived = "RECEIVED"
+	WarrantyStatusInRepair = "IN_REPAIR"
+	WarrantyStatusClosed   = "CLOSED"
+	WarrantyStatusCancelled = "CANCELLED"
+)
+
+type CreateWarrantyCaseRequest struct {
+	OrgID               string `json:"org_id"`
+	BranchID            string `json:"branch_id"`
+	DestinationBranchID string `json:"destination_branch_id,omitempty"`
+	SKU                 string `json:"sku,omitempty"`
+	SerialNumber        string `json:"serial_number,omitempty"`
+	CustomerRef         string `json:"customer_ref,omitempty"`
+	ProblemDescription  string `json:"problem_description"`
+	IdempotencyKey      string `json:"idempotency_key"`
+	CreatedBy           string `json:"created_by"`
+	OperatorLabel       string `json:"operator_label,omitempty"`
+}
+
+type WarrantyCase struct {
+	ID                  string     `json:"id"`
+	OrgID               string     `json:"org_id"`
+	CaseNumber          string     `json:"case_number"`
+	BranchID            string     `json:"branch_id"`
+	DestinationBranchID string     `json:"destination_branch_id,omitempty"`
+	SKU                 string     `json:"sku,omitempty"`
+	SerialNumber        string     `json:"serial_number,omitempty"`
+	CustomerRef         string     `json:"customer_ref,omitempty"`
+	ProblemDescription  string     `json:"problem_description"`
+	Status              string     `json:"status"`
+	ParcelKind          string     `json:"parcel_kind"`
+	ShippingSlipID      string     `json:"shipping_slip_id,omitempty"`
+	TransferID          string     `json:"transfer_id,omitempty"`
+	CreatedBy           string     `json:"created_by,omitempty"`
+	OperatorLabel       string     `json:"operator_label,omitempty"`
+	ClosedAt            *time.Time `json:"closed_at,omitempty"`
+	IdempotencyKey      string     `json:"idempotency_key"`
+	CreatedAt           time.Time  `json:"created_at"`
+}
+
+type WarrantyCaseFilter struct {
+	OrgRef   string
+	BranchID string
+	Status   string
+	Limit    int
+}
+
+const (
+	ReturnReasonDefective      = "DEFECTIVE"
+	ReturnReasonWarranty       = "WARRANTY"
+	ReturnReasonCustomerReturn = "CUSTOMER_RETURN"
+	ReturnReasonOverstock      = "OVERSTOCK"
+	ReturnReasonOther          = "OTHER"
+)
+
+type CreateReturnCaseRequest struct {
+	OrgID          string `json:"org_id"`
+	FromBranchID   string `json:"from_branch_id"`
+	ToBranchID     string `json:"to_branch_id"`
+	Reason         string `json:"reason"`
+	Notes          string `json:"notes,omitempty"`
+	IdempotencyKey string `json:"idempotency_key"`
+	CreatedBy      string `json:"created_by"`
+	OperatorLabel  string `json:"operator_label,omitempty"`
+}
+
+type ReturnCase struct {
+	ID             string     `json:"id"`
+	OrgID          string     `json:"org_id"`
+	CaseNumber     string     `json:"case_number"`
+	FromBranchID   string     `json:"from_branch_id"`
+	ToBranchID     string     `json:"to_branch_id"`
+	Reason         string     `json:"reason"`
+	Notes          string     `json:"notes,omitempty"`
+	Status         string     `json:"status"`
+	ParcelKind     string     `json:"parcel_kind"`
+	ShippingSlipID string     `json:"shipping_slip_id,omitempty"`
+	TransferID     string     `json:"transfer_id,omitempty"`
+	CreatedBy      string     `json:"created_by,omitempty"`
+	OperatorLabel  string     `json:"operator_label,omitempty"`
+	ClosedAt       *time.Time `json:"closed_at,omitempty"`
+	IdempotencyKey string     `json:"idempotency_key"`
+	CreatedAt      time.Time  `json:"created_at"`
+}
+
+type ReturnCaseFilter struct {
+	OrgRef     string
+	FromBranch string
+	Status     string
+	Limit      int
+}
+
+type ParcelHubItem struct {
+	Kind            string `json:"kind"` // slip | transfer | transport | warranty | return
+	ID              string `json:"id"`
+	Number          string `json:"number"`
+	ParcelKind      string `json:"parcel_kind"`
+	ParcelKindLabel string `json:"parcel_kind_label,omitempty"`
+	Status          string `json:"status"`
+	FromBranchID    string `json:"from_branch_id,omitempty"`
+	ToBranchID      string `json:"to_branch_id,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
+type ParcelHubFilter struct {
+	OrgRef     string
+	BranchID   string
+	ParcelKind string
+	Limit      int
 }
 
 // Online storefront (public catalog) configuration per branch.
@@ -627,16 +815,29 @@ type Store interface {
 	ListShippingSlips(ctx context.Context, filter ShippingSlipFilter) ([]ShippingSlip, error)
 	GetShippingSlip(ctx context.Context, orgRef, slipID string) (ShippingSlip, error)
 	MarkShippingSlipPrinted(ctx context.Context, orgRef, slipID, actor string) (ShippingSlip, error)
+	ShipShippingSlip(ctx context.Context, orgRef, slipID, actor string) (ShippingSlip, error)
+	ReceiveShippingSlip(ctx context.Context, orgRef, slipID, actor string) (ShippingSlip, error)
+	CancelShippingSlip(ctx context.Context, orgRef, slipID string, req CancelParcelRequest) (ShippingSlip, error)
 	CreateTransportSheet(ctx context.Context, req CreateTransportSheetRequest) (TransportSheet, error)
 	ListTransportSheets(ctx context.Context, filter TransportSheetFilter) ([]TransportSheet, error)
 	GetTransportSheet(ctx context.Context, orgRef, sheetID string) (TransportSheet, error)
 	MarkTransportSheetPrinted(ctx context.Context, orgRef, sheetID, actor string) (TransportSheet, error)
+	DepartTransportSheet(ctx context.Context, orgRef, sheetID, actor string) (TransportSheet, error)
+	DeliverTransportSheet(ctx context.Context, orgRef, sheetID, actor string) (TransportSheet, error)
+	CancelTransportSheet(ctx context.Context, orgRef, sheetID string, req CancelParcelRequest) (TransportSheet, error)
 	CreateTransfer(ctx context.Context, req CreateTransferRequest) (InventoryTransfer, error)
 	ListTransfers(ctx context.Context, filter TransferFilter) ([]InventoryTransfer, error)
 	GetTransfer(ctx context.Context, orgRef, transferID string) (InventoryTransfer, error)
 	ShipTransfer(ctx context.Context, orgRef, transferID, actor string) (InventoryTransfer, error)
 	ReceiveTransfer(ctx context.Context, orgRef, transferID, actor string) (InventoryTransfer, error)
 	CancelTransfer(ctx context.Context, orgRef, transferID string, req CancelTransferRequest) (InventoryTransfer, error)
+	CreateWarrantyCase(ctx context.Context, req CreateWarrantyCaseRequest) (WarrantyCase, error)
+	ListWarrantyCases(ctx context.Context, filter WarrantyCaseFilter) ([]WarrantyCase, error)
+	GetWarrantyCase(ctx context.Context, orgRef, caseID string) (WarrantyCase, error)
+	CreateReturnCase(ctx context.Context, req CreateReturnCaseRequest) (ReturnCase, error)
+	ListReturnCases(ctx context.Context, filter ReturnCaseFilter) ([]ReturnCase, error)
+	GetReturnCase(ctx context.Context, orgRef, caseID string) (ReturnCase, error)
+	ListParcelHub(ctx context.Context, filter ParcelHubFilter) ([]ParcelHubItem, error)
 	GetStorefrontSettings(ctx context.Context, orgRef, branchCode string) (StorefrontSettings, error)
 	UpsertStorefrontSettings(ctx context.Context, req UpsertStorefrontRequest) (StorefrontSettings, error)
 	GetPublicStorefront(ctx context.Context, slug string) (StorefrontPublicView, error)
