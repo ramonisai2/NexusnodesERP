@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/google/uuid"
@@ -73,7 +74,9 @@ func (s *Memory) CreateAndCalculate(_ context.Context, req domain.CreateRunReque
 		if e.BranchID != req.BranchID {
 			continue
 		}
-		run.Lines = append(run.Lines, domain.PayrollLine{EmployeeID: e.ID, ConceptCode: "BASE", Amount: e.BaseSalary})
+		run.Lines = append(run.Lines, domain.PayrollLine{
+			EmployeeID: e.ID, EmployeeName: e.Name, ConceptCode: "BASE", Amount: e.BaseSalary,
+		})
 		total += e.BaseSalary
 	}
 	run.TotalAmount = total
@@ -98,4 +101,23 @@ func (s *Memory) Approve(_ context.Context, _, id, actor string) (domain.Payroll
 	run.ApprovedBy = actor
 	run.Version++
 	return *run, nil
+}
+
+func (s *Memory) ListEmployees(_ context.Context, filter domain.EmployeeFilter) ([]domain.Employee, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]domain.Employee, 0, len(s.employees))
+	for i, e := range s.employees {
+		if filter.BranchCode != "" && e.BranchID != filter.BranchCode {
+			continue
+		}
+		out = append(out, domain.Employee{
+			ID:             e.ID,
+			BranchID:       e.BranchID,
+			EmployeeNumber: fmt.Sprintf("E-%03d", i+1),
+			DisplayName:    e.Name,
+			Status:         "ACTIVE",
+		})
+	}
+	return out, nil
 }

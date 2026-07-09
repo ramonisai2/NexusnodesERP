@@ -48,6 +48,16 @@ export function AppShell() {
       },
     },
     {
+      id: "nav.adjustments",
+      label: t("navAdjustments"),
+      path: "/inventory/adjustments",
+      require: {
+        permissions: ["inventory.adjustment.create", "inventory.movement.create"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
       id: "nav.slips",
       label: t("navSlips"),
       path: "/inventory/slips",
@@ -149,6 +159,16 @@ export function AppShell() {
     },
     ...(!isShop
       ? [
+          {
+            id: "nav.hr",
+            label: t("navHR"),
+            path: "/hr",
+            require: {
+              permissions: ["employee.read", "payroll.run.read"],
+              anyBranch: true,
+              minAmrCount: 1,
+            },
+          } satisfies NavNode,
           {
             id: "nav.payroll",
             label: t("navPayroll"),

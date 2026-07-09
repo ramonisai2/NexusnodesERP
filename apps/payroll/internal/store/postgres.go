@@ -110,7 +110,7 @@ WHERE r.id = $1::uuid`, id).Scan(&r.ID, &r.PeriodLabel, &r.BranchID, &r.Status, 
 
 func (s *Postgres) loadLinesTx(ctx context.Context, tx pgx.Tx, runID string) ([]domain.PayrollLine, error) {
 	rows, err := tx.Query(ctx, `
-SELECT e.employee_number, c.code, l.amount::float8
+SELECT e.employee_number, e.display_name, c.code, l.amount::float8
 FROM payroll_lines l
 JOIN employees e ON e.id = l.employee_id
 JOIN payroll_concepts c ON c.id = l.concept_id
@@ -122,12 +122,65 @@ WHERE l.run_id = $1::uuid`, runID)
 	var out []domain.PayrollLine
 	for rows.Next() {
 		var line domain.PayrollLine
-		if err := rows.Scan(&line.EmployeeID, &line.ConceptCode, &line.Amount); err != nil {
+		if err := rows.Scan(&line.EmployeeID, &line.EmployeeName, &line.ConceptCode, &line.Amount); err != nil {
 			return nil, err
 		}
 		out = append(out, line)
 	}
 	return out, rows.Err()
+}
+
+func (s *Postgres) ListEmployees(ctx context.Context, filter domain.EmployeeFilter) ([]domain.Employee, error) {
+	tx, orgID, err := db.BeginOrgTx(ctx, s.pool, func(tx pgx.Tx) (string, error) {
+		return resolveOrgID(ctx, tx, filter.OrgRef)
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	limit := filter.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	q := `
+SELECT e.id::text, e.org_id::text, b.code, e.employee_number, e.display_name, e.status
+FROM employees e
+JOIN branches b ON b.id = e.branch_id
+WHERE e.org_id = $1::uuid`
+	args := []any{orgID}
+	n := 2
+	if filter.BranchCode != "" {
+		q += fmt.Sprintf(` AND b.code = $%d`, n)
+		args = append(args, filter.BranchCode)
+		n++
+	}
+	if filter.Status != "" {
+		q += fmt.Sprintf(` AND e.status = $%d`, n)
+		args = append(args, strings.ToUpper(filter.Status))
+		n++
+	}
+	q += fmt.Sprintf(` ORDER BY b.code, e.employee_number LIMIT %d`, limit)
+	rows, err := tx.Query(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.Employee
+	for rows.Next() {
+		var e domain.Employee
+		if err := rows.Scan(&e.ID, &e.OrgID, &e.BranchID, &e.EmployeeNumber, &e.DisplayName, &e.Status); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s *Postgres) CreateAndCalculate(ctx context.Context, req domain.CreateRunRequest) (domain.PayrollRun, error) {

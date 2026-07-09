@@ -435,6 +435,10 @@ FROM inventory_movements WHERE org_id = $1 AND idempotency_key = $2`, orgID, req
 	if err != nil {
 		return domain.Movement{}, err
 	}
+	reasonCode, notes, err := normalizeAdjustmentMeta(req.MovementType, req.ReasonCode, req.Notes)
+	if err != nil {
+		return domain.Movement{}, err
+	}
 
 	var balID string
 	var onHand float64
@@ -493,10 +497,10 @@ WHERE id = $2::uuid AND version = $3`, next, balID, version)
 	_, err = tx.Exec(ctx, `
 INSERT INTO inventory_movements (
   id, org_id, branch_id, sku_id, warehouse_id, movement_type, quantity, status, posted_by, idempotency_key, created_at,
-  operator_label, session_id
-) VALUES ($1,$2,$3,$4,$5,$6,$7,'POSTED',$8,$9,$10,$11,$12)`,
+  operator_label, session_id, reason_code, notes
+) VALUES ($1,$2,$3,$4,$5,$6,$7,'POSTED',$8,$9,$10,$11,$12,$13,$14)`,
 		movID, orgID, branchID, skuID, warehouseID, strings.ToUpper(req.MovementType), delta, postedBy, req.IdempotencyKey, now,
-		strings.TrimSpace(req.OperatorLabel), sess)
+		strings.TrimSpace(req.OperatorLabel), sess, reasonCode, notes)
 	if err != nil {
 		return domain.Movement{}, err
 	}
@@ -508,8 +512,9 @@ INSERT INTO outbox (event_type, payload) VALUES ('InventoryMoved', jsonb_build_o
   'branch_id', $3::text,
   'warehouse_id', $4::text,
   'sku_id', $5::text,
-  'quantity', $6::float8
-))`, movID.String(), orgID, req.BranchID, req.WarehouseID, req.SKUID, delta)
+  'quantity', $6::float8,
+  'reason_code', $7::text
+))`, movID.String(), orgID, req.BranchID, req.WarehouseID, req.SKUID, delta, reasonCode)
 
 	if err := tx.Commit(ctx); err != nil {
 		return domain.Movement{}, err
@@ -523,6 +528,8 @@ INSERT INTO outbox (event_type, payload) VALUES ('InventoryMoved', jsonb_build_o
 		SKUID:          req.SKUID,
 		MovementType:   strings.ToUpper(req.MovementType),
 		Quantity:       delta,
+		ReasonCode:     reasonCode,
+		Notes:          notes,
 		Status:         "POSTED",
 		PostedBy:       req.PostedBy,
 		OperatorLabel:  strings.TrimSpace(req.OperatorLabel),
@@ -555,7 +562,8 @@ SELECT m.id::text, m.org_id::text, b.code, w.code, ps.sku,
        COALESCE(m.reversal_of::text, ''),
        COALESCE(m.void_reason, ''),
        COALESCE(vu.idp_sub, COALESCE(m.voided_by::text, '')),
-       m.voided_at
+       m.voided_at,
+       COALESCE(m.reason_code, ''), COALESCE(m.notes, '')
 FROM inventory_movements m
 JOIN branches b ON b.id = m.branch_id
 JOIN warehouses w ON w.id = m.warehouse_id
@@ -573,6 +581,11 @@ WHERE 1=1`
 	if filter.WarehouseID != "" {
 		q += fmt.Sprintf(` AND w.code = $%d`, argN)
 		args = append(args, filter.WarehouseID)
+		argN++
+	}
+	if filter.ReasonCode != "" {
+		q += fmt.Sprintf(` AND m.reason_code = $%d`, argN)
+		args = append(args, strings.ToUpper(filter.ReasonCode))
 		argN++
 	}
 	q += fmt.Sprintf(` ORDER BY m.created_at DESC LIMIT $%d`, argN)
@@ -593,6 +606,7 @@ WHERE 1=1`
 			&m.MovementType, &m.Quantity, &m.Status, &m.PostedBy,
 			&m.OperatorLabel, &m.SessionID,
 			&m.IdempotencyKey, &m.CreatedAt, &m.ReversalOf, &m.VoidReason, &m.VoidedBy, &voidedAt,
+			&m.ReasonCode, &m.Notes,
 		); err != nil {
 			return nil, err
 		}
@@ -791,7 +805,8 @@ SELECT m.id::text, m.org_id::text, b.code, w.code, ps.sku,
        COALESCE(m.reversal_of::text, ''),
        COALESCE(m.void_reason, ''),
        COALESCE(vu.idp_sub, COALESCE(m.voided_by::text, '')),
-       m.voided_at
+       m.voided_at,
+       COALESCE(m.reason_code, ''), COALESCE(m.notes, '')
 FROM inventory_movements m
 JOIN branches b ON b.id = m.branch_id
 JOIN warehouses w ON w.id = m.warehouse_id
@@ -803,6 +818,7 @@ WHERE m.id = $1::uuid`, movementID).Scan(
 		&m.MovementType, &m.Quantity, &m.Status, &m.PostedBy,
 		&m.OperatorLabel, &m.SessionID,
 		&m.IdempotencyKey, &m.CreatedAt, &m.ReversalOf, &m.VoidReason, &m.VoidedBy, &voidedAt,
+		&m.ReasonCode, &m.Notes,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Movement{}, domain.ErrNotFound
@@ -812,6 +828,46 @@ WHERE m.id = $1::uuid`, movementID).Scan(
 	}
 	m.VoidedAt = voidedAt
 	return m, nil
+}
+
+func normalizeAdjustmentMeta(movementType, reasonCode, notes string) (string, string, error) {
+	mt := strings.ToUpper(strings.TrimSpace(movementType))
+	rc := strings.ToUpper(strings.TrimSpace(reasonCode))
+	n := strings.TrimSpace(notes)
+	if len(n) > 400 {
+		n = n[:400]
+	}
+	switch mt {
+	case "ADJUST_OUT", "ADJUST_IN", "ADJUST":
+		if rc == "" {
+			return "", "", errors.New("reason_code required for adjustments")
+		}
+		switch rc {
+		case domain.ReasonMerma, domain.ReasonRobo, domain.ReasonDamage, domain.ReasonExpired,
+			domain.ReasonCountVariance, domain.ReasonFound, domain.ReasonOther:
+		default:
+			return "", "", fmt.Errorf("invalid reason_code: %s", rc)
+		}
+		if mt == "ADJUST_OUT" && rc == domain.ReasonFound {
+			return "", "", errors.New("FOUND requires ADJUST_IN")
+		}
+		if mt == "ADJUST_IN" && (rc == domain.ReasonMerma || rc == domain.ReasonRobo || rc == domain.ReasonDamage || rc == domain.ReasonExpired) {
+			return "", "", fmt.Errorf("%s requires ADJUST_OUT", rc)
+		}
+		return rc, n, nil
+	default:
+		// Non-adjustment movements may carry empty reason; ignore unknown codes.
+		if rc != "" {
+			switch rc {
+			case domain.ReasonMerma, domain.ReasonRobo, domain.ReasonDamage, domain.ReasonExpired,
+				domain.ReasonCountVariance, domain.ReasonFound, domain.ReasonOther:
+				return rc, n, nil
+			default:
+				return "", "", fmt.Errorf("invalid reason_code: %s", rc)
+			}
+		}
+		return "", n, nil
+	}
 }
 
 func signedDelta(movementType string, qty float64) (float64, error) {
@@ -837,6 +893,8 @@ func CowabungaDelta(movementType string, qty float64) (float64, error) {
 			delta = -delta
 		}
 	case "ADJUST":
+		// Signed quantity: positive = in, negative = out.
+		return delta, nil
 	default:
 		return 0, errors.New("invalid movement_type")
 	}

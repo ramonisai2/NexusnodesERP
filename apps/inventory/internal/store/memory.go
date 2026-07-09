@@ -335,8 +335,17 @@ func (s *Memory) PostMovement(_ context.Context, req domain.MovementRequest) (do
 			delta = -delta
 		}
 	case "ADJUST":
+		// keep signed quantity
 	default:
 		return domain.Movement{}, errors.New("invalid movement_type")
+	}
+	reason := strings.ToUpper(strings.TrimSpace(req.ReasonCode))
+	notes := strings.TrimSpace(req.Notes)
+	mt := strings.ToUpper(req.MovementType)
+	if mt == "ADJUST_OUT" || mt == "ADJUST_IN" || mt == "ADJUST" {
+		if reason == "" {
+			return domain.Movement{}, errors.New("reason_code required for adjustments")
+		}
 	}
 
 	if !ok {
@@ -368,6 +377,8 @@ func (s *Memory) PostMovement(_ context.Context, req domain.MovementRequest) (do
 		SKUID:          req.SKUID,
 		MovementType:   strings.ToUpper(req.MovementType),
 		Quantity:       delta,
+		ReasonCode:     reason,
+		Notes:          notes,
 		Status:         "POSTED",
 		PostedBy:       req.PostedBy,
 		OperatorLabel:  req.OperatorLabel,

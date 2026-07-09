@@ -27,6 +27,8 @@ import { CustomersAdminPage } from "./pages/CustomersAdminPage";
 import { DepartmentManagersPage } from "./pages/DepartmentManagersPage";
 import { PosCashierPage } from "./pages/PosCashierPage";
 import { StorefrontSettingsPage } from "./pages/StorefrontSettingsPage";
+import { AdjustmentsPage } from "./pages/AdjustmentsPage";
+import { HRPage } from "./pages/HRPage";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -72,6 +74,7 @@ function Bootstrap() {
           <Route path="search" element={<SearchPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="inventory/receiving" element={<ReceivingPage />} />
+          <Route path="inventory/adjustments" element={<AdjustmentsPage />} />
           <Route path="inventory/slips" element={<ShippingSlipsPage />} />
           <Route path="inventory/transport" element={<TransportSheetsPage />} />
           <Route path="inventory/transfers" element={<TransfersPage />} />
@@ -82,6 +85,7 @@ function Bootstrap() {
           <Route path="customers" element={<CustomersAdminPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="mail" element={<MailPage />} />
+          <Route path="hr" element={<HRPage />} />
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="reports/images" element={<ImageReportsPage />} />

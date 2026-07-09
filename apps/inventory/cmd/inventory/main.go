@@ -232,6 +232,7 @@ func main() {
 			branchID = q
 		}
 		warehouseID := req.URL.Query().Get("warehouse_id")
+		reasonCode := req.URL.Query().Get("reason_code")
 		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
 
 		allow, err := opa.Allow(req.Context(), authz.Input{
@@ -256,6 +257,7 @@ func main() {
 			OrgRef:      subject.OrgID,
 			BranchCode:  branchID,
 			WarehouseID: warehouseID,
+			ReasonCode:  reasonCode,
 			Limit:       limit,
 		})
 		if err != nil {

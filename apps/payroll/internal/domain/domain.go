@@ -12,9 +12,10 @@ var (
 )
 
 type PayrollLine struct {
-	EmployeeID  string  `json:"employee_id"`
-	ConceptCode string  `json:"concept_code"`
-	Amount      float64 `json:"amount"`
+	EmployeeID   string  `json:"employee_id"`
+	EmployeeName string  `json:"employee_name,omitempty"`
+	ConceptCode  string  `json:"concept_code"`
+	Amount       float64 `json:"amount"`
 }
 
 type PayrollRun struct {
@@ -29,6 +30,22 @@ type PayrollRun struct {
 	Version     int           `json:"version"`
 }
 
+type Employee struct {
+	ID             string `json:"id"`
+	OrgID          string `json:"org_id,omitempty"`
+	BranchID       string `json:"branch_id"`
+	EmployeeNumber string `json:"employee_number"`
+	DisplayName    string `json:"display_name"`
+	Status         string `json:"status"`
+}
+
+type EmployeeFilter struct {
+	OrgRef     string
+	BranchCode string
+	Status     string
+	Limit      int
+}
+
 type CreateRunRequest struct {
 	PeriodLabel string `json:"period_label"`
 	BranchID    string `json:"branch_id"`
@@ -41,4 +58,5 @@ type Store interface {
 	GetRun(ctx context.Context, orgRef, id string) (PayrollRun, error)
 	CreateAndCalculate(ctx context.Context, req CreateRunRequest) (PayrollRun, error)
 	Approve(ctx context.Context, orgRef, id, actor string) (PayrollRun, error)
+	ListEmployees(ctx context.Context, filter EmployeeFilter) ([]Employee, error)
 }

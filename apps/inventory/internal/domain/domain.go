@@ -126,6 +126,17 @@ func (l StoreLabel) ResolveEffectivePrice() *float64 {
 	return l.CommonPrice
 }
 
+// Shrink / adjustment reason codes (merma, robo, etc.).
+const (
+	ReasonMerma         = "MERMA"
+	ReasonRobo          = "ROBO"
+	ReasonDamage        = "DAMAGE"
+	ReasonExpired       = "EXPIRED"
+	ReasonCountVariance = "COUNT_VARIANCE"
+	ReasonFound         = "FOUND"
+	ReasonOther         = "OTHER"
+)
+
 type MovementRequest struct {
 	OrgID           string  `json:"org_id"`
 	BranchID        string  `json:"branch_id"`
@@ -133,6 +144,8 @@ type MovementRequest struct {
 	SKUID           string  `json:"sku_id"`
 	MovementType    string  `json:"movement_type"`
 	Quantity        float64 `json:"quantity"`
+	ReasonCode      string  `json:"reason_code,omitempty"`
+	Notes           string  `json:"notes,omitempty"`
 	ExpectedVersion *int    `json:"expected_version"`
 	IdempotencyKey  string  `json:"idempotency_key"`
 	PostedBy        string  `json:"posted_by"` // idp_sub or user uuid
@@ -148,6 +161,8 @@ type Movement struct {
 	SKUID          string     `json:"sku_id"`
 	MovementType   string     `json:"movement_type"`
 	Quantity       float64    `json:"quantity"`
+	ReasonCode     string     `json:"reason_code,omitempty"`
+	Notes          string     `json:"notes,omitempty"`
 	Status         string     `json:"status"`
 	PostedBy       string     `json:"posted_by"`
 	OperatorLabel  string     `json:"operator_label,omitempty"`
@@ -164,6 +179,7 @@ type MovementFilter struct {
 	OrgRef      string
 	BranchCode  string
 	WarehouseID string
+	ReasonCode  string
 	Limit       int
 }
 

@@ -60,6 +60,16 @@ export const NAV_NODES: NavNode[] = [
     },
   },
   {
+    id: "nav.adjustments",
+    label: "Merma / Robo",
+    path: "/inventory/adjustments",
+    require: {
+      permissions: ["inventory.adjustment.create", "inventory.movement.create"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
     id: "nav.slips",
     label: "Papeletas",
     path: "/inventory/slips",
@@ -135,6 +145,16 @@ export const NAV_NODES: NavNode[] = [
     path: "/settings/jefes",
     require: {
       permissions: ["store.department.manager.read", "store.department.manager.assign"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
+    id: "nav.hr",
+    label: "Recursos Humanos",
+    path: "/hr",
+    require: {
+      permissions: ["employee.read", "payroll.run.read"],
       anyBranch: true,
       minAmrCount: 1,
     },

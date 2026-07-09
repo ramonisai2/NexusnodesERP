@@ -165,6 +165,72 @@ func main() {
 		writeJSON(w, http.StatusOK, run)
 	})
 
+	r.Get("/employees", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.Header.Get("X-Branch-Id")
+		if q := req.URL.Query().Get("branch_id"); q != "" {
+			branchID = q
+		}
+		status := req.URL.Query().Get("status")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject: subject,
+			Action:  "employee.read",
+			Resource: map[string]any{
+				"org_id":    subject.OrgID,
+				"branch_id": branchID,
+			},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "employee.read")
+			return
+		}
+		items, err := payrollStore.ListEmployees(req.Context(), domain.EmployeeFilter{
+			OrgRef:     subject.OrgID,
+			BranchCode: branchID,
+			Status:     status,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"list_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
+			return
+		}
+		if items == nil {
+			items = []domain.Employee{}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	})
+
+	r.Get("/runs/{id}", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "payroll.run.read",
+			Resource: map[string]any{"org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "payroll.run.read")
+			return
+		}
+		run, err := payrollStore.GetRun(req.Context(), subject.OrgID, id)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed","detail":"`+err.Error()+`"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, run)
+	})
+
 	log.Printf("payroll listening on %s", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatal(err)

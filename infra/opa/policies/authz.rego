@@ -118,6 +118,33 @@ allow if {
 }
 
 allow if {
+  input.action == "employee.read"
+  employee_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "employee.write"
+  employee_write_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.adjustment.create"
+  adjustment_create_allowed
+  branch_allowed
+  mfa_ok
+  adjustment_within_limit
+}
+
+allow if {
+  input.action == "inventory.adjustment.read"
+  adjustment_read_allowed
+  branch_allowed
+}
+
+allow if {
   input.action == "search.query"
   search_query_allowed
   branch_allowed
@@ -455,6 +482,38 @@ amount_within_limit if {
 
 amount_within_limit if {
   input.resource.total_amount <= object.get(input.subject.attrs, "max_payroll_amount", 0)
+}
+
+employee_read_allowed if {
+  "employee.read" in input.subject.permissions
+}
+
+employee_read_allowed if {
+  "payroll.run.read" in input.subject.permissions
+}
+
+employee_write_allowed if {
+  "employee.write" in input.subject.permissions
+}
+
+adjustment_create_allowed if {
+  "inventory.adjustment.create" in input.subject.permissions
+}
+
+adjustment_create_allowed if {
+  "inventory.movement.create" in input.subject.permissions
+}
+
+adjustment_read_allowed if {
+  "inventory.adjustment.read" in input.subject.permissions
+}
+
+adjustment_read_allowed if {
+  "inventory.movement.read" in input.subject.permissions
+}
+
+adjustment_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
 }
 
 adjustment_within_limit if {
