@@ -107,6 +107,12 @@ func main() {
 	r.Get("/setup/presets", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, setup.Presets())
 	})
+	r.Get("/setup/modules", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"modules":         setup.ModuleCatalog(),
+			"default_enabled": setup.DefaultEnabledModules(),
+		})
+	})
 	r.Post("/setup/complete", func(w http.ResponseWriter, req *http.Request) {
 		var body setup.CompleteRequest
 		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
@@ -130,6 +136,26 @@ func main() {
 		resp := map[string]any{"setup": result}
 		if strings.EqualFold(os.Getenv("DEV_AUTH_BYPASS"), "true") {
 			claims := auth.StoreOwnerClaims(result.OwnerSub, result.OrgID, result.BranchCode, result.StoreName)
+			claims.Permissions = setup.PermissionsForModules(result.EnabledModules)
+			if claims.Attrs == nil {
+				claims.Attrs = map[string]any{}
+			}
+			claims.Attrs["enabled_modules"] = result.EnabledModules
+			claims.Attrs["store_name"] = result.StoreName
+			claims.Attrs["profile"] = "abarrotes"
+			claims.Attrs["max_adjustment"] = 100000.0
+			// Prefer DB enrichment when the owner row is already visible.
+			if enricher != nil {
+				if enriched, err := enricher.Enrich(req.Context(), claims); err == nil && len(enriched.Permissions) > 0 {
+					claims = enriched
+					if claims.Attrs == nil {
+						claims.Attrs = map[string]any{}
+					}
+					claims.Attrs["enabled_modules"] = result.EnabledModules
+					claims.Attrs["store_name"] = result.StoreName
+					claims.Attrs["profile"] = "abarrotes"
+				}
+			}
 			token, err := validator.IssueDevToken(claims, 8*time.Hour)
 			if err == nil {
 				resp["access_token"] = token

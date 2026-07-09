@@ -19,6 +19,8 @@ export type NavNode = {
     permissions: string[];
     anyBranch?: boolean;
     minAmrCount?: number;
+    /** Install-time module codes; if org locked modules, at least one must be enabled. */
+    modules?: string[];
   };
 };
 
@@ -35,6 +37,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/search",
     require: {
       permissions: ["inventory.balance.read", "inventory.catalog.read", "reporting.image.read", "search.query"],
+      modules: ["inventory", "reports"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -45,6 +48,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/inventory",
     require: {
       permissions: ["inventory.balance.read"],
+      modules: ["inventory"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -55,6 +59,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/inventory/receiving",
     require: {
       permissions: ["inventory.receipt.create", "inventory.movement.create", "inventory.balance.read"],
+      modules: ["receiving"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -65,6 +70,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/inventory/adjustments",
     require: {
       permissions: ["inventory.adjustment.create", "inventory.movement.create"],
+      modules: ["adjustments"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -75,6 +81,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/inventory/slips",
     require: {
       permissions: ["inventory.slip.read", "inventory.slip.create", "inventory.balance.read"],
+      modules: ["logistics"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -85,6 +92,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/inventory/transport",
     require: {
       permissions: ["inventory.transport.read", "inventory.transport.create", "inventory.balance.read"],
+      modules: ["logistics"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -95,6 +103,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/inventory/transfers",
     require: {
       permissions: ["inventory.transfer.read", "inventory.balance.read"],
+      modules: ["logistics"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -105,6 +114,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/inventory/parcels",
     require: {
       permissions: ["inventory.parcel.read", "inventory.slip.read", "inventory.balance.read"],
+      modules: ["logistics"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -115,6 +125,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/settings/tienda",
     require: {
       permissions: ["store.storefront.manage", "store.storefront.read"],
+      modules: ["storefront"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -125,6 +136,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/customers",
     require: {
       permissions: ["customer.read", "customer.card.read", "inventory.balance.read"],
+      modules: ["customers"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -135,6 +147,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/caja",
     require: {
       permissions: ["pos.sale.create", "pos.sale.read", "inventory.balance.read"],
+      modules: ["pos"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -145,6 +158,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/settings/jefes",
     require: {
       permissions: ["store.department.manager.read", "store.department.manager.assign"],
+      modules: ["dept_managers"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -155,6 +169,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/hr",
     require: {
       permissions: ["employee.read", "payroll.run.read"],
+      modules: ["hr"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -165,6 +180,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/payroll",
     require: {
       permissions: ["payroll.run.read"],
+      modules: ["hr"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -175,6 +191,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/reports",
     require: {
       permissions: ["inventory.balance.read", "payroll.run.read", "reporting.read"],
+      modules: ["reports"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -185,6 +202,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/reports/webmaster",
     require: {
       permissions: ["reporting.catalog.read", "reporting.export", "reporting.print", "reporting.read"],
+      modules: ["reports"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -195,6 +213,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/reports/seguridad",
     require: {
       permissions: ["reporting.security.read", "inventory.transport.read", "inventory.shipment.read"],
+      modules: ["security"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -205,6 +224,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/reports/images",
     require: {
       permissions: ["reporting.image.read", "reporting.image.create", "inventory.balance.read"],
+      modules: ["reports"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -215,6 +235,7 @@ export const NAV_NODES: NavNode[] = [
     path: "/approvals",
     require: {
       permissions: ["approval.read", "approval.decide"],
+      modules: ["approvals"],
       anyBranch: true,
       minAmrCount: 1,
     },
@@ -225,16 +246,29 @@ export const NAV_NODES: NavNode[] = [
     path: "/mail",
     require: {
       permissions: ["mail.read", "mail.send", "inventory.balance.read"],
+      modules: ["mail"],
       anyBranch: true,
       minAmrCount: 1,
     },
   },
 ];
 
+function enabledModulesOf(claims: SessionClaims): string[] | null {
+  const raw = claims.attrs?.enabled_modules;
+  if (raw == null) return null;
+  if (!Array.isArray(raw)) return null;
+  return raw.map(String);
+}
+
 export function canAccess(claims: SessionClaims | null, node: NavNode): boolean {
   if (!claims) return false;
   if (claims.roles.includes("platform_admin")) return true;
-  const { permissions, anyBranch, minAmrCount } = node.require;
+  const { permissions, anyBranch, minAmrCount, modules } = node.require;
+  const enabled = enabledModulesOf(claims);
+  if (enabled && modules && modules.length > 0) {
+    const unlocked = modules.some((m) => enabled.includes(m));
+    if (!unlocked) return false;
+  }
   if (permissions.length > 0) {
     const ok = permissions.some((p) => claims.permissions.includes(p));
     if (!ok) return false;

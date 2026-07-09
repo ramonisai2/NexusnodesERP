@@ -114,6 +114,13 @@ LIMIT 1`, in.Sub).Scan(&userID, &orgID)
 		if len(depts) > 0 {
 			out.Attrs["managed_departments"] = depts
 		}
+		mods, err := loadEnabledModules(ctx, tx, orgID)
+		if err != nil {
+			return err
+		}
+		if mods != nil {
+			out.Attrs["enabled_modules"] = mods
+		}
 		return nil
 	})
 	if err != nil {
@@ -333,4 +340,27 @@ ORDER BY sd.code`, userID)
 		out = append(out, code)
 	}
 	return out, rows.Err()
+}
+
+func loadEnabledModules(ctx context.Context, tx pgx.Tx, orgID string) ([]string, error) {
+	var raw []byte
+	err := tx.QueryRow(ctx, `
+SELECT enabled_modules FROM organizations WHERE id = $1::uuid`, orgID).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		if strings.Contains(err.Error(), "enabled_modules") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, nil
+	}
+	var mods []string
+	if err := json.Unmarshal(raw, &mods); err != nil {
+		return nil, nil
+	}
+	return mods, nil
 }

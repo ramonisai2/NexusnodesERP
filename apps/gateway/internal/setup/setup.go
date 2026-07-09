@@ -33,25 +33,27 @@ type ProductInput struct {
 }
 
 type CompleteRequest struct {
-	StoreName  string         `json:"store_name"`
-	BranchName string         `json:"branch_name"`
-	OwnerName  string         `json:"owner_name"`
-	OwnerEmail string         `json:"owner_email"`
-	Currency   string         `json:"currency"`
-	Products   []ProductInput `json:"products"`
-	PresetIDs  []string       `json:"preset_ids"`
-	Force      bool           `json:"force"`
+	StoreName       string         `json:"store_name"`
+	BranchName      string         `json:"branch_name"`
+	OwnerName       string         `json:"owner_name"`
+	OwnerEmail      string         `json:"owner_email"`
+	Currency        string         `json:"currency"`
+	Products        []ProductInput `json:"products"`
+	PresetIDs       []string       `json:"preset_ids"`
+	EnabledModules  []string       `json:"enabled_modules"`
+	Force           bool           `json:"force"`
 }
 
 type CompleteResult struct {
-	OrgID      string `json:"org_id"`
-	OrgCode    string `json:"org_code"`
-	BranchID   string `json:"branch_id"`
-	BranchCode string `json:"branch_code"`
-	OwnerSub   string `json:"owner_sub"`
-	StoreName  string `json:"store_name"`
-	Profile    string `json:"profile"`
-	Products   int    `json:"products_created"`
+	OrgID          string   `json:"org_id"`
+	OrgCode        string   `json:"org_code"`
+	BranchID       string   `json:"branch_id"`
+	BranchCode     string   `json:"branch_code"`
+	OwnerSub       string   `json:"owner_sub"`
+	StoreName      string   `json:"store_name"`
+	Profile        string   `json:"profile"`
+	Products       int      `json:"products_created"`
+	EnabledModules []string `json:"enabled_modules"`
 }
 
 type PresetProduct struct {
@@ -147,6 +149,8 @@ func (s *Service) Complete(ctx context.Context, req CompleteRequest) (CompleteRe
 	if len(products) == 0 {
 		return CompleteResult{}, errors.New("products_required")
 	}
+	enabledModules := NormalizeEnabledModules(req.EnabledModules)
+	ownerPerms := PermissionsForModules(enabledModules)
 
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
@@ -167,8 +171,9 @@ func (s *Service) Complete(ctx context.Context, req CompleteRequest) (CompleteRe
 	roleID := uuid.New()
 
 	if _, err = tx.Exec(ctx, `
-INSERT INTO organizations (id, code, name, status, setup_completed_at, profile)
-VALUES ($1, $2, $3, 'ACTIVE', now(), 'abarrotes')`, orgID, orgCode, req.StoreName); err != nil {
+INSERT INTO organizations (id, code, name, status, setup_completed_at, profile, enabled_modules)
+VALUES ($1, $2, $3, 'ACTIVE', now(), 'abarrotes', $4::jsonb)`,
+		orgID, orgCode, req.StoreName, mustJSON(enabledModules)); err != nil {
 		return CompleteResult{}, fmt.Errorf("org: %w", err)
 	}
 	if _, err = tx.Exec(ctx, `
@@ -190,22 +195,21 @@ VALUES ($1, $2, 'principal', 'Almacén de llegada')`, whID, branchID); err != ni
 INSERT INTO roles (id, org_id, code, name) VALUES ($1, $2, 'store_owner', 'Dueño de tienda')`, roleID, orgID); err != nil {
 		return CompleteResult{}, fmt.Errorf("role: %w", err)
 	}
+	if len(ownerPerms) == 0 {
+		return CompleteResult{}, errors.New("modules_required")
+	}
 	if _, err = tx.Exec(ctx, `
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT $1, p.id FROM permissions p
-WHERE p.code IN (
-  'inventory.balance.read','inventory.movement.create','inventory.movement.read',
-  'inventory.catalog.read','inventory.label.read','reporting.read',
-  'reporting.image.read','reporting.image.create','store.setup.read',
-  'inventory.receipt.read','inventory.receipt.create','inventory.receipt.post',
-  'inventory.warehouse.read','mail.read','mail.send','mail.announce',
-  'store.storefront.read','store.storefront.manage',
-  'store.department.manager.read','store.department.manager.assign',
-  'pos.sale.read','pos.sale.create','pos.sale.void',
-  'pos.invoice.request','pos.invoice.read','pos.settings.manage'
-)`, roleID); err != nil {
+WHERE p.code = ANY($2::text[])`, roleID, ownerPerms); err != nil {
 		return CompleteResult{}, fmt.Errorf("role_perms: %w", err)
 	}
+	// Always allow the owner to revisit setup / manage modules later.
+	_, _ = tx.Exec(ctx, `
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT $1, p.id FROM permissions p
+WHERE p.code IN ('store.setup.read', 'store.setup.manage')
+ON CONFLICT DO NOTHING`, roleID)
 	if _, err = tx.Exec(ctx, `
 INSERT INTO users (id, org_id, idp_sub, email, display_name, mfa_methods)
 VALUES ($1, $2, $3, $4, $5, ARRAY['pwd','otp'])`, ownerID, orgID, ownerSub, req.OwnerEmail, req.OwnerName); err != nil {
@@ -298,7 +302,11 @@ ON CONFLICT (id) DO UPDATE SET
   meta = excluded.meta,
   updated_at = now()`,
 		req.StoreName, ownerSub, orgID, branchCode,
-		mustJSON(map[string]any{"currency": req.Currency, "products": created})); err != nil {
+		mustJSON(map[string]any{
+			"currency":         req.Currency,
+			"products":         created,
+			"enabled_modules":  enabledModules,
+		})); err != nil {
 		return CompleteResult{}, fmt.Errorf("app_install: %w", err)
 	}
 
@@ -307,14 +315,15 @@ ON CONFLICT (id) DO UPDATE SET
 	}
 
 	return CompleteResult{
-		OrgID:      orgID.String(),
-		OrgCode:    orgCode,
-		BranchID:   branchID.String(),
-		BranchCode: branchCode,
-		OwnerSub:   ownerSub,
-		StoreName:  req.StoreName,
-		Profile:    "abarrotes",
-		Products:   created,
+		OrgID:          orgID.String(),
+		OrgCode:        orgCode,
+		BranchID:       branchID.String(),
+		BranchCode:     branchCode,
+		OwnerSub:       ownerSub,
+		StoreName:      req.StoreName,
+		Profile:        "abarrotes",
+		Products:       created,
+		EnabledModules: enabledModules,
 	}, nil
 }
 
@@ -349,7 +358,45 @@ INSERT INTO permissions (code, module, action, resource) VALUES
   ('pos.sale.void', 'pos', 'void', 'sale'),
   ('pos.invoice.request', 'pos', 'request', 'invoice'),
   ('pos.invoice.read', 'pos', 'read', 'invoice'),
-  ('pos.settings.manage', 'pos', 'manage', 'settings')
+  ('pos.settings.manage', 'pos', 'manage', 'settings'),
+  ('store.setup.manage', 'store', 'manage', 'setup'),
+  ('session.operator', 'session', 'operator', 'station'),
+  ('inventory.movement.void.request', 'inventory', 'void_request', 'movement'),
+  ('inventory.adjustment.create', 'inventory', 'create', 'adjustment'),
+  ('inventory.adjustment.read', 'inventory', 'read', 'adjustment'),
+  ('inventory.slip.read', 'inventory', 'read', 'slip'),
+  ('inventory.slip.create', 'inventory', 'create', 'slip'),
+  ('inventory.slip.print', 'inventory', 'print', 'slip'),
+  ('inventory.slip.ship', 'inventory', 'ship', 'slip'),
+  ('inventory.slip.receive', 'inventory', 'receive', 'slip'),
+  ('inventory.transport.read', 'inventory', 'read', 'transport'),
+  ('inventory.transport.create', 'inventory', 'create', 'transport'),
+  ('inventory.transport.print', 'inventory', 'print', 'transport'),
+  ('inventory.transfer.read', 'inventory', 'read', 'transfer'),
+  ('inventory.transfer.create', 'inventory', 'create', 'transfer'),
+  ('inventory.transfer.ship', 'inventory', 'ship', 'transfer'),
+  ('inventory.transfer.receive', 'inventory', 'receive', 'transfer'),
+  ('inventory.parcel.read', 'inventory', 'read', 'parcel'),
+  ('inventory.warranty.read', 'inventory', 'read', 'warranty'),
+  ('inventory.return.read', 'inventory', 'read', 'return'),
+  ('inventory.shipment.read', 'inventory', 'read', 'shipment'),
+  ('inventory.seal.verify', 'inventory', 'verify', 'seal'),
+  ('customer.read', 'customer', 'read', 'account'),
+  ('customer.manage', 'customer', 'manage', 'account'),
+  ('customer.card.read', 'customer', 'read', 'card'),
+  ('customer.card.manage', 'customer', 'manage', 'card'),
+  ('employee.read', 'hr', 'read', 'employee'),
+  ('employee.write', 'hr', 'write', 'employee'),
+  ('payroll.run.read', 'payroll', 'read', 'run'),
+  ('payroll.run.prepare', 'payroll', 'prepare', 'run'),
+  ('approval.read', 'approval', 'read', 'request'),
+  ('approval.decide', 'approval', 'decide', 'request'),
+  ('reporting.security.read', 'reporting', 'read', 'security'),
+  ('purchasing.order.read', 'purchasing', 'read', 'order'),
+  ('purchasing.order.create', 'purchasing', 'create', 'order'),
+  ('facilities.workorder.read', 'facilities', 'read', 'workorder'),
+  ('facilities.workorder.create', 'facilities', 'create', 'workorder'),
+  ('facilities.workorder.close', 'facilities', 'close', 'workorder')
 ON CONFLICT (code) DO NOTHING`)
 	return err
 }

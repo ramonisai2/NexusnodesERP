@@ -22,9 +22,10 @@ No se muestra en el menú del dueño: es **herramienta de soporte**, no del most
 ```
 /setup
   1. Nombre del negocio + sucursal
-  2. Productos preset (leche, pan, arroz…) o personalizados
-  3. Dueño (nombre + correo)
-     → POST /setup/complete
+  2. Funciones a desbloquear / bloquear (ver [38](./38-install-modules.md))
+  3. Productos preset (leche, pan, arroz…) o personalizados
+  4. Dueño (nombre + correo)
+     → POST /setup/complete { enabled_modules }
      → org + branch + warehouse + store_owner + stock + etiquetas
      → auto-login (DEV_AUTH_BYPASS)
 ```

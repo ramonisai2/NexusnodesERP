@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLocaleStore } from "../i18n/locale";
@@ -30,7 +30,15 @@ type CustomProduct = {
   quantity: string;
 };
 
-const STEPS = 3;
+type ModuleDef = {
+  code: string;
+  required: boolean;
+  default_on: boolean;
+  label_key: string;
+  hint_key: string;
+};
+
+const STEPS = 4;
 
 export function SetupPage() {
   const t = useLocaleStore((s) => s.t);
@@ -49,6 +57,8 @@ export function SetupPage() {
     arroz: true,
     jabon: true,
   });
+  const [modulesOn, setModulesOn] = useState<Record<string, boolean>>({});
+  const [modulesReady, setModulesReady] = useState(false);
   const [custom, setCustom] = useState<CustomProduct[]>([{ name: "", price: "", quantity: "" }]);
   const [error, setError] = useState<string | null>(null);
   const [reinstalling, setReinstalling] = useState(false);
@@ -70,6 +80,30 @@ export function SetupPage() {
       return (await res.json()) as Preset[];
     },
   });
+
+  const modules = useQuery({
+    queryKey: ["setup-modules"],
+    queryFn: async () => {
+      const res = await fetch("/api/setup/modules");
+      if (!res.ok) throw new Error("modules_failed");
+      return (await res.json()) as { modules: ModuleDef[]; default_enabled: string[] };
+    },
+  });
+
+  useEffect(() => {
+    if (!modules.data || modulesReady) return;
+    const next: Record<string, boolean> = {};
+    for (const m of modules.data.modules) {
+      next[m.code] = m.required || m.default_on;
+    }
+    setModulesOn(next);
+    setModulesReady(true);
+  }, [modules.data, modulesReady]);
+
+  const enabledModuleCodes = useMemo(
+    () => Object.entries(modulesOn).filter(([, on]) => on).map(([code]) => code),
+    [modulesOn],
+  );
 
   const complete = useMutation({
     mutationFn: async (force: boolean) => {
@@ -95,13 +129,14 @@ export function SetupPage() {
           currency: "MXN",
           preset_ids,
           products,
+          enabled_modules: enabledModuleCodes,
           force,
         }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "setup_failed");
       return body as {
-        setup: { store_name: string; products_created: number; owner_sub: string };
+        setup: { store_name: string; products_created: number; owner_sub: string; enabled_modules?: string[] };
         access_token?: string;
         claims?: SessionClaims;
       };
@@ -133,6 +168,7 @@ export function SetupPage() {
 
   const already = Boolean(status.data && !status.data.needs_setup);
   const showWizard = !already || reinstalling;
+  const stepLabels = [t("setupStepStore"), t("setupStepModules"), t("setupStepProducts"), t("setupStepOwner")];
 
   return (
     <main className="login-page setup-page">
@@ -172,7 +208,7 @@ export function SetupPage() {
         {showWizard ? (
           <>
             <ol className="setup-steps" aria-label={t("setupStepsLabel")}>
-              {[t("setupStepStore"), t("setupStepProducts"), t("setupStepOwner")].map((label, i) => (
+              {stepLabels.map((label, i) => (
                 <li key={label} className={i === step ? "active" : i < step ? "done" : ""}>
                   <span>{i + 1}</span>
                   {label}
@@ -205,6 +241,40 @@ export function SetupPage() {
             ) : null}
 
             {step === 1 ? (
+              <div className="setup-panel">
+                <p className="muted">{t("setupModulesHint")}</p>
+                <div className="module-grid">
+                  {(modules.data?.modules ?? []).map((m) => {
+                    const on = !!modulesOn[m.code];
+                    return (
+                      <label
+                        key={m.code}
+                        className={`module-chip ${on ? "on" : "off"} ${m.required ? "required" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          disabled={m.required}
+                          onChange={(e) =>
+                            setModulesOn((prev) => ({ ...prev, [m.code]: e.target.checked }))
+                          }
+                        />
+                        <div>
+                          <strong>{t(m.label_key)}</strong>
+                          <span className="muted">{t(m.hint_key)}</span>
+                          <em className="module-state">
+                            {m.required ? t("setupModuleRequired") : on ? t("setupModuleOn") : t("setupModuleOff")}
+                          </em>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="muted tip">{t("setupModulesTip")}</p>
+              </div>
+            ) : null}
+
+            {step === 2 ? (
               <div className="setup-panel">
                 <p className="muted">{t("setupProductsHint")}</p>
                 <div className="preset-grid">
@@ -266,7 +336,7 @@ export function SetupPage() {
               </div>
             ) : null}
 
-            {step === 2 ? (
+            {step === 3 ? (
               <div className="setup-panel">
                 <label>
                   <span>{t("setupOwnerName")}</span>
@@ -283,6 +353,9 @@ export function SetupPage() {
                   />
                 </label>
                 <p className="muted tip">{t("setupOwnerTip")}</p>
+                <p className="muted tip">
+                  {t("setupModulesSummary")}: <strong>{enabledModuleCodes.length}</strong>
+                </p>
               </div>
             ) : null}
 

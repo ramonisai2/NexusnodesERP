@@ -1,10 +1,34 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
-import { canAccess, type NavNode } from "../auth/policy";
+import { canAccess, NAV_NODES, type NavNode } from "../auth/policy";
 import { useAuthStore } from "../auth/store";
 import { HERO_ROSTER, listenForHeroUnlock } from "../eastereggs/heroes";
 import { labelBranch, labelRole, labelUser, useLocaleStore } from "../i18n/locale";
+
+const NAV_LABEL_KEYS: Record<string, string> = {
+  "nav.dashboard": "navHome",
+  "nav.search": "navSearch",
+  "nav.inventory": "navInventory",
+  "nav.receiving": "navReceiving",
+  "nav.adjustments": "navAdjustments",
+  "nav.slips": "navSlips",
+  "nav.transport": "navTransport",
+  "nav.transfers": "navTransfers",
+  "nav.parcels": "navParcels",
+  "nav.storefront": "navStorefront",
+  "nav.customers": "navCustomers",
+  "nav.pos": "navPos",
+  "nav.deptManagers": "navDeptManagers",
+  "nav.approvals": "navApprovals",
+  "nav.mail": "navMail",
+  "nav.hr": "navHR",
+  "nav.payroll": "navPayroll",
+  "nav.reports": "navReports",
+  "nav.webmasterReports": "navWebmasterReports",
+  "nav.security": "navSecurity",
+  "nav.imageReports": "navImageReports",
+};
 
 export function AppShell() {
   const claims = useAuthStore((s) => s.claims);
@@ -19,209 +43,19 @@ export function AppShell() {
 
   useEffect(() => listenForHeroUnlock(() => setHeroesOpen(true)), []);
 
-  const nav: NavNode[] = [
-    { id: "nav.dashboard", label: t("navHome"), path: "/", require: { permissions: [] } },
-    {
-      id: "nav.search",
-      label: t("navSearch"),
-      path: "/search",
-      require: {
-        permissions: ["inventory.balance.read", "inventory.catalog.read", "reporting.image.read", "search.query"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.inventory",
-      label: t("navInventory"),
-      path: "/inventory",
-      require: { permissions: ["inventory.balance.read"], anyBranch: true, minAmrCount: 1 },
-    },
-    {
-      id: "nav.receiving",
-      label: t("navReceiving"),
-      path: "/inventory/receiving",
-      require: {
-        permissions: ["inventory.receipt.create", "inventory.movement.create", "inventory.balance.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.adjustments",
-      label: t("navAdjustments"),
-      path: "/inventory/adjustments",
-      require: {
-        permissions: ["inventory.adjustment.create", "inventory.movement.create"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.slips",
-      label: t("navSlips"),
-      path: "/inventory/slips",
-      require: {
-        permissions: ["inventory.slip.read", "inventory.slip.create", "inventory.balance.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.transport",
-      label: t("navTransport"),
-      path: "/inventory/transport",
-      require: {
-        permissions: ["inventory.transport.read", "inventory.transport.create", "inventory.balance.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.transfers",
-      label: t("navTransfers"),
-      path: "/inventory/transfers",
-      require: {
-        permissions: ["inventory.transfer.read", "inventory.balance.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.parcels",
-      label: t("navParcels"),
-      path: "/inventory/parcels",
-      require: {
-        permissions: ["inventory.parcel.read", "inventory.slip.read", "inventory.balance.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.storefront",
-      label: t("navStorefront"),
-      path: "/settings/tienda",
-      require: {
-        permissions: ["store.storefront.manage", "store.storefront.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.customers",
-      label: t("navCustomers"),
-      path: "/customers",
-      require: {
-        permissions: ["customer.read", "customer.card.read", "inventory.balance.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.pos",
-      label: t("navPos"),
-      path: "/caja",
-      require: {
-        permissions: ["pos.sale.create", "pos.sale.read", "inventory.balance.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.deptManagers",
-      label: t("navDeptManagers"),
-      path: "/settings/jefes",
-      require: {
-        permissions: ["store.department.manager.read", "store.department.manager.assign"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.approvals",
-      label: t("navApprovals"),
-      path: "/approvals",
-      require: {
-        permissions: ["approval.read", "approval.decide"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.mail",
-      label: t("navMail"),
-      path: "/mail",
-      require: {
-        permissions: ["mail.read", "mail.send", "inventory.balance.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    ...(!isShop
-      ? [
-          {
-            id: "nav.hr",
-            label: t("navHR"),
-            path: "/hr",
-            require: {
-              permissions: ["employee.read", "payroll.run.read"],
-              anyBranch: true,
-              minAmrCount: 1,
-            },
-          } satisfies NavNode,
-          {
-            id: "nav.payroll",
-            label: t("navPayroll"),
-            path: "/payroll",
-            require: {
-              permissions: ["payroll.run.read"],
-              anyBranch: true,
-              minAmrCount: 1,
-            },
-          } satisfies NavNode,
-        ]
-      : []),
-    {
-      id: "nav.reports",
-      label: t("navReports"),
-      path: "/reports",
-      require: {
-        permissions: ["inventory.balance.read", "payroll.run.read", "reporting.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.webmasterReports",
-      label: t("navWebmasterReports"),
-      path: "/reports/webmaster",
-      require: {
-        permissions: ["reporting.catalog.read", "reporting.export", "reporting.print", "reporting.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.security",
-      label: t("navSecurity"),
-      path: "/reports/seguridad",
-      require: {
-        permissions: ["reporting.security.read", "inventory.transport.read", "inventory.shipment.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-    {
-      id: "nav.imageReports",
-      label: t("navImageReports"),
-      path: "/reports/images",
-      require: {
-        permissions: ["reporting.image.read", "reporting.image.create", "inventory.balance.read"],
-        anyBranch: true,
-        minAmrCount: 1,
-      },
-    },
-  ];
+  const nav: NavNode[] = useMemo(() => {
+    return NAV_NODES.filter((node) => {
+      if (isShop && (node.id === "nav.hr" || node.id === "nav.payroll")) {
+        // Shop owners only see HR/payroll if they unlocked the hr module at install.
+        const mods = claims?.attrs?.enabled_modules;
+        if (!Array.isArray(mods) || !mods.map(String).includes("hr")) return false;
+      }
+      return true;
+    }).map((node) => ({
+      ...node,
+      label: t(NAV_LABEL_KEYS[node.id] ?? node.label),
+    }));
+  }, [claims, isShop, t]);
 
   const primaryRole = claims?.roles?.[0];
 
