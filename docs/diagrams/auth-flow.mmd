@@ -1,0 +1,29 @@
+%% NexusERP — Flujo de autenticación OAuth2 + PKCE + MFA + JWT
+
+sequenceDiagram
+  participant User
+  participant SPA
+  participant Gateway
+  participant IdP
+  participant MFA
+  participant PDP
+  participant API
+
+  User->>SPA: Abrir aplicación
+  SPA->>IdP: Authorization Code + PKCE
+  IdP->>User: Login + MFA challenge
+  User->>MFA: TOTP / WebAuthn
+  MFA-->>IdP: MFA OK
+  IdP-->>SPA: Authorization code
+  SPA->>IdP: Exchange code + code_verifier
+  IdP-->>SPA: Access JWT + Refresh
+  SPA->>Gateway: API request Bearer JWT
+  Gateway->>Gateway: Validate signature exp aud
+  Gateway->>PDP: Evaluate RBAC+ABAC
+  PDP-->>Gateway: Allow / Deny
+  alt Allow
+    Gateway->>API: Forward + trusted headers
+    API-->>SPA: 200 + payload
+  else Deny
+    Gateway-->>SPA: 403 Forbidden
+  end

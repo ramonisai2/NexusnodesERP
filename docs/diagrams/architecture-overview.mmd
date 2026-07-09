@@ -1,0 +1,83 @@
+%% NexusERP — Vista de arquitectura de componentes
+%% Renderizar en cualquier visor Mermaid (GitHub, Mermaid Live, VS Code)
+
+flowchart TB
+  subgraph client ["Cliente SPA"]
+    spa["SPA React/TS"]
+    policyUi["PolicyGuard UI RBAC+ABAC"]
+    stateStore["Estado global TanStack Query + Zustand"]
+    spa --> policyUi
+    spa --> stateStore
+  end
+
+  subgraph edge ["Edge / Gateway"]
+    cdn["CDN + WAF"]
+    lb["Load Balancer L7"]
+    gw["API Gateway JWT + RateLimit"]
+    cdn --> lb --> gw
+  end
+
+  subgraph identity ["Identidad"]
+    idp["IdP OAuth2/OIDC + MFA"]
+    tokenSvc["Token Service JWT"]
+    pdp["PDP OPA/Cedar RBAC+ABAC"]
+    sessionStore["Redis Sessions + Denylist"]
+    idp --> tokenSvc
+    tokenSvc --> sessionStore
+  end
+
+  subgraph services ["Microservicios Stateless"]
+    inv["Inventory Service"]
+    cat["Catalog Service"]
+    pay["Payroll Service"]
+    hr["HR Service"]
+    org["Org / Branch Service"]
+    audit["Audit Service"]
+    notify["Notification Service"]
+    bff["Reporting BFF GraphQL"]
+  end
+
+  subgraph asyncBus ["Async"]
+    kafka["Kafka / JetStream"]
+    outbox["Outbox Relay"]
+  end
+
+  subgraph data ["Persistencia"]
+    pgPrimary["PostgreSQL Primary OLTP"]
+    pgReplica["PostgreSQL Replicas"]
+    redis["Redis Cluster"]
+    s3["Object Storage"]
+  end
+
+  spa -->|"HTTPS REST/GraphQL"| cdn
+  gw -->|"AuthN"| idp
+  gw -->|"AuthZ"| pdp
+  gw --> inv
+  gw --> cat
+  gw --> pay
+  gw --> hr
+  gw --> org
+  gw --> bff
+
+  inv --> pgPrimary
+  cat --> pgPrimary
+  pay --> pgPrimary
+  hr --> pgPrimary
+  org --> pgPrimary
+  audit --> pgPrimary
+  bff --> pgReplica
+
+  inv --> redis
+  pay --> redis
+  tokenSvc --> redis
+  pdp --> redis
+
+  inv --> outbox
+  pay --> outbox
+  outbox --> kafka
+  kafka --> notify
+  kafka --> audit
+  kafka --> bff
+
+  pay --> s3
+  audit --> s3

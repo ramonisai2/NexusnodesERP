@@ -1,0 +1,24 @@
+%% NexusERP — Ciclo de nómina con segregación de funciones
+
+stateDiagram-v2
+  [*] --> Open
+  Open --> Calculating: payroll_analyst inicia cálculo
+  Calculating --> InReview: cálculo idempotente OK
+  Calculating --> Open: error / recalcular
+  InReview --> Approved: payroll_approver distinto del preparador
+  InReview --> Calculating: correcciones
+  Approved --> Paying: disparar pagos
+  Paying --> Paid: transferencias confirmadas
+  Paid --> Closed: cierre inmutable
+  Closed --> [*]
+
+  note right of Approved
+    SoD + ABAC: monto máximo,
+    org_id, MFA step-up
+  end note
+
+  note right of Closed
+    Correcciones solo vía
+    payroll_adjustment en
+    periodo siguiente
+  end note

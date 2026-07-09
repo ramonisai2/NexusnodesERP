@@ -1,0 +1,23 @@
+%% NexusERP — Flujo de movimiento de inventario con integridad
+
+flowchart TD
+  startNode["Usuario solicita movimiento"] --> uiGuard["PolicyGuard UI"]
+  uiGuard -->|"sin permiso"| denyUi["Ocultar / deshabilitar acción"]
+  uiGuard -->|"con permiso"| postApi["POST /inventory/movements + Idempotency-Key"]
+  postApi --> gwVal["Gateway: JWT + rate limit"]
+  gwVal --> pdpCheck["PDP: rol + branch + warehouse + MFA"]
+  pdpCheck -->|"deny"| http403["403"]
+  pdpCheck -->|"allow"| txBegin["BEGIN transacción"]
+  txBegin --> lockPath{"Tipo de operación"}
+  lockPath -->|"ajuste normal"| optLock["UPDATE stock WHERE version = N"]
+  lockPath -->|"cierre / conteo"| pesLock["SELECT FOR UPDATE NOWAIT"]
+  optLock --> writeMov["INSERT inventory_movement POSTED"]
+  pesLock --> writeMov
+  writeMov --> updBal["Actualizar stock_balance"]
+  updBal --> outboxIns["INSERT outbox InventoryMoved"]
+  outboxIns --> commitTx["COMMIT"]
+  commitTx --> relay["Outbox relay → Kafka"]
+  relay --> projections["Proyecciones / cache / audit"]
+  projections --> doneNode["200 OK al cliente"]
+  optLock -->|"version mismatch"| conflict["409 Conflict → retry"]
+  conflict --> txBegin
