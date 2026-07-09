@@ -195,6 +195,39 @@ allow if {
 }
 
 allow if {
+  input.action == "inventory.transfer.read"
+  transfer_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "inventory.transfer.create"
+  transfer_write_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.transfer.ship"
+  transfer_ship_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.transfer.receive"
+  transfer_receive_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.transfer.cancel"
+  transfer_cancel_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "mail.read"
   mail_read_allowed
 }
@@ -405,6 +438,66 @@ transport_write_allowed if {
 
 transport_write_allowed if {
   "inventory.movement.create" in input.subject.permissions
+}
+
+transfer_read_allowed if {
+  "inventory.transfer.read" in input.subject.permissions
+}
+
+transfer_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+transfer_write_allowed if {
+  "inventory.transfer.create" in input.subject.permissions
+}
+
+transfer_write_allowed if {
+  "inventory.movement.create" in input.subject.permissions
+}
+
+transfer_ship_allowed if {
+  "inventory.transfer.ship" in input.subject.permissions
+}
+
+transfer_ship_allowed if {
+  "inventory.transfer.create" in input.subject.permissions
+}
+
+transfer_ship_allowed if {
+  "inventory.movement.create" in input.subject.permissions
+}
+
+transfer_receive_allowed if {
+  "inventory.transfer.receive" in input.subject.permissions
+}
+
+transfer_receive_allowed if {
+  "inventory.transfer.create" in input.subject.permissions
+}
+
+transfer_receive_allowed if {
+  "inventory.movement.create" in input.subject.permissions
+}
+
+transfer_cancel_allowed if {
+  "inventory.transfer.cancel" in input.subject.permissions
+}
+
+transfer_cancel_allowed if {
+  "warehouse_manager" in input.subject.roles
+}
+
+transfer_cancel_allowed if {
+  "regional_manager" in input.subject.roles
+}
+
+transfer_cancel_allowed if {
+  "store_owner" in input.subject.roles
+}
+
+transfer_cancel_allowed if {
+  "platform_admin" in input.subject.roles
 }
 
 mail_read_allowed if {

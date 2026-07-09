@@ -282,6 +282,36 @@ func localAllow(in Input) bool {
 			!in.Subject.HasPermission("inventory.movement.create") {
 			return false
 		}
+	} else if in.Action == "inventory.transfer.read" {
+		if !in.Subject.HasPermission("inventory.transfer.read") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "inventory.transfer.create" || in.Action == "inventory.transfer.ship" {
+		if !in.Subject.HasPermission("inventory.transfer.create") &&
+			!in.Subject.HasPermission("inventory.transfer.ship") &&
+			!in.Subject.HasPermission("inventory.movement.create") {
+			return false
+		}
+	} else if in.Action == "inventory.transfer.receive" {
+		if !in.Subject.HasPermission("inventory.transfer.receive") &&
+			!in.Subject.HasPermission("inventory.transfer.create") &&
+			!in.Subject.HasPermission("inventory.movement.create") {
+			return false
+		}
+	} else if in.Action == "inventory.transfer.cancel" {
+		if !in.Subject.HasPermission("inventory.transfer.cancel") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "store_owner" || r == "regional_manager" || r == "warehouse_manager" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
 	} else if in.Action == "inventory.movement.void.request" {
 		if !in.Subject.HasPermission("inventory.movement.void.request") {
 			return false

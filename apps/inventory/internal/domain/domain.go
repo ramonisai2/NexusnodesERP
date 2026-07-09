@@ -458,6 +458,81 @@ type TransportSheetFilter struct {
 	Limit      int
 }
 
+// Stock transfer between warehouses/branches (atomic TRANSFER_OUT / TRANSFER_IN).
+const (
+	TransferStatusDraft     = "DRAFT"
+	TransferStatusInTransit = "IN_TRANSIT"
+	TransferStatusReceived  = "RECEIVED"
+	TransferStatusCancelled = "CANCELLED"
+)
+
+type TransferLineInput struct {
+	SKU      string  `json:"sku"`
+	Quantity float64 `json:"quantity"`
+}
+
+type CreateTransferRequest struct {
+	OrgID           string              `json:"org_id"`
+	FromBranchID    string              `json:"from_branch_id"`
+	ToBranchID      string              `json:"to_branch_id"`
+	FromWarehouseID string              `json:"from_warehouse_id"`
+	ToWarehouseID   string              `json:"to_warehouse_id"`
+	Notes           string              `json:"notes,omitempty"`
+	IdempotencyKey  string              `json:"idempotency_key"`
+	CreatedBy       string              `json:"created_by"`
+	OperatorLabel   string              `json:"operator_label,omitempty"`
+	SessionID       string              `json:"session_id,omitempty"`
+	SlipIDs         []string            `json:"slip_ids,omitempty"`
+	Lines           []TransferLineInput `json:"lines"`
+}
+
+type TransferLine struct {
+	ID            string  `json:"id"`
+	SKU           string  `json:"sku"`
+	Quantity      float64 `json:"quantity"`
+	SortOrder     int     `json:"sort_order"`
+	OutMovementID string  `json:"out_movement_id,omitempty"`
+	InMovementID  string  `json:"in_movement_id,omitempty"`
+}
+
+type InventoryTransfer struct {
+	ID              string         `json:"id"`
+	OrgID           string         `json:"org_id"`
+	TransferNumber  string         `json:"transfer_number"`
+	FromBranchID    string         `json:"from_branch_id"`
+	ToBranchID      string         `json:"to_branch_id"`
+	FromWarehouseID string         `json:"from_warehouse_id"`
+	ToWarehouseID   string         `json:"to_warehouse_id"`
+	Status          string         `json:"status"`
+	Notes           string         `json:"notes,omitempty"`
+	CreatedBy       string         `json:"created_by,omitempty"`
+	OperatorLabel   string         `json:"operator_label,omitempty"`
+	ShippedBy       string         `json:"shipped_by,omitempty"`
+	ShippedAt       *time.Time     `json:"shipped_at,omitempty"`
+	ReceivedBy      string         `json:"received_by,omitempty"`
+	ReceivedAt      *time.Time     `json:"received_at,omitempty"`
+	CancelledBy     string         `json:"cancelled_by,omitempty"`
+	CancelledAt     *time.Time     `json:"cancelled_at,omitempty"`
+	CancelReason    string         `json:"cancel_reason,omitempty"`
+	IdempotencyKey  string         `json:"idempotency_key"`
+	CreatedAt       time.Time      `json:"created_at"`
+	SlipIDs         []string       `json:"slip_ids,omitempty"`
+	Lines           []TransferLine `json:"lines,omitempty"`
+}
+
+type TransferFilter struct {
+	OrgRef     string
+	FromBranch string
+	ToBranch   string
+	Status     string
+	Limit      int
+}
+
+type CancelTransferRequest struct {
+	Reason string `json:"reason,omitempty"`
+	Actor  string `json:"actor,omitempty"`
+}
+
 type Store interface {
 	ListBalances(ctx context.Context, filter BalanceFilter) ([]StockBalance, error)
 	PostMovement(ctx context.Context, req MovementRequest) (Movement, error)
@@ -480,4 +555,10 @@ type Store interface {
 	ListTransportSheets(ctx context.Context, filter TransportSheetFilter) ([]TransportSheet, error)
 	GetTransportSheet(ctx context.Context, orgRef, sheetID string) (TransportSheet, error)
 	MarkTransportSheetPrinted(ctx context.Context, orgRef, sheetID, actor string) (TransportSheet, error)
+	CreateTransfer(ctx context.Context, req CreateTransferRequest) (InventoryTransfer, error)
+	ListTransfers(ctx context.Context, filter TransferFilter) ([]InventoryTransfer, error)
+	GetTransfer(ctx context.Context, orgRef, transferID string) (InventoryTransfer, error)
+	ShipTransfer(ctx context.Context, orgRef, transferID, actor string) (InventoryTransfer, error)
+	ReceiveTransfer(ctx context.Context, orgRef, transferID, actor string) (InventoryTransfer, error)
+	CancelTransfer(ctx context.Context, orgRef, transferID string, req CancelTransferRequest) (InventoryTransfer, error)
 }

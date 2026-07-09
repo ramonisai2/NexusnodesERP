@@ -542,3 +542,22 @@ func (s *Memory) GetTransportSheet(_ context.Context, _, _ string) (domain.Trans
 func (s *Memory) MarkTransportSheetPrinted(_ context.Context, _, _, _ string) (domain.TransportSheet, error) {
 	return domain.TransportSheet{}, domain.ErrNotFound
 }
+
+func (s *Memory) CreateTransfer(_ context.Context, _ domain.CreateTransferRequest) (domain.InventoryTransfer, error) {
+	return domain.InventoryTransfer{}, errors.New("transfers require postgres store")
+}
+func (s *Memory) ListTransfers(_ context.Context, _ domain.TransferFilter) ([]domain.InventoryTransfer, error) {
+	return nil, nil
+}
+func (s *Memory) GetTransfer(_ context.Context, _, _ string) (domain.InventoryTransfer, error) {
+	return domain.InventoryTransfer{}, domain.ErrNotFound
+}
+func (s *Memory) ShipTransfer(_ context.Context, _, _, _ string) (domain.InventoryTransfer, error) {
+	return domain.InventoryTransfer{}, domain.ErrNotFound
+}
+func (s *Memory) ReceiveTransfer(_ context.Context, _, _, _ string) (domain.InventoryTransfer, error) {
+	return domain.InventoryTransfer{}, domain.ErrNotFound
+}
+func (s *Memory) CancelTransfer(_ context.Context, _, _ string, _ domain.CancelTransferRequest) (domain.InventoryTransfer, error) {
+	return domain.InventoryTransfer{}, domain.ErrNotFound
+}

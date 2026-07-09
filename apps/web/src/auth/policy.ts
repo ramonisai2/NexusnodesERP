@@ -80,6 +80,16 @@ export const NAV_NODES: NavNode[] = [
     },
   },
   {
+    id: "nav.transfers",
+    label: "Traslados",
+    path: "/inventory/transfers",
+    require: {
+      permissions: ["inventory.transfer.read", "inventory.balance.read"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
     id: "nav.payroll",
     label: "Nómina",
     path: "/payroll",
