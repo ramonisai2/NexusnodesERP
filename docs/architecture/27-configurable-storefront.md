@@ -19,6 +19,8 @@ No es un carrito/checkout: es catálogo + contacto (ideal para abarrotes / tiend
 
 Admin autenticado: `/settings/tienda` → `GET/PUT /storefront/settings`.
 
+**Requisito de red:** publicar la vitrina exige `organizations.network_mode = internet` (ver [41 — Intranet vs internet](./41-network-mode.md)). En modo intranet la API pública no sirve catálogo aunque `published=true`.
+
 ## Modelo
 
 `branch_storefront_settings` (migración `021_storefront_settings.sql`):

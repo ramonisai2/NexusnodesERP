@@ -46,6 +46,12 @@ export function AppShell() {
     claims?.attrs?.profile === "demo" ||
     claims?.org_id === "org_demo" ||
     claims?.sub === "usr_dev_demo";
+  const networkMode =
+    claims?.attrs?.network_mode === "internet" || claims?.attrs?.public_egress === true
+      ? "internet"
+      : claims?.attrs?.network_mode === "intranet" || claims?.attrs?.public_egress === false
+        ? "intranet"
+        : null;
   const [heroesOpen, setHeroesOpen] = useState(false);
 
   useEffect(() => listenForHeroUnlock(() => setHeroesOpen(true)), []);
@@ -99,6 +105,18 @@ export function AppShell() {
           <div className="demo-banner" role="status">
             <strong>{t("demoBannerTitle")}</strong>
             <span>{t("demoBannerBody")}</span>
+          </div>
+        ) : null}
+        {networkMode === "intranet" ? (
+          <div className="network-banner intranet" role="status">
+            <strong>{t("netBannerIntranetTitle")}</strong>
+            <span>{t("netBannerIntranetBody")}</span>
+          </div>
+        ) : null}
+        {networkMode === "internet" && !isDemoOrg ? (
+          <div className="network-banner internet" role="status">
+            <strong>{t("netBannerInternetTitle")}</strong>
+            <span>{t("netBannerInternetBody")}</span>
           </div>
         ) : null}
         <header className="topbar">

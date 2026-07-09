@@ -837,6 +837,8 @@ func DemoClaims() Claims {
 		Attrs: map[string]any{
 			"demo_mode":      true,
 			"profile":        "demo",
+			"network_mode":   "internet",
+			"public_egress":  true,
 			"max_adjustment": 100000.0,
 		},
 		AMR: []string{"pwd", "otp"},

@@ -31,7 +31,9 @@ func (s *Postgres) ResolveOrgByStorefrontSlug(ctx context.Context, slug string) 
 SELECT s.org_id::text, b.code
 FROM branch_storefront_settings s
 JOIN branches b ON b.id = s.branch_id
-WHERE s.public_slug = $1 AND s.published = TRUE`, slug).Scan(&orgID, &branchCode)
+JOIN organizations o ON o.id = s.org_id
+WHERE s.public_slug = $1 AND s.published = TRUE
+  AND COALESCE(o.network_mode, 'intranet') = 'internet'`, slug).Scan(&orgID, &branchCode)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.ErrNotFound
 		}

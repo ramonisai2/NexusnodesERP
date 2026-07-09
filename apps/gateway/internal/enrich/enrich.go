@@ -121,6 +121,14 @@ LIMIT 1`, in.Sub).Scan(&userID, &orgID)
 		if mods != nil {
 			out.Attrs["enabled_modules"] = mods
 		}
+		netMode, err := loadNetworkMode(ctx, tx, orgID)
+		if err != nil {
+			return err
+		}
+		if netMode != "" {
+			out.Attrs["network_mode"] = netMode
+			out.Attrs["public_egress"] = netMode == "internet"
+		}
 		profile, demoOrg, err := loadOrgProfile(ctx, tx, orgID)
 		if err != nil {
 			return err
@@ -381,6 +389,26 @@ SELECT enabled_modules FROM organizations WHERE id = $1::uuid`, orgID).Scan(&raw
 		return nil, nil
 	}
 	return mods, nil
+}
+
+func loadNetworkMode(ctx context.Context, tx pgx.Tx, orgID string) (string, error) {
+	var mode string
+	err := tx.QueryRow(ctx, `
+SELECT COALESCE(network_mode, 'intranet') FROM organizations WHERE id = $1::uuid`, orgID).Scan(&mode)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		if strings.Contains(err.Error(), "network_mode") {
+			return "", nil
+		}
+		return "", err
+	}
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode != "internet" {
+		mode = "intranet"
+	}
+	return mode, nil
 }
 
 func loadOrgProfile(ctx context.Context, tx pgx.Tx, orgID string) (profile string, demoMode bool, err error) {

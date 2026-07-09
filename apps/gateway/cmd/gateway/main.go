@@ -111,6 +111,8 @@ func main() {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"modules":         setup.ModuleCatalog(),
 			"default_enabled": setup.DefaultEnabledModules(),
+			"network_modes":   setup.NetworkModeCatalog(),
+			"default_network": setup.NetworkIntranet,
 		})
 	})
 	r.Post("/setup/complete", func(w http.ResponseWriter, req *http.Request) {
@@ -141,6 +143,8 @@ func main() {
 				claims.Attrs = map[string]any{}
 			}
 			claims.Attrs["enabled_modules"] = result.EnabledModules
+			claims.Attrs["network_mode"] = result.NetworkMode
+			claims.Attrs["public_egress"] = setup.AllowsPublicEgress(result.NetworkMode)
 			claims.Attrs["store_name"] = result.StoreName
 			claims.Attrs["profile"] = "abarrotes"
 			claims.Attrs["max_adjustment"] = 100000.0
@@ -152,6 +156,8 @@ func main() {
 						claims.Attrs = map[string]any{}
 					}
 					claims.Attrs["enabled_modules"] = result.EnabledModules
+					claims.Attrs["network_mode"] = result.NetworkMode
+					claims.Attrs["public_egress"] = setup.AllowsPublicEgress(result.NetworkMode)
 					claims.Attrs["store_name"] = result.StoreName
 					claims.Attrs["profile"] = "abarrotes"
 				}
@@ -168,17 +174,32 @@ func main() {
 	})
 
 	// Public QR mobile upload (no JWT): phone opens /upload/{token} and POSTs files.
+	// Allowed on intranet (LAN phones) and internet alike — token-gated, not a public catalog.
 	r.Method(http.MethodGet, "/reports/images/upload/{token}", reverseProxy(reportsURL))
 	r.Method(http.MethodPost, "/reports/images/upload/{token}", reverseProxy(reportsURL))
 
-	// Public online storefront (no JWT). Path must not collide with /storefront/settings.
-	r.Handle("GET /storefront/public/{slug}", reverseProxy(inventoryURL))
+	// Public online storefront + customer portal — only when org network_mode=internet
+	// (or process-level NETWORK_MODE_FORCE is not locking to intranet).
+	r.Handle("GET /storefront/public/{slug}", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !publicEgressProcessAllowed() {
+			writePublicEgressDenied(w)
+			return
+		}
+		reverseProxy(inventoryURL).ServeHTTP(w, req)
+	}))
 
-	// Customer self-registration / login (public) — mint customer JWT after inventory validates.
 	r.Post("/customers/register", func(w http.ResponseWriter, req *http.Request) {
+		if !publicEgressProcessAllowed() {
+			writePublicEgressDenied(w)
+			return
+		}
 		handleCustomerAuth(w, req, inventoryURL, validator, http.MethodPost, "/customers/register", http.StatusCreated)
 	})
 	r.Post("/customers/login", func(w http.ResponseWriter, req *http.Request) {
+		if !publicEgressProcessAllowed() {
+			writePublicEgressDenied(w)
+			return
+		}
 		handleCustomerAuth(w, req, inventoryURL, validator, http.MethodPost, "/customers/login", http.StatusOK)
 	})
 
@@ -1099,6 +1120,20 @@ func envOr(k, def string) string {
 		return v
 	}
 	return def
+}
+
+// publicEgressProcessAllowed is a process-level kill switch.
+// NETWORK_MODE_FORCE=intranet disables all public internet surfaces regardless of org.
+// Per-org enforcement still happens in inventory (storefront/customers) via network_mode.
+func publicEgressProcessAllowed() bool {
+	force := strings.ToLower(strings.TrimSpace(os.Getenv("NETWORK_MODE_FORCE")))
+	return force != setup.NetworkIntranet
+}
+
+func writePublicEgressDenied(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusForbidden)
+	_, _ = w.Write([]byte(`{"error":"public_egress_disabled","detail":"network_mode=intranet"}`))
 }
 
 func mustURL(raw string) *url.URL {

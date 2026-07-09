@@ -69,6 +69,8 @@ function StorefrontSettingsPanel() {
   const qc = useQueryClient();
   const canManage =
     hasPermission(claims, "store.storefront.manage") || claims?.roles?.includes("store_owner");
+  const internetEgress =
+    claims?.attrs?.network_mode === "internet" || claims?.attrs?.public_egress === true;
 
   const [form, setForm] = useState<StorefrontSettings | null>(null);
   const [featuredText, setFeaturedText] = useState("");
@@ -113,6 +115,7 @@ function StorefrontSettingsPanel() {
       if (injection) throw new Error(injection);
       const payload = {
         ...form,
+        published: internetEgress ? form.published : false,
         branch_id: branchId,
         hero_image_url: safeUrl(form.hero_image_url) || "",
         cta_url: safeUrl(form.cta_url) || "",
@@ -158,12 +161,14 @@ function StorefrontSettingsPanel() {
           <h1>{t("sfAdminTitle")}</h1>
           <p className="muted">{t("sfAdminSubtitle")}</p>
         </div>
-        {form.public_url ? (
+        {form.public_url && internetEgress ? (
           <Link className="btn" to={`/tienda/${form.public_slug}`} target="_blank">
             {t("sfAdminPreview")}
           </Link>
         ) : null}
       </header>
+
+      {!internetEgress ? <p className="error">{t("sfAdminNeedsInternet")}</p> : null}
 
       <form
         className="sf-admin-form"
@@ -183,9 +188,9 @@ function StorefrontSettingsPanel() {
         <label className="sf-check">
           <input
             type="checkbox"
-            checked={form.published}
+            checked={form.published && internetEgress}
             onChange={(e) => set("published", e.target.checked)}
-            disabled={!canManage}
+            disabled={!canManage || !internetEgress}
           />
           <span>{t("sfAdminPublished")}</span>
         </label>

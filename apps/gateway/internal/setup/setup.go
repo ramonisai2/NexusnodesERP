@@ -20,6 +20,7 @@ type Status struct {
 	NeedsSetup   bool   `json:"needs_setup"`
 	Profile      string `json:"profile,omitempty"`
 	StoreName    string `json:"store_name,omitempty"`
+	NetworkMode  string `json:"network_mode,omitempty"`
 	CanReinstall bool   `json:"can_reinstall"`
 	Message      string `json:"message,omitempty"`
 }
@@ -41,6 +42,7 @@ type CompleteRequest struct {
 	Products        []ProductInput `json:"products"`
 	PresetIDs       []string       `json:"preset_ids"`
 	EnabledModules  []string       `json:"enabled_modules"`
+	NetworkMode     string         `json:"network_mode"`
 	Force           bool           `json:"force"`
 }
 
@@ -52,6 +54,7 @@ type CompleteResult struct {
 	OwnerSub       string   `json:"owner_sub"`
 	StoreName      string   `json:"store_name"`
 	Profile        string   `json:"profile"`
+	NetworkMode    string   `json:"network_mode"`
 	Products       int      `json:"products_created"`
 	EnabledModules []string `json:"enabled_modules"`
 }
@@ -80,15 +83,24 @@ func (s *Service) Status(ctx context.Context) (Status, error) {
 	}
 	var completed *time.Time
 	var profile, storeName *string
+	var meta []byte
 	err := s.Pool.QueryRow(ctx, `
-SELECT completed_at, profile, store_name FROM app_install WHERE id = 1`).Scan(&completed, &profile, &storeName)
+SELECT completed_at, profile, store_name, meta FROM app_install WHERE id = 1`).Scan(&completed, &profile, &storeName, &meta)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Status{NeedsSetup: true, CanReinstall: true}, nil
+		return Status{NeedsSetup: true, CanReinstall: true, NetworkMode: NetworkIntranet}, nil
 	}
 	if err != nil {
 		return Status{NeedsSetup: true, CanReinstall: true, Message: err.Error()}, nil
 	}
-	st := Status{CanReinstall: true}
+	st := Status{CanReinstall: true, NetworkMode: NetworkIntranet}
+	if len(meta) > 0 && string(meta) != "null" {
+		var m map[string]any
+		if json.Unmarshal(meta, &m) == nil {
+			if v, ok := m["network_mode"].(string); ok {
+				st.NetworkMode = NormalizeNetworkMode(v)
+			}
+		}
+	}
 	if completed != nil {
 		st.NeedsSetup = false
 		if profile != nil {
@@ -96,6 +108,16 @@ SELECT completed_at, profile, store_name FROM app_install WHERE id = 1`).Scan(&c
 		}
 		if storeName != nil {
 			st.StoreName = *storeName
+		}
+		// Prefer live org column when install points at an org.
+		var orgMode string
+		_ = s.Pool.QueryRow(ctx, `
+SELECT o.network_mode
+FROM app_install i
+JOIN organizations o ON o.id = i.org_id
+WHERE i.id = 1`).Scan(&orgMode)
+		if orgMode != "" {
+			st.NetworkMode = NormalizeNetworkMode(orgMode)
 		}
 		st.Message = "La tienda ya está configurada."
 	} else {
@@ -149,7 +171,8 @@ func (s *Service) Complete(ctx context.Context, req CompleteRequest) (CompleteRe
 	if len(products) == 0 {
 		return CompleteResult{}, errors.New("products_required")
 	}
-	enabledModules := NormalizeEnabledModules(req.EnabledModules)
+	networkMode := NormalizeNetworkMode(req.NetworkMode)
+	enabledModules := ApplyNetworkModeToModules(networkMode, req.EnabledModules)
 	ownerPerms := PermissionsForModules(enabledModules)
 
 	tx, err := s.Pool.Begin(ctx)
@@ -171,9 +194,9 @@ func (s *Service) Complete(ctx context.Context, req CompleteRequest) (CompleteRe
 	roleID := uuid.New()
 
 	if _, err = tx.Exec(ctx, `
-INSERT INTO organizations (id, code, name, status, setup_completed_at, profile, enabled_modules)
-VALUES ($1, $2, $3, 'ACTIVE', now(), 'abarrotes', $4::jsonb)`,
-		orgID, orgCode, req.StoreName, mustJSON(enabledModules)); err != nil {
+INSERT INTO organizations (id, code, name, status, setup_completed_at, profile, enabled_modules, network_mode)
+VALUES ($1, $2, $3, 'ACTIVE', now(), 'abarrotes', $4::jsonb, $5)`,
+		orgID, orgCode, req.StoreName, mustJSON(enabledModules), networkMode); err != nil {
 		return CompleteResult{}, fmt.Errorf("org: %w", err)
 	}
 	if _, err = tx.Exec(ctx, `
@@ -306,6 +329,7 @@ ON CONFLICT (id) DO UPDATE SET
 			"currency":         req.Currency,
 			"products":         created,
 			"enabled_modules":  enabledModules,
+			"network_mode":     networkMode,
 		})); err != nil {
 		return CompleteResult{}, fmt.Errorf("app_install: %w", err)
 	}
@@ -322,6 +346,7 @@ ON CONFLICT (id) DO UPDATE SET
 		OwnerSub:       ownerSub,
 		StoreName:      req.StoreName,
 		Profile:        "abarrotes",
+		NetworkMode:    networkMode,
 		Products:       created,
 		EnabledModules: enabledModules,
 	}, nil

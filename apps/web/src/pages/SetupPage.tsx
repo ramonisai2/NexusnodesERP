@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLocaleStore } from "../i18n/locale";
+import type { MessageKey } from "../i18n/messages";
 import { useAuthStore } from "../auth/store";
 import type { SessionClaims } from "../auth/policy";
 
@@ -10,6 +11,7 @@ type SetupStatus = {
   needs_setup: boolean;
   profile?: string;
   store_name?: string;
+  network_mode?: string;
   can_reinstall?: boolean;
   message?: string;
 };
@@ -38,7 +40,17 @@ type ModuleDef = {
   hint_key: string;
 };
 
-const STEPS = 4;
+type NetworkModeDef = {
+  code: string;
+  default: boolean;
+  label_key: string;
+  hint_key: string;
+  detail_key: string;
+  modules_forced_off?: string[];
+};
+
+const STEPS = 5;
+const INTERNET_MODULES = new Set(["storefront"]);
 
 export function SetupPage() {
   const t = useLocaleStore((s) => s.t);
@@ -50,6 +62,7 @@ export function SetupPage() {
   const [branchName, setBranchName] = useState("Sucursal principal");
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
+  const [networkMode, setNetworkMode] = useState<"intranet" | "internet">("intranet");
   const [selected, setSelected] = useState<Record<string, boolean>>({
     leche: true,
     pan: true,
@@ -86,7 +99,12 @@ export function SetupPage() {
     queryFn: async () => {
       const res = await fetch("/api/setup/modules");
       if (!res.ok) throw new Error("modules_failed");
-      return (await res.json()) as { modules: ModuleDef[]; default_enabled: string[] };
+      return (await res.json()) as {
+        modules: ModuleDef[];
+        default_enabled: string[];
+        network_modes: NetworkModeDef[];
+        default_network: string;
+      };
     },
   });
 
@@ -96,13 +114,34 @@ export function SetupPage() {
     for (const m of modules.data.modules) {
       next[m.code] = m.required || m.default_on;
     }
+    if (modules.data.default_network === "internet") {
+      setNetworkMode("internet");
+    }
     setModulesOn(next);
     setModulesReady(true);
   }, [modules.data, modulesReady]);
 
+  useEffect(() => {
+    if (networkMode !== "intranet") return;
+    setModulesOn((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const code of INTERNET_MODULES) {
+        if (next[code]) {
+          next[code] = false;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [networkMode]);
+
   const enabledModuleCodes = useMemo(
-    () => Object.entries(modulesOn).filter(([, on]) => on).map(([code]) => code),
-    [modulesOn],
+    () =>
+      Object.entries(modulesOn)
+        .filter(([code, on]) => on && !(networkMode === "intranet" && INTERNET_MODULES.has(code)))
+        .map(([code]) => code),
+    [modulesOn, networkMode],
   );
 
   const complete = useMutation({
@@ -130,13 +169,20 @@ export function SetupPage() {
           preset_ids,
           products,
           enabled_modules: enabledModuleCodes,
+          network_mode: networkMode,
           force,
         }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "setup_failed");
       return body as {
-        setup: { store_name: string; products_created: number; owner_sub: string; enabled_modules?: string[] };
+        setup: {
+          store_name: string;
+          products_created: number;
+          owner_sub: string;
+          enabled_modules?: string[];
+          network_mode?: string;
+        };
         access_token?: string;
         claims?: SessionClaims;
       };
@@ -152,12 +198,6 @@ export function SetupPage() {
     onError: (err: Error) => setError(err.message === "already_configured" ? t("setupAlready") : t("setupError")),
   });
 
-  useEffect(() => {
-    if (status.data && !status.data.needs_setup && token) {
-      // already logged in and configured — stay unless they want reinstall
-    }
-  }, [status.data, token]);
-
   if (status.isLoading) {
     return (
       <main className="login-page setup-page">
@@ -168,7 +208,29 @@ export function SetupPage() {
 
   const already = Boolean(status.data && !status.data.needs_setup);
   const showWizard = !already || reinstalling;
-  const stepLabels = [t("setupStepStore"), t("setupStepModules"), t("setupStepProducts"), t("setupStepOwner")];
+  const stepLabels = [
+    t("setupStepStore"),
+    t("setupStepNetwork"),
+    t("setupStepModules"),
+    t("setupStepProducts"),
+    t("setupStepOwner"),
+  ];
+  const networkModes = modules.data?.network_modes ?? [
+    {
+      code: "intranet",
+      default: true,
+      label_key: "netModeIntranet",
+      hint_key: "netModeIntranetHint",
+      detail_key: "netModeIntranetDetail",
+    },
+    {
+      code: "internet",
+      default: false,
+      label_key: "netModeInternet",
+      hint_key: "netModeInternetHint",
+      detail_key: "netModeInternetDetail",
+    },
+  ];
 
   return (
     <main className="login-page setup-page">
@@ -186,6 +248,14 @@ export function SetupPage() {
               {t("setupAlreadyNamed")} <strong>{status.data?.store_name || "—"}</strong>
             </p>
             <p className="muted tip">{status.data?.message}</p>
+            {status.data?.network_mode ? (
+              <p className="muted tip">
+                {t("setupNetworkCurrent")}:{" "}
+                <strong>
+                  {status.data.network_mode === "internet" ? t("netModeInternet") : t("netModeIntranet")}
+                </strong>
+              </p>
+            ) : null}
             <div className="setup-actions">
               <Link className="btn secondary" to="/login">
                 {t("setupGoLogin")}
@@ -242,28 +312,68 @@ export function SetupPage() {
 
             {step === 1 ? (
               <div className="setup-panel">
+                <p className="muted">{t("setupNetworkHint")}</p>
+                <div className="network-mode-grid" role="radiogroup" aria-label={t("setupStepNetwork")}>
+                  {networkModes.map((mode) => {
+                    const selectedMode = networkMode === mode.code;
+                    return (
+                      <button
+                        key={mode.code}
+                        type="button"
+                        className={`network-mode-card ${mode.code} ${selectedMode ? "on" : ""}`}
+                        onClick={() => setNetworkMode(mode.code === "internet" ? "internet" : "intranet")}
+                        aria-pressed={selectedMode}
+                      >
+                        <strong>{t(mode.label_key as MessageKey)}</strong>
+                        <span className="muted">{t(mode.hint_key as MessageKey)}</span>
+                        <p>{t(mode.detail_key as MessageKey)}</p>
+                        <em className="module-state">
+                          {selectedMode ? t("setupNetworkSelected") : t("setupNetworkSelect")}
+                        </em>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="muted tip">{t("setupNetworkTip")}</p>
+              </div>
+            ) : null}
+
+            {step === 2 ? (
+              <div className="setup-panel">
                 <p className="muted">{t("setupModulesHint")}</p>
+                {networkMode === "intranet" ? (
+                  <p className="muted tip">{t("setupModulesIntranetTip")}</p>
+                ) : (
+                  <p className="muted tip">{t("setupModulesInternetTip")}</p>
+                )}
                 <div className="module-grid">
                   {(modules.data?.modules ?? []).map((m) => {
-                    const on = !!modulesOn[m.code];
+                    const blocked = networkMode === "intranet" && INTERNET_MODULES.has(m.code);
+                    const on = blocked ? false : !!modulesOn[m.code];
                     return (
                       <label
                         key={m.code}
-                        className={`module-chip ${on ? "on" : "off"} ${m.required ? "required" : ""}`}
+                        className={`module-chip ${on ? "on" : "off"} ${m.required ? "required" : ""} ${blocked ? "blocked" : ""}`}
                       >
                         <input
                           type="checkbox"
                           checked={on}
-                          disabled={m.required}
+                          disabled={m.required || blocked}
                           onChange={(e) =>
                             setModulesOn((prev) => ({ ...prev, [m.code]: e.target.checked }))
                           }
                         />
                         <div>
-                          <strong>{t(m.label_key)}</strong>
-                          <span className="muted">{t(m.hint_key)}</span>
+                          <strong>{t(m.label_key as MessageKey)}</strong>
+                          <span className="muted">{t(m.hint_key as MessageKey)}</span>
                           <em className="module-state">
-                            {m.required ? t("setupModuleRequired") : on ? t("setupModuleOn") : t("setupModuleOff")}
+                            {blocked
+                              ? t("setupModuleNeedsInternet")
+                              : m.required
+                                ? t("setupModuleRequired")
+                                : on
+                                  ? t("setupModuleOn")
+                                  : t("setupModuleOff")}
                           </em>
                         </div>
                       </label>
@@ -274,7 +384,7 @@ export function SetupPage() {
               </div>
             ) : null}
 
-            {step === 2 ? (
+            {step === 3 ? (
               <div className="setup-panel">
                 <p className="muted">{t("setupProductsHint")}</p>
                 <div className="preset-grid">
@@ -336,7 +446,7 @@ export function SetupPage() {
               </div>
             ) : null}
 
-            {step === 3 ? (
+            {step === 4 ? (
               <div className="setup-panel">
                 <label>
                   <span>{t("setupOwnerName")}</span>
@@ -354,6 +464,9 @@ export function SetupPage() {
                 </label>
                 <p className="muted tip">{t("setupOwnerTip")}</p>
                 <p className="muted tip">
+                  {t("setupNetworkSummary")}:{" "}
+                  <strong>{networkMode === "internet" ? t("netModeInternet") : t("netModeIntranet")}</strong>
+                  {" · "}
                   {t("setupModulesSummary")}: <strong>{enabledModuleCodes.length}</strong>
                 </p>
               </div>

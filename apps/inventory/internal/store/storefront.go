@@ -148,6 +148,15 @@ WHERE public_slug = $1 AND branch_id <> $2::uuid`, slug, branchID).Scan(&conflic
 
 	now := time.Now().UTC()
 	id := uuid.New()
+	published := req.Published
+	if published {
+		var netMode string
+		_ = tx.QueryRow(ctx, `
+SELECT COALESCE(network_mode, 'intranet') FROM organizations WHERE id = $1::uuid`, orgID).Scan(&netMode)
+		if strings.ToLower(strings.TrimSpace(netMode)) != "internet" {
+			return domain.StorefrontSettings{}, errors.New("network_mode_intranet: publish requires internet mode")
+		}
+	}
 	_, err = tx.Exec(ctx, `
 INSERT INTO branch_storefront_settings (
   id, org_id, branch_id, public_slug, published, brand_name, tagline,
@@ -186,7 +195,7 @@ ON CONFLICT (branch_id) DO UPDATE SET
   maps_url = EXCLUDED.maps_url,
   updated_by = EXCLUDED.updated_by,
   updated_at = EXCLUDED.updated_at`,
-		id, orgID, branchID, slug, req.Published, strings.TrimSpace(req.BrandName), strings.TrimSpace(req.Tagline),
+		id, orgID, branchID, slug, published, strings.TrimSpace(req.BrandName), strings.TrimSpace(req.Tagline),
 		primary, accent, strings.TrimSpace(req.HeroTitle), strings.TrimSpace(req.HeroSubtitle), strings.TrimSpace(req.HeroImageURL),
 		strings.TrimSpace(req.CTALabel), strings.TrimSpace(req.CTAURL), req.ShowPrices, req.ShowStockBadge, req.InStockOnly, featured,
 		strings.TrimSpace(req.ContactPhone), strings.TrimSpace(req.ContactWhatsApp), strings.TrimSpace(req.ContactEmail),
@@ -222,7 +231,9 @@ SELECT s.id::text, s.org_id::text, b.code, s.public_slug, s.published,
        s.contact_hours, s.maps_url, s.updated_at, s.branch_id::text
 FROM branch_storefront_settings s
 JOIN branches b ON b.id = s.branch_id
-WHERE s.public_slug = $1 AND s.published = TRUE`, slug).Scan(
+JOIN organizations o ON o.id = s.org_id
+WHERE s.public_slug = $1 AND s.published = TRUE
+  AND COALESCE(o.network_mode, 'intranet') = 'internet'`, slug).Scan(
 			&settings.ID, &settings.OrgID, &settings.BranchID, &settings.PublicSlug, &settings.Published,
 			&settings.BrandName, &settings.Tagline, &settings.PrimaryColor, &settings.AccentColor,
 			&settings.HeroTitle, &settings.HeroSubtitle, &settings.HeroImageURL, &settings.CTALabel, &settings.CTAURL,
