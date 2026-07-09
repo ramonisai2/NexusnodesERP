@@ -804,6 +804,18 @@ td {
   border-top: 1px solid var(--line);
 }
 
+.login-actions.advanced label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.login-actions.advanced select {
+  width: 100%;
+  max-width: 100%;
+}
+
 .linkish {
   margin-top: 1rem;
   background: none;

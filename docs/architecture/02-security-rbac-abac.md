@@ -78,6 +78,13 @@ User ──N:M── Role ──N:M── Permission
 | `payroll_analyst` | Preparar corrida de nómina |
 | `payroll_approver` | Aprobar/pagar (SoD: no puede ser quien prepara) |
 | `finance_viewer` | Reportes financieros de solo lectura |
+| `warehouse_clerk` / `cedi_clerk` / `dispatch_clerk` | Operación de almacén, CEDI y reparto (ver [36](./36-org-profiles.md)) |
+| `sales_associate` / `cashier` | Piso de ventas y cobro |
+| `warranty_clerk` / `ecommerce_clerk` | Garantías y ventas en línea |
+| `store_coordinator` / `store_admin` / `area_manager` | Coordinación y jefatura de tienda/área |
+| `purchasing_clerk` / `purchasing_manager` | Órdenes de compra |
+| `facilities_staff` | Limpieza / mantenimiento (work orders) |
+| `security_officer` | Vigilancia / sellos (ver [35](./35-security-officer-seals.md)) |
 
 ### 3.2 ABAC — bajo qué condiciones
 

@@ -477,6 +477,314 @@ func SecurityOfficerClaims() Claims {
 	}
 }
 
+func WarehouseClerkClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_warehouse",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte"},
+		Roles:     []string{"warehouse_clerk"},
+		Permissions: []string{
+			"inventory.balance.read", "inventory.catalog.read", "inventory.label.read",
+			"inventory.warehouse.read", "inventory.movement.create", "inventory.movement.read",
+			"inventory.movement.void.request", "inventory.receipt.read", "inventory.receipt.create",
+			"inventory.receipt.post", "inventory.transfer.read", "inventory.transfer.create",
+			"inventory.transfer.ship", "inventory.transfer.receive",
+			"inventory.slip.read", "inventory.slip.create", "inventory.slip.print",
+			"inventory.slip.ship", "inventory.slip.receive",
+			"inventory.adjustment.create", "inventory.adjustment.read",
+			"session.operator", "approval.read", "reporting.image.read", "reporting.image.create",
+		},
+		Attrs: map[string]any{"max_adjustment": 10000.0},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_warehouse",
+	}
+}
+
+func CEDIClerkClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_cedi",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_cedi"},
+		Roles:     []string{"cedi_clerk"},
+		Permissions: []string{
+			"inventory.balance.read", "inventory.catalog.read", "inventory.label.read",
+			"inventory.warehouse.read", "inventory.movement.create", "inventory.movement.read",
+			"inventory.receipt.read", "inventory.receipt.create", "inventory.receipt.post",
+			"inventory.shipment.read", "inventory.shipment.create", "inventory.shipment.post",
+			"inventory.transfer.read", "inventory.transfer.create", "inventory.transfer.ship",
+			"inventory.transfer.receive", "inventory.parcel.read",
+			"inventory.slip.read", "inventory.slip.create", "inventory.slip.print",
+			"inventory.slip.ship", "inventory.slip.receive",
+			"inventory.transport.read", "inventory.transport.create", "inventory.transport.print",
+			"inventory.transport.depart", "inventory.transport.deliver",
+			"inventory.adjustment.create", "inventory.adjustment.read",
+			"inventory.seal.verify", "reporting.security.read",
+			"session.operator", "approval.read", "reporting.image.read", "reporting.image.create",
+		},
+		Attrs: map[string]any{"max_adjustment": 25000.0},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_cedi",
+	}
+}
+
+func DispatchClerkClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_dispatch",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_cedi", "br_norte"},
+		Roles:     []string{"dispatch_clerk"},
+		Permissions: []string{
+			"inventory.balance.read", "inventory.catalog.read",
+			"inventory.parcel.read", "inventory.slip.read", "inventory.slip.create",
+			"inventory.slip.print", "inventory.slip.ship", "inventory.slip.receive",
+			"inventory.transport.read", "inventory.transport.create", "inventory.transport.print",
+			"inventory.transport.depart", "inventory.transport.deliver",
+			"inventory.transfer.read", "inventory.transfer.ship", "inventory.transfer.receive",
+			"inventory.seal.verify", "reporting.security.read",
+			"session.operator", "reporting.image.read", "reporting.image.create",
+		},
+		Attrs: map[string]any{},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_dispatch",
+	}
+}
+
+func SalesAssociateClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_sales",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte"},
+		Roles:     []string{"sales_associate"},
+		Permissions: []string{
+			"inventory.balance.read", "inventory.catalog.read", "inventory.label.read",
+			"customer.read", "customer.card.read",
+			"pos.sale.read", "pos.sale.create", "pos.invoice.request", "pos.invoice.read",
+			"session.operator", "reporting.image.read", "reporting.image.create",
+		},
+		Attrs: map[string]any{},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_sales",
+	}
+}
+
+func CashierClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_cashier",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte"},
+		Roles:     []string{"cashier"},
+		Permissions: []string{
+			"inventory.balance.read", "inventory.catalog.read", "inventory.label.read",
+			"customer.read", "customer.card.read",
+			"pos.sale.read", "pos.sale.create", "pos.sale.void",
+			"pos.invoice.request", "pos.invoice.read",
+			"session.operator", "approval.read",
+		},
+		Attrs: map[string]any{},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_cashier",
+	}
+}
+
+func WarrantyClerkClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_warranty",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte"},
+		Roles:     []string{"warranty_clerk"},
+		Permissions: []string{
+			"inventory.balance.read", "inventory.catalog.read",
+			"inventory.warranty.read", "inventory.warranty.create", "inventory.warranty.manage",
+			"inventory.return.read", "inventory.return.create",
+			"inventory.parcel.read", "inventory.slip.read", "inventory.slip.create", "inventory.slip.print",
+			"inventory.transfer.read", "inventory.transfer.create",
+			"customer.read", "session.operator",
+			"reporting.image.read", "reporting.image.create",
+		},
+		Attrs: map[string]any{},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_warranty",
+	}
+}
+
+func EcommerceClerkClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_ecommerce",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte"},
+		Roles:     []string{"ecommerce_clerk"},
+		Permissions: []string{
+			"inventory.balance.read", "inventory.catalog.read", "inventory.label.read",
+			"store.storefront.read", "store.storefront.manage",
+			"customer.read", "customer.manage", "customer.card.read", "customer.card.manage",
+			"pos.sale.read", "pos.invoice.read",
+			"inventory.parcel.read", "inventory.slip.read", "inventory.slip.create", "inventory.slip.print",
+			"session.operator", "reporting.image.read", "reporting.image.create",
+		},
+		Attrs: map[string]any{},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_ecommerce",
+	}
+}
+
+func StoreCoordinatorClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_coordinator",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte"},
+		Roles:     []string{"store_coordinator"},
+		Permissions: []string{
+			"inventory.balance.read", "inventory.catalog.read", "inventory.label.read", "inventory.label.manage",
+			"inventory.warehouse.read", "inventory.movement.create", "inventory.movement.read",
+			"inventory.movement.void.request", "inventory.receipt.read", "inventory.receipt.create", "inventory.receipt.post",
+			"inventory.transfer.read", "inventory.transfer.create", "inventory.transfer.ship", "inventory.transfer.receive",
+			"inventory.slip.read", "inventory.slip.create", "inventory.slip.print", "inventory.slip.ship", "inventory.slip.receive",
+			"inventory.adjustment.create", "inventory.adjustment.read",
+			"inventory.parcel.read", "inventory.warranty.read", "inventory.return.read",
+			"customer.read", "customer.manage", "customer.card.read", "customer.card.manage",
+			"pos.sale.read", "pos.sale.create", "pos.sale.void", "pos.invoice.request", "pos.invoice.read",
+			"store.department.manager.read", "approval.read", "approval.decide",
+			"session.operator", "reporting.read", "reporting.image.read", "reporting.image.create",
+			"facilities.workorder.read", "facilities.workorder.create",
+		},
+		Attrs: map[string]any{"max_adjustment": 25000.0},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_coordinator",
+	}
+}
+
+func StoreAdminClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_store_admin",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte"},
+		Roles:     []string{"store_admin"},
+		Permissions: []string{
+			"inventory.balance.read", "inventory.catalog.read", "inventory.label.read", "inventory.label.manage",
+			"inventory.warehouse.read", "inventory.movement.create", "inventory.movement.read", "inventory.movement.void",
+			"inventory.movement.void.request", "inventory.receipt.read", "inventory.receipt.create", "inventory.receipt.post",
+			"inventory.transfer.read", "inventory.transfer.create", "inventory.transfer.ship", "inventory.transfer.receive",
+			"inventory.transfer.cancel", "inventory.slip.read", "inventory.slip.create", "inventory.slip.print",
+			"inventory.slip.ship", "inventory.slip.receive", "inventory.slip.cancel",
+			"inventory.transport.read", "inventory.transport.create", "inventory.transport.print",
+			"inventory.adjustment.create", "inventory.adjustment.read",
+			"inventory.parcel.read", "inventory.warranty.read", "inventory.warranty.manage",
+			"inventory.return.read", "inventory.return.manage",
+			"customer.read", "customer.manage", "customer.card.read", "customer.card.manage",
+			"pos.sale.read", "pos.sale.create", "pos.sale.void", "pos.invoice.request", "pos.invoice.read", "pos.settings.manage",
+			"store.storefront.read", "store.storefront.manage",
+			"store.department.manager.read", "store.department.manager.assign",
+			"employee.read", "approval.read", "approval.decide",
+			"session.operator", "reporting.read", "reporting.image.read", "reporting.image.create",
+			"reporting.security.read", "inventory.seal.verify",
+			"facilities.workorder.read", "facilities.workorder.create", "facilities.workorder.close",
+			"purchasing.order.read",
+		},
+		Attrs: map[string]any{"max_adjustment": 50000.0, "managed_warehouses": []string{"wh_norte"}},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_store_admin",
+	}
+}
+
+func AreaManagerClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_area",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte"},
+		Roles:     []string{"area_manager"},
+		Permissions: []string{
+			"inventory.balance.read", "inventory.catalog.read", "inventory.label.read",
+			"inventory.warehouse.read", "inventory.movement.create", "inventory.movement.read", "inventory.movement.void",
+			"inventory.receipt.read", "inventory.receipt.create", "inventory.receipt.post",
+			"inventory.transfer.read", "inventory.transfer.create", "inventory.transfer.ship",
+			"inventory.transfer.receive", "inventory.transfer.cancel",
+			"inventory.slip.read", "inventory.slip.create", "inventory.slip.print", "inventory.slip.cancel",
+			"inventory.transport.read", "inventory.transport.create", "inventory.transport.print", "inventory.transport.cancel",
+			"inventory.adjustment.create", "inventory.adjustment.read",
+			"inventory.parcel.read", "inventory.shipment.read",
+			"approval.read", "approval.decide", "session.operator",
+			"reporting.read", "reporting.image.read", "reporting.image.create",
+			"reporting.security.read", "inventory.seal.verify",
+			"store.department.manager.read", "pos.sale.read", "pos.sale.create",
+		},
+		Attrs: map[string]any{
+			"max_adjustment":     50000.0,
+			"managed_warehouses": []string{"wh_norte"},
+		},
+		AMR: []string{"pwd", "otp"},
+		SID: "sess_dev_area",
+	}
+}
+
+func PurchasingClerkClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_purchasing",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_cedi", "br_norte"},
+		Roles:     []string{"purchasing_clerk"},
+		Permissions: []string{
+			"purchasing.order.read", "purchasing.order.create",
+			"inventory.balance.read", "inventory.catalog.read", "inventory.warehouse.read",
+			"inventory.receipt.read", "inventory.shipment.read",
+			"session.operator", "reporting.read", "approval.read",
+		},
+		Attrs: map[string]any{},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_purchasing",
+	}
+}
+
+func PurchasingManagerClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_purchasing_mgr",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_cedi", "br_norte"},
+		Roles:     []string{"purchasing_manager"},
+		Permissions: []string{
+			"purchasing.order.read", "purchasing.order.create", "purchasing.order.approve",
+			"inventory.balance.read", "inventory.catalog.read", "inventory.warehouse.read",
+			"inventory.receipt.read", "inventory.receipt.create", "inventory.shipment.read",
+			"inventory.shipment.create", "approval.read", "approval.decide",
+			"session.operator", "reporting.read",
+		},
+		Attrs: map[string]any{},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_purchasing_mgr",
+	}
+}
+
+func FacilitiesStaffClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_facilities",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte", "br_cedi"},
+		Roles:     []string{"facilities_staff"},
+		Permissions: []string{
+			"facilities.workorder.read", "facilities.workorder.create", "facilities.workorder.close",
+			"reporting.image.read", "reporting.image.create",
+			"session.operator", "inventory.balance.read",
+		},
+		Attrs: map[string]any{},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_facilities",
+	}
+}
+
+func HROfficerClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_hr",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte", "br_sur"},
+		Roles:     []string{"hr_officer"},
+		Permissions: []string{
+			"employee.read", "employee.write", "payroll.run.read",
+		},
+		Attrs: map[string]any{},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_hr",
+	}
+}
+
 // RegionalManagerClaims — superior of area managers in Región Norte.
 func RegionalManagerClaims() Claims {
 	return Claims{

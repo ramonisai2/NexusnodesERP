@@ -157,7 +157,7 @@ func main() {
 	})
 
 	// Dev helper: mint a JWT for local SPA / curl without Keycloak.
-	// persona=analyst|approver|dual|owner (default analyst) to exercise payroll SoD.
+	// persona=analyst|approver|dual|owner|security|warehouse|cedi|… (default analyst).
 	r.Post("/auth/dev-token", func(w http.ResponseWriter, req *http.Request) {
 		if !strings.EqualFold(os.Getenv("DEV_AUTH_BYPASS"), "true") {
 			http.Error(w, `{"error":"disabled"}`, http.StatusForbidden)
@@ -176,6 +176,34 @@ func main() {
 			claims = auth.RegionalManagerClaims()
 		case "security":
 			claims = auth.SecurityOfficerClaims()
+		case "warehouse":
+			claims = auth.WarehouseClerkClaims()
+		case "cedi":
+			claims = auth.CEDIClerkClaims()
+		case "dispatch":
+			claims = auth.DispatchClerkClaims()
+		case "sales":
+			claims = auth.SalesAssociateClaims()
+		case "cashier":
+			claims = auth.CashierClaims()
+		case "warranty":
+			claims = auth.WarrantyClerkClaims()
+		case "ecommerce":
+			claims = auth.EcommerceClerkClaims()
+		case "coordinator":
+			claims = auth.StoreCoordinatorClaims()
+		case "store_admin":
+			claims = auth.StoreAdminClaims()
+		case "area":
+			claims = auth.AreaManagerClaims()
+		case "purchasing":
+			claims = auth.PurchasingClerkClaims()
+		case "purchasing_mgr":
+			claims = auth.PurchasingManagerClaims()
+		case "facilities":
+			claims = auth.FacilitiesStaffClaims()
+		case "hr":
+			claims = auth.HROfficerClaims()
 		case "owner":
 			claims = auth.StoreOwnerClaims("usr_dev_owner", "org_demo", "br_norte", "Mi Tienda")
 			// Prefer the shop owner created by the setup wizard when present.

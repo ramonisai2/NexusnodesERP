@@ -80,7 +80,50 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
-export type DevPersona = "analyst" | "approver" | "wh_manager" | "regional" | "owner";
+export type DevPersona =
+  | "analyst"
+  | "approver"
+  | "wh_manager"
+  | "regional"
+  | "owner"
+  | "security"
+  | "warehouse"
+  | "cedi"
+  | "dispatch"
+  | "sales"
+  | "cashier"
+  | "warranty"
+  | "ecommerce"
+  | "coordinator"
+  | "store_admin"
+  | "area"
+  | "purchasing"
+  | "purchasing_mgr"
+  | "facilities"
+  | "hr";
+
+/** Demo personas for the advanced login selector (enterprise matrix). */
+export const DEV_PERSONAS: { id: DevPersona; labelKey: string; hintKey: string }[] = [
+  { id: "analyst", labelKey: "loginAnalyst", hintKey: "loginAnalystHint" },
+  { id: "approver", labelKey: "loginApprover", hintKey: "loginApproverHint" },
+  { id: "wh_manager", labelKey: "loginWhManager", hintKey: "loginWhManagerHint" },
+  { id: "regional", labelKey: "loginRegional", hintKey: "loginRegionalHint" },
+  { id: "security", labelKey: "loginSecurity", hintKey: "loginSecurityHint" },
+  { id: "warehouse", labelKey: "loginWarehouse", hintKey: "loginWarehouseHint" },
+  { id: "cedi", labelKey: "loginCedi", hintKey: "loginCediHint" },
+  { id: "dispatch", labelKey: "loginDispatch", hintKey: "loginDispatchHint" },
+  { id: "sales", labelKey: "loginSales", hintKey: "loginSalesHint" },
+  { id: "cashier", labelKey: "loginCashier", hintKey: "loginCashierHint" },
+  { id: "warranty", labelKey: "loginWarranty", hintKey: "loginWarrantyHint" },
+  { id: "ecommerce", labelKey: "loginEcommerce", hintKey: "loginEcommerceHint" },
+  { id: "coordinator", labelKey: "loginCoordinator", hintKey: "loginCoordinatorHint" },
+  { id: "store_admin", labelKey: "loginStoreAdmin", hintKey: "loginStoreAdminHint" },
+  { id: "area", labelKey: "loginArea", hintKey: "loginAreaHint" },
+  { id: "purchasing", labelKey: "loginPurchasing", hintKey: "loginPurchasingHint" },
+  { id: "purchasing_mgr", labelKey: "loginPurchasingMgr", hintKey: "loginPurchasingMgrHint" },
+  { id: "facilities", labelKey: "loginFacilities", hintKey: "loginFacilitiesHint" },
+  { id: "hr", labelKey: "loginHr", hintKey: "loginHrHint" },
+];
 
 export async function loginWithDevToken(
   persona: DevPersona = "analyst",

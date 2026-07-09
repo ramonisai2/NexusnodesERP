@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLocaleStore } from "../i18n/locale";
-import { loginWithDevToken, useAuthStore, type DevPersona } from "../auth/store";
+import {
+  DEV_PERSONAS,
+  loginWithDevToken,
+  useAuthStore,
+  type DevPersona,
+} from "../auth/store";
 
 export function LoginPage() {
   const token = useAuthStore((s) => s.token);
@@ -13,15 +18,21 @@ export function LoginPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [operatorLabel, setOperatorLabel] = useState("");
   const [stationId, setStationId] = useState("");
+  const [persona, setPersona] = useState<DevPersona>("warehouse");
+
+  const selected = useMemo(
+    () => DEV_PERSONAS.find((p) => p.id === persona) ?? DEV_PERSONAS[0],
+    [persona],
+  );
 
   if (token) return <Navigate to="/" replace />;
 
-  async function onDevLogin(persona: DevPersona) {
+  async function onDevLogin(p: DevPersona) {
     setLoading(true);
     setError(null);
     try {
       const op = operatorLabel.trim();
-      await loginWithDevToken(persona, {
+      await loginWithDevToken(p, {
         operatorLabel: op || undefined,
         stationId: stationId.trim() || undefined,
       });
@@ -94,26 +105,30 @@ export function LoginPage() {
 
         {showAdvanced ? (
           <div className="login-actions advanced">
-            <button type="button" className="btn secondary" disabled={loading} onClick={() => void onDevLogin("analyst")}>
-              {t("loginAnalyst")}
+            <label htmlFor="persona">
+              {t("loginPersonaLabel")}
+              <select
+                id="persona"
+                value={persona}
+                onChange={(e) => setPersona(e.target.value as DevPersona)}
+                disabled={loading}
+              >
+                {DEV_PERSONAS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {t(p.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="hint">{t(selected.hintKey)}</p>
+            <button
+              type="button"
+              className="btn secondary"
+              disabled={loading}
+              onClick={() => void onDevLogin(persona)}
+            >
+              {loading ? t("loginLoading") : t("loginPersonaCta")}
             </button>
-            <p className="hint">{t("loginAnalystHint")}</p>
-            <button type="button" className="btn secondary" disabled={loading} onClick={() => void onDevLogin("approver")}>
-              {t("loginApprover")}
-            </button>
-            <p className="hint">{t("loginApproverHint")}</p>
-            <button type="button" className="btn secondary" disabled={loading} onClick={() => void onDevLogin("wh_manager")}>
-              {t("loginWhManager")}
-            </button>
-            <p className="hint">{t("loginWhManagerHint")}</p>
-            <button type="button" className="btn secondary" disabled={loading} onClick={() => void onDevLogin("regional")}>
-              {t("loginRegional")}
-            </button>
-            <p className="hint">{t("loginRegionalHint")}</p>
-            <button type="button" className="btn secondary" disabled={loading} onClick={() => void onDevLogin("security")}>
-              {t("loginSecurity")}
-            </button>
-            <p className="hint">{t("loginSecurityHint")}</p>
           </div>
         ) : null}
 

@@ -39,6 +39,7 @@
 | [33 — Ingreso CEDI por camión](./33-cedi-inbound-trucks.md) | Camión → tarimas → cajas → stock CEDI |
 | [34 — Merma / robo y RR.HH.](./34-merma-robo-hr.md) | Ajustes tipificados + apartado Recursos Humanos |
 | [35 — Seguridad / sellos](./35-security-officer-seals.md) | Rol vigilancia, sellos y reporte de andén |
+| [36 — Perfiles operativos](./36-org-profiles.md) | Matriz de roles: almacén, CEDI, caja, compras, instalaciones… |
 | [21 — Easter eggs héroes](./21-hero-easter-eggs.md) | Aliases con justificación lógica |
 | [22 — Operadores compartidos y jefes](./22-shared-operators-approvals.md) | Misma cuenta, estaciones concurrentes, cola de aprobación |
 | [23 — Papeletas entre tiendas](./23-shipping-slips.md) | Papelería: notas imprimibles con tipo de contenedor |

@@ -452,6 +452,46 @@ allow if {
 }
 
 allow if {
+  input.action == "purchasing.order.read"
+  purchasing_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "purchasing.order.create"
+  "purchasing.order.create" in input.subject.permissions
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "purchasing.order.approve"
+  "purchasing.order.approve" in input.subject.permissions
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "facilities.workorder.read"
+  facilities_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "facilities.workorder.create"
+  "facilities.workorder.create" in input.subject.permissions
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "facilities.workorder.close"
+  "facilities.workorder.close" in input.subject.permissions
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "mail.read"
   mail_read_allowed
 }
@@ -1154,4 +1194,28 @@ approval_read_allowed if {
 
 approval_read_allowed if {
   "approval.decide" in input.subject.permissions
+}
+
+purchasing_read_allowed if {
+  "purchasing.order.read" in input.subject.permissions
+}
+
+purchasing_read_allowed if {
+  "purchasing.order.create" in input.subject.permissions
+}
+
+purchasing_read_allowed if {
+  "purchasing.order.approve" in input.subject.permissions
+}
+
+facilities_read_allowed if {
+  "facilities.workorder.read" in input.subject.permissions
+}
+
+facilities_read_allowed if {
+  "facilities.workorder.create" in input.subject.permissions
+}
+
+facilities_read_allowed if {
+  "facilities.workorder.close" in input.subject.permissions
 }
