@@ -269,6 +269,110 @@ type ReceiptFilter struct {
 	Limit       int
 }
 
+// —— CEDI truck / tarimas / cajas ——
+
+const (
+	ShipmentReceiving = "RECEIVING"
+	ShipmentPosted    = "POSTED"
+	ShipmentCancelled = "CANCELLED"
+)
+
+type InboundBoxInput struct {
+	SKU         string   `json:"sku"`
+	BoxesCount  int      `json:"boxes_count"`
+	UnitsPerBox float64  `json:"units_per_box"`
+	UnitCost    *float64 `json:"unit_cost,omitempty"`
+	Description string   `json:"description,omitempty"`
+	BoxCode     string   `json:"box_code,omitempty"`
+}
+
+type InboundPalletInput struct {
+	PalletNo int               `json:"pallet_no,omitempty"`
+	Label    string            `json:"label,omitempty"`
+	Notes    string            `json:"notes,omitempty"`
+	Boxes    []InboundBoxInput `json:"boxes"`
+}
+
+type CreateInboundShipmentRequest struct {
+	OrgID           string               `json:"org_id"`
+	BranchID        string               `json:"branch_id"`
+	WarehouseID     string               `json:"warehouse_id"`
+	SupplierName    string               `json:"supplier_name"`
+	InvoiceNumber   string               `json:"invoice_number"`
+	InvoiceDate     string               `json:"invoice_date,omitempty"`
+	CarrierName     string               `json:"carrier_name,omitempty"`
+	VehicleRef      string               `json:"vehicle_ref,omitempty"`
+	DriverName      string               `json:"driver_name,omitempty"`
+	DockDoor        string               `json:"dock_door,omitempty"`
+	ExpectedPallets int                  `json:"expected_pallets,omitempty"`
+	Notes           string               `json:"notes,omitempty"`
+	PrintLabels     *bool                `json:"print_labels,omitempty"`
+	IdempotencyKey  string               `json:"idempotency_key"`
+	CreatedBy       string               `json:"created_by,omitempty"`
+	OperatorLabel   string               `json:"operator_label,omitempty"`
+	SessionID       string               `json:"session_id,omitempty"`
+	Pallets         []InboundPalletInput `json:"pallets"`
+}
+
+type InboundBox struct {
+	ID          string   `json:"id"`
+	BoxNo       int      `json:"box_no"`
+	BoxCode     string   `json:"box_code,omitempty"`
+	SKU         string   `json:"sku"`
+	Description string   `json:"description,omitempty"`
+	BoxesCount  int      `json:"boxes_count"`
+	UnitsPerBox float64  `json:"units_per_box"`
+	Quantity    float64  `json:"quantity"`
+	UnitCost    *float64 `json:"unit_cost,omitempty"`
+}
+
+type InboundPallet struct {
+	ID         string       `json:"id"`
+	PalletNo   int          `json:"pallet_no"`
+	PalletCode string       `json:"pallet_code"`
+	Label      string       `json:"label,omitempty"`
+	Status     string       `json:"status"`
+	Notes      string       `json:"notes,omitempty"`
+	Boxes      []InboundBox `json:"boxes,omitempty"`
+	BoxCount   int          `json:"box_count"`
+	UnitTotal  float64      `json:"unit_total"`
+}
+
+type InboundShipment struct {
+	ID              string          `json:"id"`
+	OrgID           string          `json:"org_id"`
+	BranchID        string          `json:"branch_id"`
+	WarehouseID     string          `json:"warehouse_id"`
+	WarehouseKind   string          `json:"warehouse_kind,omitempty"`
+	ReceiptID       string          `json:"receipt_id,omitempty"`
+	SupplierName    string          `json:"supplier_name"`
+	InvoiceNumber   string          `json:"invoice_number"`
+	InvoiceDate     *string         `json:"invoice_date,omitempty"`
+	CarrierName     string          `json:"carrier_name,omitempty"`
+	VehicleRef      string          `json:"vehicle_ref,omitempty"`
+	DriverName      string          `json:"driver_name,omitempty"`
+	DockDoor        string          `json:"dock_door,omitempty"`
+	ExpectedPallets int             `json:"expected_pallets"`
+	Notes           string          `json:"notes,omitempty"`
+	Status          string          `json:"status"`
+	ArrivedAt       *time.Time      `json:"arrived_at,omitempty"`
+	PostedAt        *time.Time      `json:"posted_at,omitempty"`
+	CreatedAt       time.Time       `json:"created_at"`
+	Pallets         []InboundPallet `json:"pallets,omitempty"`
+	PalletCount     int             `json:"pallet_count"`
+	BoxCount        int             `json:"box_count"`
+	UnitTotal       float64         `json:"unit_total"`
+	SKUSummary      []ReceiptLine   `json:"sku_summary,omitempty"`
+	Receipt         *Receipt        `json:"receipt,omitempty"`
+}
+
+type InboundShipmentFilter struct {
+	OrgRef     string
+	BranchCode string
+	Status     string
+	Limit      int
+}
+
 // Container types for inter-store papelería (identification slips stuck on packages).
 const (
 	ContainerEnvelope     = "ENVELOPE"      // sobre
@@ -1133,4 +1237,8 @@ type Store interface {
 	GetSale(ctx context.Context, orgRef, saleID string) (POSSale, error)
 	ListSales(ctx context.Context, filter SaleFilter) ([]POSSale, error)
 	RequestSaleInvoice(ctx context.Context, orgRef, saleID string, req RequestInvoiceRequest) (FiscalInvoice, error)
+	CreateInboundShipment(ctx context.Context, req CreateInboundShipmentRequest) (InboundShipment, error)
+	GetInboundShipment(ctx context.Context, orgRef, shipmentID string) (InboundShipment, error)
+	ListInboundShipments(ctx context.Context, filter InboundShipmentFilter) ([]InboundShipment, error)
+	PostInboundShipment(ctx context.Context, orgRef, shipmentID, postedBy string) (InboundShipment, error)
 }

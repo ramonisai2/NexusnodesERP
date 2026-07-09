@@ -57,6 +57,10 @@ make run-gateway
 
 SPA: menú **Recepción**.
 
+## Camión con tarimas
+
+Para el caso práctico **camión → N tarimas → cajas → CEDI**, ver [33 — Ingreso CEDI por camión](./33-cedi-inbound-trucks.md) (`inbound_shipments` / migración `026`).
+
 ## Fuera de alcance (siguiente)
 
 - Traslado CEDI → tienda (API atómica de transfer)

@@ -155,6 +155,26 @@ allow if {
 }
 
 allow if {
+  input.action == "inventory.shipment.read"
+  shipment_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "inventory.shipment.create"
+  shipment_write_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "inventory.shipment.post"
+  shipment_write_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "inventory.slip.read"
   slip_read_allowed
   branch_allowed
@@ -561,6 +581,34 @@ receipt_write_allowed if {
 }
 
 receipt_write_allowed if {
+  "inventory.movement.create" in input.subject.permissions
+}
+
+shipment_read_allowed if {
+  "inventory.shipment.read" in input.subject.permissions
+}
+
+shipment_read_allowed if {
+  "inventory.receipt.read" in input.subject.permissions
+}
+
+shipment_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+shipment_write_allowed if {
+  "inventory.shipment.create" in input.subject.permissions
+}
+
+shipment_write_allowed if {
+  "inventory.shipment.post" in input.subject.permissions
+}
+
+shipment_write_allowed if {
+  "inventory.receipt.create" in input.subject.permissions
+}
+
+shipment_write_allowed if {
   "inventory.movement.create" in input.subject.permissions
 }
 

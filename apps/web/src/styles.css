@@ -1116,6 +1116,71 @@ td {
   gap: 0.55rem;
 }
 
+.recv-mode {
+  display: inline-flex;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0.25rem;
+  padding: 0.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(15, 28, 23, 0.4);
+}
+
+.recv-mode button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.45rem 0.85rem;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.recv-mode button.active {
+  background: rgba(61, 186, 122, 0.18);
+  color: var(--ink);
+}
+
+.recv-truck-summary {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.recv-pallets {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.recv-pallet {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, rgba(61, 186, 122, 0.08), transparent 55%),
+    rgba(12, 22, 18, 0.45);
+}
+
+.recv-pallet-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.recv-box {
+  display: grid;
+  grid-template-columns: 1.4fr 0.7fr 0.85fr 0.75fr auto auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.recv-box-total {
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
 .recv-lines {
   display: grid;
   gap: 0.55rem;
@@ -1127,10 +1192,12 @@ td {
   gap: 0.45rem;
 }
 
-.recv-labels {
+.recv-labels,
+.recv-truck-result {
   margin: 1.25rem 0;
 }
 
+.recv-truck-result ul,
 .recv-history {
   list-style: none;
   margin: 0;
@@ -1139,14 +1206,16 @@ td {
   gap: 0.45rem;
 }
 
-.recv-history li {
+.recv-history li,
+.recv-truck-result li {
   padding: 0.55rem 0;
   border-bottom: 1px solid var(--line);
 }
 
 @media (max-width: 900px) {
   .recv-grid,
-  .recv-line {
+  .recv-line,
+  .recv-box {
     grid-template-columns: 1fr;
   }
 }

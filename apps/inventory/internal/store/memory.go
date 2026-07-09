@@ -664,3 +664,16 @@ func (s *Memory) ListSales(_ context.Context, _ domain.SaleFilter) ([]domain.POS
 func (s *Memory) RequestSaleInvoice(_ context.Context, _, _ string, _ domain.RequestInvoiceRequest) (domain.FiscalInvoice, error) {
 	return domain.FiscalInvoice{}, errors.New("pos invoices require postgres store")
 }
+
+func (s *Memory) CreateInboundShipment(_ context.Context, _ domain.CreateInboundShipmentRequest) (domain.InboundShipment, error) {
+	return domain.InboundShipment{}, errors.New("inbound shipments require postgres store")
+}
+func (s *Memory) GetInboundShipment(_ context.Context, _, _ string) (domain.InboundShipment, error) {
+	return domain.InboundShipment{}, domain.ErrNotFound
+}
+func (s *Memory) ListInboundShipments(_ context.Context, _ domain.InboundShipmentFilter) ([]domain.InboundShipment, error) {
+	return nil, nil
+}
+func (s *Memory) PostInboundShipment(_ context.Context, _, _, _ string) (domain.InboundShipment, error) {
+	return domain.InboundShipment{}, errors.New("inbound shipments require postgres store")
+}

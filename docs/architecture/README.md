@@ -36,6 +36,7 @@
 | [18 — Subida móvil por QR](./18-qr-mobile-upload.md) | Teléfono escanea QR y elige fotos sin login |
 | [19 — Motor de búsqueda BM25](./19-search-engine.md) | Índice invertido (estilo buscador), no scan de tablas |
 | [20 — CEDI y recepción](./20-cedi-inbound-receiving.md) | Factura, etiquetas y almacén de llegada |
+| [33 — Ingreso CEDI por camión](./33-cedi-inbound-trucks.md) | Camión → tarimas → cajas → stock CEDI |
 | [21 — Easter eggs héroes](./21-hero-easter-eggs.md) | Aliases con justificación lógica |
 | [22 — Operadores compartidos y jefes](./22-shared-operators-approvals.md) | Misma cuenta, estaciones concurrentes, cola de aprobación |
 | [23 — Papeletas entre tiendas](./23-shipping-slips.md) | Papelería: notas imprimibles con tipo de contenedor |
