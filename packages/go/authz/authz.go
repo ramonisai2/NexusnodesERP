@@ -298,6 +298,30 @@ func localAllow(in Input) bool {
 		if !in.Subject.HasPermission("session.operator") {
 			return false
 		}
+	} else if in.Action == "mail.read" {
+		if !in.Subject.HasPermission("mail.read") &&
+			!in.Subject.HasPermission("mail.send") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "mail.send" {
+		if !in.Subject.HasPermission("mail.send") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "mail.announce" {
+		if !in.Subject.HasPermission("mail.announce") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "store_owner" || r == "regional_manager" || r == "warehouse_manager" || r == "payroll_approver" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
 	} else if !in.Subject.HasPermission(in.Action) {
 		return false
 	}

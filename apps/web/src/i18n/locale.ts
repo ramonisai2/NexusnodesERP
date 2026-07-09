@@ -55,6 +55,9 @@ const PERM_KEYS: Record<string, MessageKey> = {
   "payroll.run.prepare": "permPayrollRunPrepare",
   "payroll.run.approve": "permPayrollRunApprove",
   "payroll.run.read": "permPayrollRunRead",
+  "mail.read": "permMailRead",
+  "mail.send": "permMailSend",
+  "mail.announce": "permMailAnnounce",
 };
 
 const STATUS_KEYS: Record<string, MessageKey> = {

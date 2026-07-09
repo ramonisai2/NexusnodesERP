@@ -194,6 +194,23 @@ allow if {
   mfa_ok
 }
 
+allow if {
+  input.action == "mail.read"
+  mail_read_allowed
+}
+
+allow if {
+  input.action == "mail.send"
+  mail_send_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "mail.announce"
+  mail_announce_allowed
+  mfa_ok
+}
+
 branch_allowed if {
   not input.resource.branch_id
 }
@@ -388,6 +405,50 @@ transport_write_allowed if {
 
 transport_write_allowed if {
   "inventory.movement.create" in input.subject.permissions
+}
+
+mail_read_allowed if {
+  "mail.read" in input.subject.permissions
+}
+
+mail_read_allowed if {
+  "mail.send" in input.subject.permissions
+}
+
+mail_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+mail_send_allowed if {
+  "mail.send" in input.subject.permissions
+}
+
+mail_send_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+mail_announce_allowed if {
+  "mail.announce" in input.subject.permissions
+}
+
+mail_announce_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+mail_announce_allowed if {
+  "store_owner" in input.subject.roles
+}
+
+mail_announce_allowed if {
+  "regional_manager" in input.subject.roles
+}
+
+mail_announce_allowed if {
+  "warehouse_manager" in input.subject.roles
+}
+
+mail_announce_allowed if {
+  "payroll_approver" in input.subject.roles
 }
 
 approval_read_allowed if {

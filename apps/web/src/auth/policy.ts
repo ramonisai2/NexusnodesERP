@@ -119,6 +119,16 @@ export const NAV_NODES: NavNode[] = [
       minAmrCount: 1,
     },
   },
+  {
+    id: "nav.mail",
+    label: "Correo",
+    path: "/mail",
+    require: {
+      permissions: ["mail.read", "mail.send", "inventory.balance.read"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
 ];
 
 export function canAccess(claims: SessionClaims | null, node: NavNode): boolean {

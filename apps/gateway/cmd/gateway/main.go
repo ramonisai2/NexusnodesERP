@@ -63,6 +63,7 @@ func main() {
 	reportingURL := mustURL(envOr("REPORTING_URL", "http://localhost:8084"))
 	reportsURL := mustURL(envOr("REPORTS_URL", "http://localhost:8085"))
 	searchURL := mustURL(envOr("SEARCH_URL", "http://localhost:8086"))
+	messagingURL := mustURL(envOr("MESSAGING_URL", "http://localhost:8087"))
 
 	r := chi.NewRouter()
 	r.Use(otelx.Middleware("gateway"))
@@ -625,6 +626,8 @@ func main() {
 		pr.Handle("/reports", reverseProxy(reportsURL))
 		pr.Handle("/search/*", reverseProxy(searchURL))
 		pr.Handle("/search", reverseProxy(searchURL))
+		pr.Handle("/mail/*", reverseProxy(messagingURL))
+		pr.Handle("/mail", reverseProxy(messagingURL))
 	})
 
 	log.Printf("gateway listening on %s", addr)
@@ -762,6 +765,11 @@ func reverseProxy(target *url.URL) http.Handler {
 			}
 		case strings.HasPrefix(path, "/search"):
 			req.URL.Path = strings.TrimPrefix(path, "/search")
+			if req.URL.Path == "" {
+				req.URL.Path = "/"
+			}
+		case strings.HasPrefix(path, "/mail"):
+			req.URL.Path = strings.TrimPrefix(path, "/mail")
 			if req.URL.Path == "" {
 				req.URL.Path = "/"
 			}

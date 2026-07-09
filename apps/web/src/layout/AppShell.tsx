@@ -77,6 +77,16 @@ export function AppShell() {
         minAmrCount: 1,
       },
     },
+    {
+      id: "nav.mail",
+      label: t("navMail"),
+      path: "/mail",
+      require: {
+        permissions: ["mail.read", "mail.send", "inventory.balance.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
     ...(!isShop
       ? [
           {
