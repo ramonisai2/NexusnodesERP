@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLocaleStore } from "../i18n/locale";
 import type { MessageKey } from "../i18n/messages";
@@ -92,7 +92,12 @@ export function PublicStorefrontPage() {
           <p className="sf-brand-name">{s.brand_name}</p>
           {s.tagline ? <p className="sf-tagline">{s.tagline}</p> : null}
         </div>
-        <LanguageSwitcher />
+        <div className="sf-top-actions">
+          <Link className="sf-account-link" to={`/tienda/${encodeURIComponent(slug)}/cuenta`}>
+            {t("custAccountLink")}
+          </Link>
+          <LanguageSwitcher />
+        </div>
       </header>
 
       <section

@@ -401,6 +401,37 @@ func localAllow(in Input) bool {
 				return false
 			}
 		}
+	} else if in.Action == "customer.read" {
+		if !in.Subject.HasPermission("customer.read") &&
+			!in.Subject.HasPermission("customer.manage") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "customer.manage" {
+		if !in.Subject.HasPermission("customer.manage") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "store_owner" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
+	} else if in.Action == "customer.card.read" {
+		if !in.Subject.HasPermission("customer.card.read") &&
+			!in.Subject.HasPermission("customer.read") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "customer.card.manage" {
+		if !in.Subject.HasPermission("customer.card.manage") &&
+			!in.Subject.HasPermission("customer.manage") &&
+			!in.Subject.HasPermission("inventory.movement.create") {
+			return false
+		}
 	} else if in.Action == "inventory.movement.void.request" {
 		if !in.Subject.HasPermission("inventory.movement.void.request") {
 			return false

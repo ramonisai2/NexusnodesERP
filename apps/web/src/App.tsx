@@ -22,6 +22,8 @@ import { MailPage } from "./pages/MailPage";
 import { TransfersPage } from "./pages/TransfersPage";
 import { ParcelsPage } from "./pages/ParcelsPage";
 import { PublicStorefrontPage } from "./pages/PublicStorefrontPage";
+import { CustomerAccountPage } from "./pages/CustomerAccountPage";
+import { CustomersAdminPage } from "./pages/CustomersAdminPage";
 import { StorefrontSettingsPage } from "./pages/StorefrontSettingsPage";
 import "./styles.css";
 
@@ -54,6 +56,7 @@ function Bootstrap() {
       <Route path="/setup" element={<SetupPage />} />
       <Route path="/upload/:token" element={<MobileUploadPage />} />
       <Route path="/tienda/:slug" element={<PublicStorefrontPage />} />
+      <Route path="/tienda/:slug/cuenta" element={<CustomerAccountPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
         element={
@@ -72,6 +75,7 @@ function Bootstrap() {
           <Route path="inventory/transfers" element={<TransfersPage />} />
           <Route path="inventory/parcels" element={<ParcelsPage />} />
           <Route path="settings/tienda" element={<StorefrontSettingsPage />} />
+          <Route path="customers" element={<CustomersAdminPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="mail" element={<MailPage />} />
           <Route path="payroll" element={<PayrollPage />} />

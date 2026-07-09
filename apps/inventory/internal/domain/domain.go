@@ -797,6 +797,112 @@ type StorefrontPublicView struct {
 	Catalog  []StorefrontCatalogItem `json:"catalog,omitempty"`
 }
 
+// Customer accounts + loyalty/membership cards (barcode or chip).
+const (
+	CustomerStatusActive    = "ACTIVE"
+	CustomerStatusSuspended = "SUSPENDED"
+	CustomerStatusClosed    = "CLOSED"
+
+	CardKindBarcode = "BARCODE"
+	CardKindChip    = "CHIP"
+
+	CardStatusActive  = "ACTIVE"
+	CardStatusBlocked = "BLOCKED"
+	CardStatusLost    = "LOST"
+	CardStatusExpired = "EXPIRED"
+)
+
+func ValidCardKind(code string) bool {
+	switch strings.ToUpper(strings.TrimSpace(code)) {
+	case CardKindBarcode, CardKindChip:
+		return true
+	default:
+		return false
+	}
+}
+
+func CardKindLabelES(code string) string {
+	switch strings.ToUpper(code) {
+	case CardKindBarcode:
+		return "Código de barras"
+	case CardKindChip:
+		return "Chip / NFC"
+	default:
+		return code
+	}
+}
+
+type RegisterCustomerRequest struct {
+	StorefrontSlug string `json:"storefront_slug"`
+	OrgID          string `json:"org_id,omitempty"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
+	DisplayName    string `json:"display_name"`
+	Phone          string `json:"phone,omitempty"`
+	PreferredBranch string `json:"preferred_branch_id,omitempty"`
+}
+
+type LoginCustomerRequest struct {
+	StorefrontSlug string `json:"storefront_slug"`
+	OrgID          string `json:"org_id,omitempty"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
+}
+
+type Customer struct {
+	ID                string    `json:"id"`
+	OrgID             string    `json:"org_id"`
+	Email             string    `json:"email"`
+	Phone             string    `json:"phone,omitempty"`
+	DisplayName       string    `json:"display_name"`
+	Status            string    `json:"status"`
+	PreferredBranchID string    `json:"preferred_branch_id,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+	Cards             []CustomerCard `json:"cards,omitempty"`
+}
+
+type CustomerFilter struct {
+	OrgRef string
+	Query  string
+	Status string
+	Limit  int
+}
+
+type CreateCustomerCardRequest struct {
+	OrgID      string `json:"org_id"`
+	CustomerID string `json:"customer_id"`
+	CardKind   string `json:"card_kind"`
+	CardCode   string `json:"card_code,omitempty"`
+	Label      string `json:"label,omitempty"`
+	IssuedBy   string `json:"issued_by,omitempty"`
+}
+
+type CustomerCard struct {
+	ID           string     `json:"id"`
+	OrgID        string     `json:"org_id"`
+	CustomerID   string     `json:"customer_id"`
+	CardKind     string     `json:"card_kind"`
+	CardKindLabel string    `json:"card_kind_label,omitempty"`
+	CardCode     string     `json:"card_code"`
+	Label        string     `json:"label,omitempty"`
+	Status       string     `json:"status"`
+	IssuedBy     string     `json:"issued_by,omitempty"`
+	BlockedReason string    `json:"blocked_reason,omitempty"`
+	BlockedAt    *time.Time `json:"blocked_at,omitempty"`
+	LastSeenAt   *time.Time `json:"last_seen_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+}
+
+type BlockCardRequest struct {
+	Reason string `json:"reason,omitempty"`
+	Actor  string `json:"actor,omitempty"`
+}
+
+type CardLookupResult struct {
+	Card     CustomerCard `json:"card"`
+	Customer Customer     `json:"customer"`
+}
+
 type Store interface {
 	ListBalances(ctx context.Context, filter BalanceFilter) ([]StockBalance, error)
 	PostMovement(ctx context.Context, req MovementRequest) (Movement, error)
@@ -841,4 +947,13 @@ type Store interface {
 	GetStorefrontSettings(ctx context.Context, orgRef, branchCode string) (StorefrontSettings, error)
 	UpsertStorefrontSettings(ctx context.Context, req UpsertStorefrontRequest) (StorefrontSettings, error)
 	GetPublicStorefront(ctx context.Context, slug string) (StorefrontPublicView, error)
+	RegisterCustomer(ctx context.Context, req RegisterCustomerRequest) (Customer, error)
+	AuthenticateCustomer(ctx context.Context, req LoginCustomerRequest) (Customer, error)
+	GetCustomer(ctx context.Context, orgRef, customerID string) (Customer, error)
+	ListCustomers(ctx context.Context, filter CustomerFilter) ([]Customer, error)
+	ListCustomerCards(ctx context.Context, orgRef, customerID string) ([]CustomerCard, error)
+	CreateCustomerCard(ctx context.Context, req CreateCustomerCardRequest) (CustomerCard, error)
+	BlockCustomerCard(ctx context.Context, orgRef, cardID string, req BlockCardRequest) (CustomerCard, error)
+	LookupCustomerCard(ctx context.Context, orgRef, cardCode string) (CardLookupResult, error)
+	ResolveOrgByStorefrontSlug(ctx context.Context, slug string) (orgID, branchCode string, err error)
 }

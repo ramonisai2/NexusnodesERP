@@ -1752,6 +1752,50 @@ td {
   }
 }
 
+.sf-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sf-account-link {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 2px solid color-mix(in srgb, var(--sf-accent, #c6f2a8) 70%, transparent);
+  padding-bottom: 0.1rem;
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+
+.sf-account-link:hover {
+  border-color: var(--sf-accent, #c6f2a8);
+  transform: translateY(-1px);
+}
+
+.customer-account-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, color-mix(in srgb, #1a5c3a 18%, transparent), transparent),
+    linear-gradient(165deg, #f3f7f4 0%, #e8efe9 45%, #f7f4ef 100%);
+  padding: 1rem 1.25rem 3rem;
+  animation: rise 0.55s var(--ease) both;
+}
+
+.customer-auth,
+.customer-dashboard,
+.customers-admin-page {
+  animation: rise 0.65s var(--ease) 0.05s both;
+}
+
+.customers-admin-page .transfer-list-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  text-align: left;
+}
+
 /* —— Paquetería —— */
 .parcels-page {
   display: flex;

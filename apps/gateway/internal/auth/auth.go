@@ -500,12 +500,18 @@ func StoreOwnerClaims(sub, orgID, branchCode, storeName string) Claims {
 			"inventory.transport.read",
 			"inventory.transport.create",
 			"inventory.transport.print",
+			"customer.read",
+			"customer.manage",
+			"customer.card.read",
+			"customer.card.manage",
 			"approval.read",
 			"session.operator",
 			"reporting.read",
 			"reporting.image.read",
 			"reporting.image.create",
 			"store.setup.read",
+			"store.storefront.read",
+			"store.storefront.manage",
 		},
 		Attrs: map[string]any{
 			"max_adjustment": 100000.0,
@@ -514,6 +520,31 @@ func StoreOwnerClaims(sub, orgID, branchCode, storeName string) Claims {
 		},
 		AMR: []string{"pwd", "otp"},
 		SID: "sess_" + sub,
+	}
+}
+
+// CustomerClaims — end-customer account for storefront self-service (cards).
+func CustomerClaims(customerID, orgID, email, displayName, branchCode string) Claims {
+	if branchCode == "" {
+		branchCode = "*"
+	}
+	return Claims{
+		Sub:       "cust_" + customerID,
+		OrgID:     orgID,
+		BranchIDs: []string{branchCode},
+		Roles:     []string{"customer"},
+		Permissions: []string{
+			"customer.self.read",
+			"customer.card.self",
+		},
+		Attrs: map[string]any{
+			"profile":       "customer",
+			"customer_id":   customerID,
+			"email":         email,
+			"display_name":  displayName,
+		},
+		AMR: []string{"pwd"},
+		SID: "sess_cust_" + customerID,
 	}
 }
 

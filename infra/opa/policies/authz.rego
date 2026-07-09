@@ -313,6 +313,32 @@ allow if {
 }
 
 allow if {
+  input.action == "customer.read"
+  customer_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "customer.manage"
+  customer_manage_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "customer.card.read"
+  customer_card_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "customer.card.manage"
+  customer_card_manage_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "mail.read"
   mail_read_allowed
 }
@@ -739,6 +765,54 @@ storefront_manage_allowed if {
 
 storefront_manage_allowed if {
   "platform_admin" in input.subject.roles
+}
+
+customer_read_allowed if {
+  "customer.read" in input.subject.permissions
+}
+
+customer_read_allowed if {
+  "customer.manage" in input.subject.permissions
+}
+
+customer_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+customer_manage_allowed if {
+  "customer.manage" in input.subject.permissions
+}
+
+customer_manage_allowed if {
+  "store_owner" in input.subject.roles
+}
+
+customer_manage_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+customer_card_read_allowed if {
+  "customer.card.read" in input.subject.permissions
+}
+
+customer_card_read_allowed if {
+  "customer.read" in input.subject.permissions
+}
+
+customer_card_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+customer_card_manage_allowed if {
+  "customer.card.manage" in input.subject.permissions
+}
+
+customer_card_manage_allowed if {
+  "customer.manage" in input.subject.permissions
+}
+
+customer_card_manage_allowed if {
+  "inventory.movement.create" in input.subject.permissions
 }
 
 mail_read_allowed if {

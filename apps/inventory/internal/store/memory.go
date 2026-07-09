@@ -611,3 +611,31 @@ func (s *Memory) UpsertStorefrontSettings(_ context.Context, _ domain.UpsertStor
 func (s *Memory) GetPublicStorefront(_ context.Context, _ string) (domain.StorefrontPublicView, error) {
 	return domain.StorefrontPublicView{}, domain.ErrNotFound
 }
+
+func (s *Memory) RegisterCustomer(_ context.Context, _ domain.RegisterCustomerRequest) (domain.Customer, error) {
+	return domain.Customer{}, errors.New("customers require postgres store")
+}
+func (s *Memory) AuthenticateCustomer(_ context.Context, _ domain.LoginCustomerRequest) (domain.Customer, error) {
+	return domain.Customer{}, domain.ErrNotFound
+}
+func (s *Memory) GetCustomer(_ context.Context, _, _ string) (domain.Customer, error) {
+	return domain.Customer{}, domain.ErrNotFound
+}
+func (s *Memory) ListCustomers(_ context.Context, _ domain.CustomerFilter) ([]domain.Customer, error) {
+	return nil, nil
+}
+func (s *Memory) ListCustomerCards(_ context.Context, _, _ string) ([]domain.CustomerCard, error) {
+	return nil, nil
+}
+func (s *Memory) CreateCustomerCard(_ context.Context, _ domain.CreateCustomerCardRequest) (domain.CustomerCard, error) {
+	return domain.CustomerCard{}, errors.New("customer cards require postgres store")
+}
+func (s *Memory) BlockCustomerCard(_ context.Context, _, _ string, _ domain.BlockCardRequest) (domain.CustomerCard, error) {
+	return domain.CustomerCard{}, domain.ErrNotFound
+}
+func (s *Memory) LookupCustomerCard(_ context.Context, _, _ string) (domain.CardLookupResult, error) {
+	return domain.CardLookupResult{}, domain.ErrNotFound
+}
+func (s *Memory) ResolveOrgByStorefrontSlug(_ context.Context, _ string) (string, string, error) {
+	return "", "", domain.ErrNotFound
+}

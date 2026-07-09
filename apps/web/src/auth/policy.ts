@@ -110,6 +110,16 @@ export const NAV_NODES: NavNode[] = [
     },
   },
   {
+    id: "nav.customers",
+    label: "Clientes",
+    path: "/customers",
+    require: {
+      permissions: ["customer.read", "customer.card.read", "inventory.balance.read"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
     id: "nav.payroll",
     label: "Nómina",
     path: "/payroll",

@@ -98,6 +98,16 @@ export function AppShell() {
       },
     },
     {
+      id: "nav.customers",
+      label: t("navCustomers"),
+      path: "/customers",
+      require: {
+        permissions: ["customer.read", "customer.card.read", "inventory.balance.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
       id: "nav.approvals",
       label: t("navApprovals"),
       path: "/approvals",

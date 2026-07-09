@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -140,6 +142,14 @@ func main() {
 
 	// Public online storefront (no JWT). Path must not collide with /storefront/settings.
 	r.Handle("GET /storefront/public/{slug}", reverseProxy(inventoryURL))
+
+	// Customer self-registration / login (public) — mint customer JWT after inventory validates.
+	r.Post("/customers/register", func(w http.ResponseWriter, req *http.Request) {
+		handleCustomerAuth(w, req, inventoryURL, validator, http.MethodPost, "/customers/register", http.StatusCreated)
+	})
+	r.Post("/customers/login", func(w http.ResponseWriter, req *http.Request) {
+		handleCustomerAuth(w, req, inventoryURL, validator, http.MethodPost, "/customers/login", http.StatusOK)
+	})
 
 	// Dev helper: mint a JWT for local SPA / curl without Keycloak.
 	// persona=analyst|approver|dual|owner (default analyst) to exercise payroll SoD.
@@ -633,6 +643,8 @@ func main() {
 		pr.Handle("/mail", reverseProxy(messagingURL))
 		pr.Handle("/storefront/*", reverseProxy(inventoryURL))
 		pr.Handle("/storefront", reverseProxy(inventoryURL))
+		pr.Handle("/customers/*", reverseProxy(inventoryURL))
+		pr.Handle("/customers", reverseProxy(inventoryURL))
 	})
 
 	log.Printf("gateway listening on %s", addr)
@@ -781,6 +793,9 @@ func reverseProxy(target *url.URL) http.Handler {
 		case strings.HasPrefix(path, "/storefront"):
 			// keep /storefront path on inventory (settings + public)
 			req.URL.Path = path
+		case strings.HasPrefix(path, "/customers"):
+			// keep /customers path on inventory (accounts + cards)
+			req.URL.Path = path
 		}
 		if claims, ok := auth.FromContext(req.Context()); ok {
 			req.Header.Set("X-User-Id", claims.Sub)
@@ -813,6 +828,60 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+func handleCustomerAuth(w http.ResponseWriter, req *http.Request, inventoryURL *url.URL, validator *auth.Validator, method, path string, okStatus int) {
+	body, err := io.ReadAll(io.LimitReader(req.Body, 1<<20))
+	if err != nil {
+		http.Error(w, `{"error":"invalid_body"}`, http.StatusBadRequest)
+		return
+	}
+	upURL := inventoryURL.String() + path
+	upReq, err := http.NewRequestWithContext(req.Context(), method, upURL, bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, `{"error":"proxy_build_failed"}`, http.StatusInternalServerError)
+		return
+	}
+	upReq.Header.Set("Content-Type", "application/json")
+	upRes, err := http.DefaultClient.Do(upReq)
+	if err != nil {
+		http.Error(w, `{"error":"upstream_failed"}`, http.StatusBadGateway)
+		return
+	}
+	defer upRes.Body.Close()
+	respBody, _ := io.ReadAll(upRes.Body)
+	if upRes.StatusCode >= 300 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(upRes.StatusCode)
+		_, _ = w.Write(respBody)
+		return
+	}
+	var cust struct {
+		ID                string `json:"id"`
+		OrgID             string `json:"org_id"`
+		Email             string `json:"email"`
+		DisplayName       string `json:"display_name"`
+		PreferredBranchID string `json:"preferred_branch_id"`
+	}
+	if err := json.Unmarshal(respBody, &cust); err != nil || cust.ID == "" {
+		http.Error(w, `{"error":"invalid_upstream"}`, http.StatusBadGateway)
+		return
+	}
+	claims := auth.CustomerClaims(cust.ID, cust.OrgID, cust.Email, cust.DisplayName, cust.PreferredBranchID)
+	token, err := validator.IssueDevToken(claims, 24*time.Hour)
+	if err != nil {
+		http.Error(w, `{"error":"token_failed"}`, http.StatusInternalServerError)
+		return
+	}
+	var customer any
+	_ = json.Unmarshal(respBody, &customer)
+	writeJSON(w, okStatus, map[string]any{
+		"access_token": token,
+		"token_type":   "Bearer",
+		"expires_in":   86400,
+		"claims":       claims,
+		"customer":     customer,
+	})
 }
 
 func envOr(k, def string) string {

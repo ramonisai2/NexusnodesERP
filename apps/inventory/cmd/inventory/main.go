@@ -1615,10 +1615,313 @@ func main() {
 		writeJSON(w, http.StatusOK, settings)
 	})
 
+	// —— Public customer registration / login (no JWT; gateway mints customer token) ——
+	r.Post("/customers/register", func(w http.ResponseWriter, req *http.Request) {
+		var body domain.RegisterCustomerRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		cust, err := inventoryStore.RegisterCustomer(req.Context(), body)
+		if err != nil {
+			status := http.StatusBadRequest
+			if errors.Is(err, domain.ErrNotFound) {
+				status = http.StatusNotFound
+			}
+			http.Error(w, `{"error":"register_failed","detail":"`+escapeJSON(err.Error())+`"}`, status)
+			return
+		}
+		writeJSON(w, http.StatusCreated, cust)
+	})
+
+	r.Post("/customers/login", func(w http.ResponseWriter, req *http.Request) {
+		var body domain.LoginCustomerRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		cust, err := inventoryStore.AuthenticateCustomer(req.Context(), body)
+		if errors.Is(err, domain.ErrNotFound) || (err != nil && err.Error() == "invalid credentials") {
+			http.Error(w, `{"error":"invalid_credentials"}`, http.StatusUnauthorized)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"login_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, cust)
+	})
+
+	r.Get("/customers/me", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		customerID := customerIDFromSubject(subject)
+		if customerID == "" {
+			authz.WriteForbidden(w, "customer.self.read")
+			return
+		}
+		if !subject.HasPermission("customer.self.read") && !subject.HasPermission("customer.read") {
+			authz.WriteForbidden(w, "customer.self.read")
+			return
+		}
+		cust, err := inventoryStore.GetCustomer(req.Context(), subject.OrgID, customerID)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, cust)
+	})
+
+	r.Get("/customers/me/cards", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		customerID := customerIDFromSubject(subject)
+		if customerID == "" || (!subject.HasPermission("customer.card.self") && !subject.HasPermission("customer.card.read")) {
+			authz.WriteForbidden(w, "customer.card.self")
+			return
+		}
+		cards, err := inventoryStore.ListCustomerCards(req.Context(), subject.OrgID, customerID)
+		if err != nil {
+			http.Error(w, `{"error":"list_failed"}`, http.StatusInternalServerError)
+			return
+		}
+		if cards == nil {
+			cards = []domain.CustomerCard{}
+		}
+		writeJSON(w, http.StatusOK, cards)
+	})
+
+	r.Post("/customers/me/cards", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		customerID := customerIDFromSubject(subject)
+		if customerID == "" || (!subject.HasPermission("customer.card.self") && !subject.HasPermission("customer.card.manage")) {
+			authz.WriteForbidden(w, "customer.card.self")
+			return
+		}
+		var body domain.CreateCustomerCardRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.OrgID = subject.OrgID
+		body.CustomerID = customerID
+		body.IssuedBy = subject.Sub
+		card, err := inventoryStore.CreateCustomerCard(req.Context(), body)
+		if err != nil {
+			http.Error(w, `{"error":"create_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusCreated, card)
+	})
+
+	r.Post("/customers/me/cards/{id}/block", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		customerID := customerIDFromSubject(subject)
+		if customerID == "" || (!subject.HasPermission("customer.card.self") && !subject.HasPermission("customer.card.manage")) {
+			authz.WriteForbidden(w, "customer.card.self")
+			return
+		}
+		id := chi.URLParam(req, "id")
+		var body domain.BlockCardRequest
+		_ = json.NewDecoder(req.Body).Decode(&body)
+		body.Actor = subject.Sub
+		// Ensure card belongs to this customer.
+		cards, err := inventoryStore.ListCustomerCards(req.Context(), subject.OrgID, customerID)
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed"}`, http.StatusInternalServerError)
+			return
+		}
+		owned := false
+		for _, c := range cards {
+			if c.ID == id {
+				owned = true
+				break
+			}
+		}
+		if !owned {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		card, err := inventoryStore.BlockCustomerCard(req.Context(), subject.OrgID, id, body)
+		if err != nil {
+			http.Error(w, `{"error":"block_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, card)
+	})
+
+	// —— Staff customer directory ——
+	r.Get("/customers", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "customer.read",
+			Resource: map[string]any{"org_id": subject.OrgID, "branch_id": req.Header.Get("X-Branch-Id")},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "customer.read")
+			return
+		}
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		items, err := inventoryStore.ListCustomers(req.Context(), domain.CustomerFilter{
+			OrgRef: subject.OrgID,
+			Query:  req.URL.Query().Get("q"),
+			Status: req.URL.Query().Get("status"),
+			Limit:  limit,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"list_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusInternalServerError)
+			return
+		}
+		if items == nil {
+			items = []domain.Customer{}
+		}
+		writeJSON(w, http.StatusOK, items)
+	})
+
+	r.Get("/customers/cards/lookup", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		code := req.URL.Query().Get("code")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "customer.card.read",
+			Resource: map[string]any{"org_id": subject.OrgID, "branch_id": req.Header.Get("X-Branch-Id")},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "customer.card.read")
+			return
+		}
+		result, err := inventoryStore.LookupCustomerCard(req.Context(), subject.OrgID, code)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	})
+	r.Get("/customers/{id}", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "customer.read",
+			Resource: map[string]any{"org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "customer.read")
+			return
+		}
+		cust, err := inventoryStore.GetCustomer(req.Context(), subject.OrgID, id)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, cust)
+	})
+
+	r.Post("/customers/{id}/cards", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "customer.card.manage",
+			Resource: map[string]any{"org_id": subject.OrgID, "branch_id": req.Header.Get("X-Branch-Id")},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "customer.card.manage")
+			return
+		}
+		var body domain.CreateCustomerCardRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.OrgID = subject.OrgID
+		body.CustomerID = id
+		if body.IssuedBy == "" {
+			body.IssuedBy = subject.Sub
+		}
+		card, err := inventoryStore.CreateCustomerCard(req.Context(), body)
+		if err != nil {
+			http.Error(w, `{"error":"create_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusCreated, card)
+	})
+
+	r.Post("/customers/cards/{id}/block", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "customer.card.manage",
+			Resource: map[string]any{"org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "customer.card.manage")
+			return
+		}
+		var body domain.BlockCardRequest
+		_ = json.NewDecoder(req.Body).Decode(&body)
+		body.Actor = subject.Sub
+		card, err := inventoryStore.BlockCustomerCard(req.Context(), subject.OrgID, id, body)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"block_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, card)
+	})
+
+
 	log.Printf("inventory listening on %s", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func customerIDFromSubject(subject authz.Subject) string {
+	if subject.Attrs == nil {
+		return ""
+	}
+	if v, ok := subject.Attrs["customer_id"].(string); ok {
+		return v
+	}
+	return ""
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
