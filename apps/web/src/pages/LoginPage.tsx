@@ -110,6 +110,10 @@ export function LoginPage() {
               {t("loginRegional")}
             </button>
             <p className="hint">{t("loginRegionalHint")}</p>
+            <button type="button" className="btn secondary" disabled={loading} onClick={() => void onDevLogin("security")}>
+              {t("loginSecurity")}
+            </button>
+            <p className="hint">{t("loginSecurityHint")}</p>
           </div>
         ) : null}
 

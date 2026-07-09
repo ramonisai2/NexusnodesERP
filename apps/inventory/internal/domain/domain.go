@@ -320,6 +320,7 @@ type CreateInboundShipmentRequest struct {
 	VehicleRef      string               `json:"vehicle_ref,omitempty"`
 	DriverName      string               `json:"driver_name,omitempty"`
 	DockDoor        string               `json:"dock_door,omitempty"`
+	SealNumber      string               `json:"seal_number,omitempty"`
 	ExpectedPallets int                  `json:"expected_pallets,omitempty"`
 	Notes           string               `json:"notes,omitempty"`
 	PrintLabels     *bool                `json:"print_labels,omitempty"`
@@ -368,6 +369,11 @@ type InboundShipment struct {
 	VehicleRef      string          `json:"vehicle_ref,omitempty"`
 	DriverName      string          `json:"driver_name,omitempty"`
 	DockDoor        string          `json:"dock_door,omitempty"`
+	SealNumber      string          `json:"seal_number,omitempty"`
+	SealStatus      string          `json:"seal_status,omitempty"`
+	SealVerifiedAt  *time.Time      `json:"seal_verified_at,omitempty"`
+	SealVerifiedBy  string          `json:"seal_verified_by,omitempty"`
+	SealNotes       string          `json:"seal_notes,omitempty"`
 	ExpectedPallets int             `json:"expected_pallets"`
 	Notes           string          `json:"notes,omitempty"`
 	Status          string          `json:"status"`
@@ -574,6 +580,7 @@ type CreateTransportSheetRequest struct {
 	CarrierName    string                  `json:"carrier_name,omitempty"`
 	VehicleRef     string                  `json:"vehicle_ref,omitempty"`
 	DriverName     string                  `json:"driver_name,omitempty"`
+	SealNumber     string                  `json:"seal_number,omitempty"`
 	ParcelKind     string                  `json:"parcel_kind,omitempty"`
 	Notes          string                  `json:"notes,omitempty"`
 	IdempotencyKey string                  `json:"idempotency_key"`
@@ -602,30 +609,35 @@ type TransportSheetSection struct {
 }
 
 type TransportSheet struct {
-	ID             string                  `json:"id"`
-	OrgID          string                  `json:"org_id"`
-	SheetNumber    string                  `json:"sheet_number"`
-	FromBranchID   string                  `json:"from_branch_id"`
-	ToBranchID     string                  `json:"to_branch_id"`
-	CarrierName    string                  `json:"carrier_name,omitempty"`
-	VehicleRef     string                  `json:"vehicle_ref,omitempty"`
-	DriverName     string                  `json:"driver_name,omitempty"`
-	ParcelKind     string                  `json:"parcel_kind"`
-	ParcelKindLabel string                 `json:"parcel_kind_label,omitempty"`
-	Status         string                  `json:"status"`
-	PrintedAt      *time.Time              `json:"printed_at,omitempty"`
-	DepartedAt     *time.Time              `json:"departed_at,omitempty"`
-	DeliveredAt    *time.Time              `json:"delivered_at,omitempty"`
-	CancelledAt    *time.Time              `json:"cancelled_at,omitempty"`
-	CancelReason   string                  `json:"cancel_reason,omitempty"`
-	CreatedBy      string                  `json:"created_by,omitempty"`
-	OperatorLabel  string                  `json:"operator_label,omitempty"`
-	SessionID      string                  `json:"session_id,omitempty"`
-	Notes          string                  `json:"notes,omitempty"`
-	IdempotencyKey string                  `json:"idempotency_key"`
-	CreatedAt      time.Time               `json:"created_at"`
-	UpdatedAt      time.Time               `json:"updated_at"`
-	Sections       []TransportSheetSection `json:"sections,omitempty"`
+	ID              string                  `json:"id"`
+	OrgID           string                  `json:"org_id"`
+	SheetNumber     string                  `json:"sheet_number"`
+	FromBranchID    string                  `json:"from_branch_id"`
+	ToBranchID      string                  `json:"to_branch_id"`
+	CarrierName     string                  `json:"carrier_name,omitempty"`
+	VehicleRef      string                  `json:"vehicle_ref,omitempty"`
+	DriverName      string                  `json:"driver_name,omitempty"`
+	SealNumber      string                  `json:"seal_number,omitempty"`
+	SealStatus      string                  `json:"seal_status,omitempty"`
+	SealVerifiedAt  *time.Time              `json:"seal_verified_at,omitempty"`
+	SealVerifiedBy  string                  `json:"seal_verified_by,omitempty"`
+	SealNotes       string                  `json:"seal_notes,omitempty"`
+	ParcelKind      string                  `json:"parcel_kind"`
+	ParcelKindLabel string                  `json:"parcel_kind_label,omitempty"`
+	Status          string                  `json:"status"`
+	PrintedAt       *time.Time              `json:"printed_at,omitempty"`
+	DepartedAt      *time.Time              `json:"departed_at,omitempty"`
+	DeliveredAt     *time.Time              `json:"delivered_at,omitempty"`
+	CancelledAt     *time.Time              `json:"cancelled_at,omitempty"`
+	CancelReason    string                  `json:"cancel_reason,omitempty"`
+	CreatedBy       string                  `json:"created_by,omitempty"`
+	OperatorLabel   string                  `json:"operator_label,omitempty"`
+	SessionID       string                  `json:"session_id,omitempty"`
+	Notes           string                  `json:"notes,omitempty"`
+	IdempotencyKey  string                  `json:"idempotency_key"`
+	CreatedAt       time.Time               `json:"created_at"`
+	UpdatedAt       time.Time               `json:"updated_at"`
+	Sections        []TransportSheetSection `json:"sections,omitempty"`
 }
 
 type TransportSheetFilter struct {
@@ -634,6 +646,51 @@ type TransportSheetFilter struct {
 	ToBranch   string
 	Status     string
 	ParcelKind string
+	Limit      int
+}
+
+const (
+	SealApplied  = "APPLIED"
+	SealVerified = "VERIFIED"
+	SealBroken   = "BROKEN"
+	SealMissing  = "MISSING"
+)
+
+type VerifySealRequest struct {
+	OrgID      string `json:"org_id"`
+	SealNumber string `json:"seal_number,omitempty"`
+	SealStatus string `json:"seal_status"` // VERIFIED | BROKEN | MISSING | APPLIED
+	Notes      string `json:"notes,omitempty"`
+	Actor      string `json:"actor,omitempty"`
+}
+
+// SecurityLogisticsEvent is a read-only gate/vigilance timeline row.
+type SecurityLogisticsEvent struct {
+	Kind           string     `json:"kind"` // TRANSPORT | INBOUND | SLIP
+	ID             string     `json:"id"`
+	Folio          string     `json:"folio"`
+	BranchFrom     string     `json:"branch_from,omitempty"`
+	BranchTo       string     `json:"branch_to,omitempty"`
+	BranchID       string     `json:"branch_id,omitempty"`
+	Status         string     `json:"status"`
+	CarrierName    string     `json:"carrier_name,omitempty"`
+	VehicleRef     string     `json:"vehicle_ref,omitempty"`
+	DriverName     string     `json:"driver_name,omitempty"`
+	DockDoor       string     `json:"dock_door,omitempty"`
+	SealNumber     string     `json:"seal_number,omitempty"`
+	SealStatus     string     `json:"seal_status,omitempty"`
+	SealVerifiedAt *time.Time `json:"seal_verified_at,omitempty"`
+	ContainerTypes string     `json:"container_types,omitempty"`
+	EventAt        *time.Time `json:"event_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	Notes          string     `json:"notes,omitempty"`
+}
+
+type SecurityLogisticsFilter struct {
+	OrgRef     string
+	BranchCode string
+	Kind       string
+	SealOnly   bool
 	Limit      int
 }
 
@@ -1257,4 +1314,7 @@ type Store interface {
 	GetInboundShipment(ctx context.Context, orgRef, shipmentID string) (InboundShipment, error)
 	ListInboundShipments(ctx context.Context, filter InboundShipmentFilter) ([]InboundShipment, error)
 	PostInboundShipment(ctx context.Context, orgRef, shipmentID, postedBy string) (InboundShipment, error)
+	ListSecurityLogistics(ctx context.Context, filter SecurityLogisticsFilter) ([]SecurityLogisticsEvent, error)
+	VerifyTransportSeal(ctx context.Context, orgRef, sheetID string, req VerifySealRequest) (TransportSheet, error)
+	VerifyInboundSeal(ctx context.Context, orgRef, shipmentID string, req VerifySealRequest) (InboundShipment, error)
 }

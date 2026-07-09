@@ -293,6 +293,18 @@ func localAllow(in Input) bool {
 		if !in.Subject.HasPermission("employee.write") {
 			return false
 		}
+	} else if in.Action == "reporting.security.read" {
+		if !in.Subject.HasPermission("reporting.security.read") &&
+			!in.Subject.HasPermission("inventory.transport.read") &&
+			!in.Subject.HasPermission("inventory.shipment.read") &&
+			!in.Subject.HasPermission("inventory.parcel.read") {
+			return false
+		}
+	} else if in.Action == "inventory.seal.verify" {
+		if !in.Subject.HasPermission("inventory.seal.verify") &&
+			!in.Subject.HasPermission("inventory.transport.depart") {
+			return false
+		}
 	} else if in.Action == "inventory.slip.read" {
 		if !in.Subject.HasPermission("inventory.slip.read") &&
 			!in.Subject.HasPermission("inventory.balance.read") {

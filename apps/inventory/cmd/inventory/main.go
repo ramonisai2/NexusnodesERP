@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -2252,6 +2253,119 @@ func main() {
 		writeJSON(w, http.StatusOK, ship)
 	})
 
+	r.Get("/security-logistics", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.Header.Get("X-Branch-Id")
+		if q := req.URL.Query().Get("branch_id"); q != "" {
+			branchID = q
+		}
+		kind := req.URL.Query().Get("kind")
+		sealOnly := req.URL.Query().Get("seal_only") == "1" || strings.EqualFold(req.URL.Query().Get("seal_only"), "true")
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject: subject,
+			Action:  "reporting.security.read",
+			Resource: map[string]any{
+				"org_id":    subject.OrgID,
+				"branch_id": branchID,
+			},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "reporting.security.read")
+			return
+		}
+		items, err := inventoryStore.ListSecurityLogistics(req.Context(), domain.SecurityLogisticsFilter{
+			OrgRef:     subject.OrgID,
+			BranchCode: branchID,
+			Kind:       kind,
+			SealOnly:   sealOnly,
+			Limit:      limit,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"list_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusInternalServerError)
+			return
+		}
+		if items == nil {
+			items = []domain.SecurityLogisticsEvent{}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	})
+
+	r.Post("/transport-sheets/{id}/verify-seal", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		var body domain.VerifySealRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.OrgID = subject.OrgID
+		body.Actor = subject.Sub
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.seal.verify",
+			Resource: map[string]any{"org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.seal.verify")
+			return
+		}
+		sheet, err := inventoryStore.VerifyTransportSeal(req.Context(), subject.OrgID, id, body)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"verify_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, sheet)
+	})
+
+	r.Post("/inbound-shipments/{id}/verify-seal", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		var body domain.VerifySealRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.OrgID = subject.OrgID
+		body.Actor = subject.Sub
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "inventory.seal.verify",
+			Resource: map[string]any{"org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "inventory.seal.verify")
+			return
+		}
+		ship, err := inventoryStore.VerifyInboundSeal(req.Context(), subject.OrgID, id, body)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"verify_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, ship)
+	})
 
 	log.Printf("inventory listening on %s", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {

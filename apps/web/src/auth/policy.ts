@@ -180,6 +180,16 @@ export const NAV_NODES: NavNode[] = [
     },
   },
   {
+    id: "nav.security",
+    label: "Seguridad",
+    path: "/reports/seguridad",
+    require: {
+      permissions: ["reporting.security.read", "inventory.transport.read", "inventory.shipment.read"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
     id: "nav.imageReports",
     label: "Fotos",
     path: "/reports/images",

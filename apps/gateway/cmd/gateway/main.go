@@ -174,6 +174,8 @@ func main() {
 			claims = auth.WarehouseManagerClaims()
 		case "regional":
 			claims = auth.RegionalManagerClaims()
+		case "security":
+			claims = auth.SecurityOfficerClaims()
 		case "owner":
 			claims = auth.StoreOwnerClaims("usr_dev_owner", "org_demo", "br_norte", "Mi Tienda")
 			// Prefer the shop owner created by the setup wizard when present.

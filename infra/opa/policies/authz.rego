@@ -145,6 +145,19 @@ allow if {
 }
 
 allow if {
+  input.action == "reporting.security.read"
+  security_report_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "inventory.seal.verify"
+  seal_verify_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "search.query"
   search_query_allowed
   branch_allowed
@@ -460,6 +473,10 @@ branch_allowed if {
 }
 
 branch_allowed if {
+  input.resource.branch_id == ""
+}
+
+branch_allowed if {
   input.resource.branch_id in input.subject.branch_ids
 }
 
@@ -514,6 +531,26 @@ adjustment_read_allowed if {
 
 adjustment_read_allowed if {
   "inventory.balance.read" in input.subject.permissions
+}
+
+security_report_allowed if {
+  "reporting.security.read" in input.subject.permissions
+}
+
+security_report_allowed if {
+  "inventory.transport.read" in input.subject.permissions
+}
+
+security_report_allowed if {
+  "inventory.shipment.read" in input.subject.permissions
+}
+
+seal_verify_allowed if {
+  "inventory.seal.verify" in input.subject.permissions
+}
+
+seal_verify_allowed if {
+  "inventory.transport.depart" in input.subject.permissions
 }
 
 adjustment_within_limit if {

@@ -452,6 +452,31 @@ func WarehouseManagerClaims() Claims {
 	}
 }
 
+// SecurityOfficerClaims — gate / vigilance: logistics reports + seal verify (no stock writes).
+func SecurityOfficerClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_security",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte", "br_sur", "br_cedi"},
+		Roles:     []string{"security_officer"},
+		Permissions: []string{
+			"reporting.security.read",
+			"inventory.seal.verify",
+			"inventory.slip.read",
+			"inventory.transport.read",
+			"inventory.parcel.read",
+			"inventory.transfer.read",
+			"inventory.shipment.read",
+			"inventory.balance.read",
+			"reporting.image.read",
+			"reporting.image.create",
+		},
+		Attrs: map[string]any{},
+		AMR:   []string{"pwd", "otp"},
+		SID:   "sess_dev_security",
+	}
+}
+
 // RegionalManagerClaims — superior of area managers in Región Norte.
 func RegionalManagerClaims() Claims {
 	return Claims{
@@ -470,6 +495,8 @@ func RegionalManagerClaims() Claims {
 			"inventory.transport.read",
 			"inventory.transport.create",
 			"inventory.transport.print",
+			"reporting.security.read",
+			"inventory.seal.verify",
 			"approval.decide",
 			"approval.read",
 			"session.operator",

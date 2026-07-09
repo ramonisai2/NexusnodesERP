@@ -88,18 +88,25 @@ LIMIT 1`, branchID).Scan(&whCode)
 		id := uuid.New()
 		shipmentID = id.String()
 		now := time.Now().UTC()
+		sealNumber := secure.PlainTextMax(req.SealNumber, 40)
+		sealStatus := ""
+		if sealNumber != "" {
+			sealStatus = domain.SealApplied
+		}
 		_, err = tx.Exec(ctx, `
 INSERT INTO inbound_shipments (
   id, org_id, branch_id, warehouse_id, supplier_name, invoice_number, invoice_date,
   carrier_name, vehicle_ref, driver_name, dock_door, expected_pallets, notes,
-  status, arrived_at, created_by, operator_label, session_id, idempotency_key, created_at
+  status, arrived_at, created_by, operator_label, session_id, idempotency_key, created_at,
+  seal_number, seal_status
 ) VALUES (
   $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7,
   $8, $9, $10, $11, $12, $13,
-  'RECEIVING', $14, $15, $16, $17, $18, $14
+  'RECEIVING', $14, $15, $16, $17, $18, $14,
+  $19, $20
 )`, id, orgID, branchID, warehouseID, req.SupplierName, req.InvoiceNumber, invoiceDate,
 			req.CarrierName, req.VehicleRef, req.DriverName, req.DockDoor, expected, req.Notes,
-			now, createdBy, req.OperatorLabel, req.SessionID, req.IdempotencyKey)
+			now, createdBy, req.OperatorLabel, req.SessionID, req.IdempotencyKey, sealNumber, sealStatus)
 		if err != nil {
 			return err
 		}
@@ -191,15 +198,19 @@ func (s *Postgres) GetInboundShipment(ctx context.Context, orgRef, shipmentID st
 SELECT s.id::text, s.org_id::text, b.code, w.code, COALESCE(w.warehouse_kind,''),
        s.receipt_id::text, s.supplier_name, s.invoice_number, s.invoice_date,
        s.carrier_name, s.vehicle_ref, s.driver_name, s.dock_door, s.expected_pallets,
-       s.notes, s.status, s.arrived_at, s.posted_at, s.created_at
+       s.notes, s.status, s.arrived_at, s.posted_at, s.created_at,
+       COALESCE(s.seal_number,''), COALESCE(s.seal_status,''), s.seal_verified_at,
+       COALESCE(vu.idp_sub, COALESCE(s.seal_verified_by::text, '')), COALESCE(s.seal_notes,'')
 FROM inbound_shipments s
 JOIN branches b ON b.id = s.branch_id
 JOIN warehouses w ON w.id = s.warehouse_id
+LEFT JOIN users vu ON vu.id = s.seal_verified_by
 WHERE s.org_id = $1::uuid AND s.id = $2::uuid`, orgID, shipmentID).Scan(
 			&out.ID, &out.OrgID, &out.BranchID, &out.WarehouseID, &out.WarehouseKind,
 			&receiptID, &out.SupplierName, &out.InvoiceNumber, &invDate,
 			&out.CarrierName, &out.VehicleRef, &out.DriverName, &out.DockDoor, &out.ExpectedPallets,
 			&out.Notes, &out.Status, &out.ArrivedAt, &out.PostedAt, &out.CreatedAt,
+			&out.SealNumber, &out.SealStatus, &out.SealVerifiedAt, &out.SealVerifiedBy, &out.SealNotes,
 		)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.ErrNotFound
@@ -310,7 +321,8 @@ func (s *Postgres) ListInboundShipments(ctx context.Context, filter domain.Inbou
 		q := `
 SELECT s.id::text, b.code, w.code, s.supplier_name, s.invoice_number, s.status,
        s.expected_pallets, s.vehicle_ref, s.carrier_name, s.arrived_at, s.posted_at, s.created_at,
-       (SELECT COUNT(*) FROM inbound_pallets p WHERE p.shipment_id = s.id)::int
+       (SELECT COUNT(*) FROM inbound_pallets p WHERE p.shipment_id = s.id)::int,
+       COALESCE(s.seal_number,''), COALESCE(s.seal_status,'')
 FROM inbound_shipments s
 JOIN branches b ON b.id = s.branch_id
 JOIN warehouses w ON w.id = s.warehouse_id
@@ -336,7 +348,8 @@ WHERE s.org_id = $1::uuid`
 		for rows.Next() {
 			var sh domain.InboundShipment
 			if err := rows.Scan(&sh.ID, &sh.BranchID, &sh.WarehouseID, &sh.SupplierName, &sh.InvoiceNumber, &sh.Status,
-				&sh.ExpectedPallets, &sh.VehicleRef, &sh.CarrierName, &sh.ArrivedAt, &sh.PostedAt, &sh.CreatedAt, &sh.PalletCount); err != nil {
+				&sh.ExpectedPallets, &sh.VehicleRef, &sh.CarrierName, &sh.ArrivedAt, &sh.PostedAt, &sh.CreatedAt, &sh.PalletCount,
+				&sh.SealNumber, &sh.SealStatus); err != nil {
 				return err
 			}
 			out = append(out, sh)

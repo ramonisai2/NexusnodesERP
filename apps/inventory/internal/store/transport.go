@@ -79,19 +79,26 @@ SELECT id::text FROM transport_sheets WHERE org_id = $1::uuid AND idempotency_ke
 		now := time.Now().UTC()
 		sheetNumber := fmt.Sprintf("HT-%s", strings.ToUpper(id.String()[:8]))
 
+		sealNumber := strings.TrimSpace(req.SealNumber)
+		sealStatus := ""
+		if sealNumber != "" {
+			sealStatus = domain.SealApplied
+		}
 		_, err = tx.Exec(ctx, `
 INSERT INTO transport_sheets (
   id, org_id, sheet_number, from_branch_id, to_branch_id,
   carrier_name, vehicle_ref, driver_name, parcel_kind, status,
-  created_by, operator_label, session_id, notes, idempotency_key, created_at, updated_at
+  created_by, operator_label, session_id, notes, idempotency_key, created_at, updated_at,
+  seal_number, seal_status
 ) VALUES (
   $1, $2::uuid, $3, $4::uuid, $5::uuid,
   $6, $7, $8, $9, 'DRAFT',
-  $10, $11, $12, $13, $14, $15, $15
+  $10, $11, $12, $13, $14, $15, $15,
+  $16, $17
 )`, id, orgID, sheetNumber, fromBranch, toBranch,
 			strings.TrimSpace(req.CarrierName), strings.TrimSpace(req.VehicleRef), strings.TrimSpace(req.DriverName),
 			parcelKind, req.CreatedBy, strings.TrimSpace(req.OperatorLabel), sess,
-			strings.TrimSpace(req.Notes), req.IdempotencyKey, now)
+			strings.TrimSpace(req.Notes), req.IdempotencyKey, now, sealNumber, sealStatus)
 		if err != nil {
 			return err
 		}
@@ -182,10 +189,13 @@ SELECT t.id::text, t.org_id::text, t.sheet_number,
        t.carrier_name, t.vehicle_ref, t.driver_name, COALESCE(t.parcel_kind,'TRANSFER'), t.status,
        t.printed_at, t.departed_at, t.delivered_at, t.cancelled_at, COALESCE(t.cancel_reason,''),
        t.created_by, t.operator_label, COALESCE(t.session_id::text, ''),
-       t.notes, t.idempotency_key, t.created_at, t.updated_at
+       t.notes, t.idempotency_key, t.created_at, t.updated_at,
+       COALESCE(t.seal_number,''), COALESCE(t.seal_status,''), t.seal_verified_at,
+       COALESCE(vu.idp_sub, COALESCE(t.seal_verified_by::text, '')), COALESCE(t.seal_notes,'')
 FROM transport_sheets t
 JOIN branches fb ON fb.id = t.from_branch_id
 JOIN branches tb ON tb.id = t.to_branch_id
+LEFT JOIN users vu ON vu.id = t.seal_verified_by
 WHERE 1=1`
 		args := []any{}
 		n := 1
@@ -246,10 +256,13 @@ SELECT t.id::text, t.org_id::text, t.sheet_number,
        t.carrier_name, t.vehicle_ref, t.driver_name, COALESCE(t.parcel_kind,'TRANSFER'), t.status,
        t.printed_at, t.departed_at, t.delivered_at, t.cancelled_at, COALESCE(t.cancel_reason,''),
        t.created_by, t.operator_label, COALESCE(t.session_id::text, ''),
-       t.notes, t.idempotency_key, t.created_at, t.updated_at
+       t.notes, t.idempotency_key, t.created_at, t.updated_at,
+       COALESCE(t.seal_number,''), COALESCE(t.seal_status,''), t.seal_verified_at,
+       COALESCE(vu.idp_sub, COALESCE(t.seal_verified_by::text, '')), COALESCE(t.seal_notes,'')
 FROM transport_sheets t
 JOIN branches fb ON fb.id = t.from_branch_id
 JOIN branches tb ON tb.id = t.to_branch_id
+LEFT JOIN users vu ON vu.id = t.seal_verified_by
 WHERE t.id = $1::uuid`, sheetID)
 		sheet, err = scanTransportSheet(row)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -314,7 +327,7 @@ type transportScanner interface {
 
 func scanTransportSheet(row transportScanner) (domain.TransportSheet, error) {
 	var t domain.TransportSheet
-	var printed, departed, delivered, cancelled *time.Time
+	var printed, departed, delivered, cancelled, sealVerified *time.Time
 	err := row.Scan(
 		&t.ID, &t.OrgID, &t.SheetNumber,
 		&t.FromBranchID, &t.ToBranchID,
@@ -322,6 +335,7 @@ func scanTransportSheet(row transportScanner) (domain.TransportSheet, error) {
 		&printed, &departed, &delivered, &cancelled, &t.CancelReason,
 		&t.CreatedBy, &t.OperatorLabel, &t.SessionID,
 		&t.Notes, &t.IdempotencyKey, &t.CreatedAt, &t.UpdatedAt,
+		&t.SealNumber, &t.SealStatus, &sealVerified, &t.SealVerifiedBy, &t.SealNotes,
 	)
 	if err != nil {
 		return domain.TransportSheet{}, err
@@ -330,6 +344,7 @@ func scanTransportSheet(row transportScanner) (domain.TransportSheet, error) {
 	t.DepartedAt = departed
 	t.DeliveredAt = delivered
 	t.CancelledAt = cancelled
+	t.SealVerifiedAt = sealVerified
 	t.ParcelKindLabel = domain.ParcelKindLabelES(t.ParcelKind)
 	return t, nil
 }

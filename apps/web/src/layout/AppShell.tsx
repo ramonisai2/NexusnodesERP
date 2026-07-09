@@ -192,6 +192,16 @@ export function AppShell() {
       },
     },
     {
+      id: "nav.security",
+      label: t("navSecurity"),
+      path: "/reports/seguridad",
+      require: {
+        permissions: ["reporting.security.read", "inventory.transport.read", "inventory.shipment.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
       id: "nav.imageReports",
       label: t("navImageReports"),
       path: "/reports/images",

@@ -29,6 +29,7 @@ import { PosCashierPage } from "./pages/PosCashierPage";
 import { StorefrontSettingsPage } from "./pages/StorefrontSettingsPage";
 import { AdjustmentsPage } from "./pages/AdjustmentsPage";
 import { HRPage } from "./pages/HRPage";
+import { SecurityLogisticsPage } from "./pages/SecurityLogisticsPage";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -88,6 +89,7 @@ function Bootstrap() {
           <Route path="hr" element={<HRPage />} />
           <Route path="payroll" element={<PayrollPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="reports/seguridad" element={<SecurityLogisticsPage />} />
           <Route path="reports/images" element={<ImageReportsPage />} />
         </Route>
       </Route>

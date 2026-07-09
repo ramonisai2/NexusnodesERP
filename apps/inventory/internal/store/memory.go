@@ -688,3 +688,12 @@ func (s *Memory) ListInboundShipments(_ context.Context, _ domain.InboundShipmen
 func (s *Memory) PostInboundShipment(_ context.Context, _, _, _ string) (domain.InboundShipment, error) {
 	return domain.InboundShipment{}, errors.New("inbound shipments require postgres store")
 }
+func (s *Memory) ListSecurityLogistics(_ context.Context, _ domain.SecurityLogisticsFilter) ([]domain.SecurityLogisticsEvent, error) {
+	return nil, nil
+}
+func (s *Memory) VerifyTransportSeal(_ context.Context, _, _ string, _ domain.VerifySealRequest) (domain.TransportSheet, error) {
+	return domain.TransportSheet{}, errors.New("seal verify requires postgres store")
+}
+func (s *Memory) VerifyInboundSeal(_ context.Context, _, _ string, _ domain.VerifySealRequest) (domain.InboundShipment, error) {
+	return domain.InboundShipment{}, errors.New("seal verify requires postgres store")
+}
