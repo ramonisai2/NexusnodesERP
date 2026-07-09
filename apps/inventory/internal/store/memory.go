@@ -639,3 +639,28 @@ func (s *Memory) LookupCustomerCard(_ context.Context, _, _ string) (domain.Card
 func (s *Memory) ResolveOrgByStorefrontSlug(_ context.Context, _ string) (string, string, error) {
 	return "", "", domain.ErrNotFound
 }
+
+func (s *Memory) GetFiscalSettings(_ context.Context, _, _ string) (domain.BranchFiscalSettings, error) {
+	return domain.BranchFiscalSettings{
+		PricesIncludeTax: true,
+		DefaultTaxRate:   0.16,
+		TicketSeries:     "T",
+		InvoiceSeries:    "F",
+		ReceiptFooter:    "Gracias por su compra.",
+	}, nil
+}
+func (s *Memory) UpsertFiscalSettings(_ context.Context, _ domain.UpsertFiscalSettingsRequest) (domain.BranchFiscalSettings, error) {
+	return domain.BranchFiscalSettings{}, errors.New("pos fiscal settings require postgres store")
+}
+func (s *Memory) CompleteSale(_ context.Context, _ domain.CompleteSaleRequest) (domain.POSSale, error) {
+	return domain.POSSale{}, errors.New("pos sales require postgres store")
+}
+func (s *Memory) GetSale(_ context.Context, _, _ string) (domain.POSSale, error) {
+	return domain.POSSale{}, domain.ErrNotFound
+}
+func (s *Memory) ListSales(_ context.Context, _ domain.SaleFilter) ([]domain.POSSale, error) {
+	return nil, nil
+}
+func (s *Memory) RequestSaleInvoice(_ context.Context, _, _ string, _ domain.RequestInvoiceRequest) (domain.FiscalInvoice, error) {
+	return domain.FiscalInvoice{}, errors.New("pos invoices require postgres store")
+}

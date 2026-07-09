@@ -903,6 +903,177 @@ type CardLookupResult struct {
 	Customer Customer     `json:"customer"`
 }
 
+// —— POS / Caja ——
+
+const (
+	PaymentCash     = "CASH"
+	PaymentCard     = "CARD"
+	PaymentTransfer = "TRANSFER"
+	PaymentOther    = "OTHER"
+	SaleCompleted   = "COMPLETED"
+	SaleVoid        = "VOID"
+	InvoiceRequested = "REQUESTED"
+)
+
+type BranchFiscalSettings struct {
+	BranchID         string  `json:"branch_id"`
+	OrgID            string  `json:"org_id"`
+	LegalName        string  `json:"legal_name"`
+	TradeName        string  `json:"trade_name"`
+	RFC              string  `json:"rfc"`
+	TaxRegime        string  `json:"tax_regime"`
+	PostalCode       string  `json:"postal_code"`
+	PricesIncludeTax bool    `json:"prices_include_tax"`
+	DefaultTaxRate   float64 `json:"default_tax_rate"`
+	TicketSeries     string  `json:"ticket_series"`
+	NextTicketFolio  int64   `json:"next_ticket_folio,omitempty"`
+	InvoiceSeries    string  `json:"invoice_series"`
+	ReceiptFooter    string  `json:"receipt_footer"`
+}
+
+type UpsertFiscalSettingsRequest struct {
+	OrgID            string  `json:"org_id"`
+	BranchID         string  `json:"branch_id"`
+	LegalName        string  `json:"legal_name"`
+	TradeName        string  `json:"trade_name"`
+	RFC              string  `json:"rfc"`
+	TaxRegime        string  `json:"tax_regime"`
+	PostalCode       string  `json:"postal_code"`
+	PricesIncludeTax *bool   `json:"prices_include_tax,omitempty"`
+	DefaultTaxRate   *float64 `json:"default_tax_rate,omitempty"`
+	TicketSeries     string  `json:"ticket_series"`
+	InvoiceSeries    string  `json:"invoice_series"`
+	ReceiptFooter    string  `json:"receipt_footer"`
+}
+
+type POSPaymentInput struct {
+	Method          string   `json:"method"`
+	Amount          float64  `json:"amount"`
+	ReceivedAmount  *float64 `json:"received_amount,omitempty"`
+	Reference       string   `json:"reference,omitempty"`
+}
+
+type POSLineInput struct {
+	SKU      string  `json:"sku"`
+	Quantity float64 `json:"quantity"`
+}
+
+type CompleteSaleRequest struct {
+	OrgID           string            `json:"org_id"`
+	BranchID        string            `json:"branch_id"`
+	WarehouseID     string            `json:"warehouse_id,omitempty"`
+	CustomerID      string            `json:"customer_id,omitempty"`
+	CustomerName    string            `json:"customer_name,omitempty"`
+	Lines           []POSLineInput    `json:"lines"`
+	Payments        []POSPaymentInput `json:"payments"`
+	RequestInvoice  bool              `json:"request_invoice"`
+	InvoiceRFC      string            `json:"invoice_rfc,omitempty"`
+	InvoiceName     string            `json:"invoice_name,omitempty"`
+	InvoiceRegime   string            `json:"invoice_tax_regime,omitempty"`
+	InvoicePostal   string            `json:"invoice_postal_code,omitempty"`
+	InvoiceUsoCFDI  string            `json:"invoice_uso_cfdi,omitempty"`
+	InvoiceEmail    string            `json:"invoice_email,omitempty"`
+	Notes           string            `json:"notes,omitempty"`
+	IdempotencyKey  string            `json:"idempotency_key"`
+	CashierSub      string            `json:"cashier_sub,omitempty"`
+	OperatorLabel   string            `json:"operator_label,omitempty"`
+	SessionID       string            `json:"session_id,omitempty"`
+	StationID       string            `json:"station_id,omitempty"`
+}
+
+type POSSaleLine struct {
+	ID          string  `json:"id"`
+	LineNo      int     `json:"line_no"`
+	SKU         string  `json:"sku"`
+	Description string  `json:"description"`
+	Quantity    float64 `json:"quantity"`
+	UnitPrice   float64 `json:"unit_price"`
+	LineTotal   float64 `json:"line_total"`
+	TaxRate     float64 `json:"tax_rate"`
+	TaxAmount   float64 `json:"tax_amount"`
+	BaseAmount  float64 `json:"base_amount"`
+	MovementID  string  `json:"movement_id,omitempty"`
+}
+
+type POSPayment struct {
+	ID             string  `json:"id"`
+	Method         string  `json:"method"`
+	MethodLabel    string  `json:"method_label,omitempty"`
+	Amount         float64 `json:"amount"`
+	ReceivedAmount *float64 `json:"received_amount,omitempty"`
+	ChangeAmount   float64 `json:"change_amount"`
+	Reference      string  `json:"reference,omitempty"`
+}
+
+type FiscalInvoice struct {
+	ID                 string     `json:"id"`
+	SaleID             string     `json:"sale_id"`
+	Status             string     `json:"status"`
+	StatusLabel        string     `json:"status_label,omitempty"`
+	Series             string     `json:"series"`
+	Folio              *int64     `json:"folio,omitempty"`
+	UUID               string     `json:"uuid,omitempty"`
+	RFCReceiver        string     `json:"rfc_receiver"`
+	LegalNameReceiver  string     `json:"legal_name_receiver"`
+	TaxRegimeReceiver  string     `json:"tax_regime_receiver"`
+	PostalCodeReceiver string     `json:"postal_code_receiver"`
+	UsoCFDI            string     `json:"uso_cfdi"`
+	EmailCFDI          string     `json:"email_cfdi,omitempty"`
+	Subtotal           float64    `json:"subtotal"`
+	TaxTotal           float64    `json:"tax_total"`
+	GrandTotal         float64    `json:"grand_total"`
+	Notes              string     `json:"notes,omitempty"`
+	RequestedAt        time.Time  `json:"requested_at"`
+	StampedAt          *time.Time `json:"stamped_at,omitempty"`
+}
+
+type POSSale struct {
+	ID               string          `json:"id"`
+	OrgID            string          `json:"org_id"`
+	BranchID         string          `json:"branch_id"`
+	WarehouseID      string          `json:"warehouse_id,omitempty"`
+	TicketNumber     string          `json:"ticket_number"`
+	Status           string          `json:"status"`
+	Currency         string          `json:"currency"`
+	PricesIncludeTax bool            `json:"prices_include_tax"`
+	TaxRate          float64         `json:"tax_rate"`
+	Subtotal         float64         `json:"subtotal"`
+	TaxTotal         float64         `json:"tax_total"`
+	DiscountTotal    float64         `json:"discount_total"`
+	GrandTotal       float64         `json:"grand_total"`
+	CustomerID       string          `json:"customer_id,omitempty"`
+	CustomerName     string          `json:"customer_name,omitempty"`
+	CashierSub       string          `json:"cashier_sub,omitempty"`
+	OperatorLabel    string          `json:"operator_label,omitempty"`
+	SessionID        string          `json:"session_id,omitempty"`
+	StationID        string          `json:"station_id,omitempty"`
+	Notes            string          `json:"notes,omitempty"`
+	RequestInvoice   bool            `json:"request_invoice"`
+	CompletedAt      *time.Time      `json:"completed_at,omitempty"`
+	CreatedAt        time.Time       `json:"created_at"`
+	Lines            []POSSaleLine   `json:"lines,omitempty"`
+	Payments         []POSPayment    `json:"payments,omitempty"`
+	Invoice          *FiscalInvoice  `json:"invoice,omitempty"`
+	Fiscal           *BranchFiscalSettings `json:"fiscal,omitempty"`
+	ReceiptHint      string          `json:"receipt_hint,omitempty"`
+}
+
+type SaleFilter struct {
+	OrgRef     string
+	BranchCode string
+	Limit      int
+}
+
+type RequestInvoiceRequest struct {
+	RFC        string `json:"rfc"`
+	LegalName  string `json:"legal_name"`
+	TaxRegime  string `json:"tax_regime,omitempty"`
+	PostalCode string `json:"postal_code,omitempty"`
+	UsoCFDI    string `json:"uso_cfdi,omitempty"`
+	Email      string `json:"email,omitempty"`
+	Actor      string `json:"actor,omitempty"`
+}
+
 type Store interface {
 	ListBalances(ctx context.Context, filter BalanceFilter) ([]StockBalance, error)
 	PostMovement(ctx context.Context, req MovementRequest) (Movement, error)
@@ -956,4 +1127,10 @@ type Store interface {
 	BlockCustomerCard(ctx context.Context, orgRef, cardID string, req BlockCardRequest) (CustomerCard, error)
 	LookupCustomerCard(ctx context.Context, orgRef, cardCode string) (CardLookupResult, error)
 	ResolveOrgByStorefrontSlug(ctx context.Context, slug string) (orgID, branchCode string, err error)
+	GetFiscalSettings(ctx context.Context, orgRef, branchCode string) (BranchFiscalSettings, error)
+	UpsertFiscalSettings(ctx context.Context, req UpsertFiscalSettingsRequest) (BranchFiscalSettings, error)
+	CompleteSale(ctx context.Context, req CompleteSaleRequest) (POSSale, error)
+	GetSale(ctx context.Context, orgRef, saleID string) (POSSale, error)
+	ListSales(ctx context.Context, filter SaleFilter) ([]POSSale, error)
+	RequestSaleInvoice(ctx context.Context, orgRef, saleID string, req RequestInvoiceRequest) (FiscalInvoice, error)
 }

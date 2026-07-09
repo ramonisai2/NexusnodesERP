@@ -108,6 +108,16 @@ export function AppShell() {
       },
     },
     {
+      id: "nav.pos",
+      label: t("navPos"),
+      path: "/caja",
+      require: {
+        permissions: ["pos.sale.create", "pos.sale.read", "inventory.balance.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
       id: "nav.deptManagers",
       label: t("navDeptManagers"),
       path: "/settings/jefes",

@@ -451,6 +451,61 @@ func localAllow(in Input) bool {
 				return false
 			}
 		}
+	} else if in.Action == "pos.sale.read" {
+		if !in.Subject.HasPermission("pos.sale.read") &&
+			!in.Subject.HasPermission("pos.sale.create") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "pos.sale.create" {
+		if !in.Subject.HasPermission("pos.sale.create") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "store_owner" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
+	} else if in.Action == "pos.sale.void" {
+		if !in.Subject.HasPermission("pos.sale.void") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "store_owner" || r == "warehouse_manager" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
+	} else if in.Action == "pos.invoice.request" {
+		if !in.Subject.HasPermission("pos.invoice.request") &&
+			!in.Subject.HasPermission("pos.sale.create") {
+			return false
+		}
+	} else if in.Action == "pos.invoice.read" {
+		if !in.Subject.HasPermission("pos.invoice.read") &&
+			!in.Subject.HasPermission("pos.sale.read") {
+			return false
+		}
+	} else if in.Action == "pos.settings.manage" {
+		if !in.Subject.HasPermission("pos.settings.manage") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "store_owner" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
 	} else if in.Action == "inventory.movement.void.request" {
 		if !in.Subject.HasPermission("inventory.movement.void.request") {
 			return false

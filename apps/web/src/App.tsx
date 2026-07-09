@@ -25,6 +25,7 @@ import { PublicStorefrontPage } from "./pages/PublicStorefrontPage";
 import { CustomerAccountPage } from "./pages/CustomerAccountPage";
 import { CustomersAdminPage } from "./pages/CustomersAdminPage";
 import { DepartmentManagersPage } from "./pages/DepartmentManagersPage";
+import { PosCashierPage } from "./pages/PosCashierPage";
 import { StorefrontSettingsPage } from "./pages/StorefrontSettingsPage";
 import "./styles.css";
 
@@ -77,6 +78,7 @@ function Bootstrap() {
           <Route path="inventory/parcels" element={<ParcelsPage />} />
           <Route path="settings/tienda" element={<StorefrontSettingsPage />} />
           <Route path="settings/jefes" element={<DepartmentManagersPage />} />
+          <Route path="caja" element={<PosCashierPage />} />
           <Route path="customers" element={<CustomersAdminPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="mail" element={<MailPage />} />

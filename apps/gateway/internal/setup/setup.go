@@ -200,7 +200,9 @@ WHERE p.code IN (
   'inventory.receipt.read','inventory.receipt.create','inventory.receipt.post',
   'inventory.warehouse.read','mail.read','mail.send','mail.announce',
   'store.storefront.read','store.storefront.manage',
-  'store.department.manager.read','store.department.manager.assign'
+  'store.department.manager.read','store.department.manager.assign',
+  'pos.sale.read','pos.sale.create','pos.sale.void',
+  'pos.invoice.request','pos.invoice.read','pos.settings.manage'
 )`, roleID); err != nil {
 		return CompleteResult{}, fmt.Errorf("role_perms: %w", err)
 	}
@@ -338,7 +340,13 @@ INSERT INTO permissions (code, module, action, resource) VALUES
   ('store.storefront.read', 'store', 'read', 'storefront'),
   ('store.storefront.manage', 'store', 'manage', 'storefront'),
   ('store.department.manager.read', 'store', 'read', 'department_manager'),
-  ('store.department.manager.assign', 'store', 'assign', 'department_manager')
+  ('store.department.manager.assign', 'store', 'assign', 'department_manager'),
+  ('pos.sale.read', 'pos', 'read', 'sale'),
+  ('pos.sale.create', 'pos', 'create', 'sale'),
+  ('pos.sale.void', 'pos', 'void', 'sale'),
+  ('pos.invoice.request', 'pos', 'request', 'invoice'),
+  ('pos.invoice.read', 'pos', 'read', 'invoice'),
+  ('pos.settings.manage', 'pos', 'manage', 'settings')
 ON CONFLICT (code) DO NOTHING`)
 	return err
 }

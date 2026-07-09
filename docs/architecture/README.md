@@ -47,6 +47,7 @@
 | [29 — Cuentas de cliente y tarjetas](./29-customer-accounts-cards.md) | Registro + tarjetas chip / código de barras |
 | [30 — Hardening HTTP + anti-inyección](./30-security-hardening.md) | Headers, body limit, sanitización XSS/SQLi |
 | [31 — Jefes multi-departamento](./31-department-managers.md) | Un jefe, varios deptos sin relación requerida |
+| [32 — Caja POS + IVA MX](./32-pos-caja-iva.md) | Cobro, recibo, IVA 16%, opción facturar CFDI |
 | [Diagrama de arquitectura](../diagrams/architecture-overview.mmd) | Mermaid — vista de componentes |
 | [Diagrama de flujo auth](../diagrams/auth-flow.mmd) | Mermaid — OAuth2/MFA/JWT |
 | [Diagrama de flujo inventario](../diagrams/inventory-flow.mmd) | Mermaid — movimiento de stock |

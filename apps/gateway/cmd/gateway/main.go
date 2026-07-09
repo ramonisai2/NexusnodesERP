@@ -790,6 +790,8 @@ func main() {
 		pr.Handle("/storefront", reverseProxy(inventoryURL))
 		pr.Handle("/customers/*", reverseProxy(inventoryURL))
 		pr.Handle("/customers", reverseProxy(inventoryURL))
+		pr.Handle("/pos/*", reverseProxy(inventoryURL))
+		pr.Handle("/pos", reverseProxy(inventoryURL))
 	})
 
 	log.Printf("gateway listening on %s", addr)
@@ -940,6 +942,9 @@ func reverseProxy(target *url.URL) http.Handler {
 			req.URL.Path = path
 		case strings.HasPrefix(path, "/customers"):
 			// keep /customers path on inventory (accounts + cards)
+			req.URL.Path = path
+		case strings.HasPrefix(path, "/pos"):
+			// keep /pos path on inventory (caja / tickets)
 			req.URL.Path = path
 		}
 		if claims, ok := auth.FromContext(req.Context()); ok {

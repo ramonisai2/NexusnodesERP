@@ -1910,6 +1910,210 @@ func main() {
 		writeJSON(w, http.StatusOK, card)
 	})
 
+	// —— POS / Caja ——
+	r.Get("/pos/fiscal-settings", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.URL.Query().Get("branch_id")
+		if branchID == "" {
+			branchID = req.Header.Get("X-Branch-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "pos.sale.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "pos.sale.read")
+			return
+		}
+		settings, err := inventoryStore.GetFiscalSettings(req.Context(), subject.OrgID, branchID)
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, settings)
+	})
+
+	r.Put("/pos/fiscal-settings", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		var body domain.UpsertFiscalSettingsRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.OrgID = subject.OrgID
+		if body.BranchID == "" {
+			body.BranchID = req.Header.Get("X-Branch-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "pos.settings.manage",
+			Resource: map[string]any{"branch_id": body.BranchID, "org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "pos.settings.manage")
+			return
+		}
+		settings, err := inventoryStore.UpsertFiscalSettings(req.Context(), body)
+		if err != nil {
+			http.Error(w, `{"error":"save_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, settings)
+	})
+
+	r.Get("/pos/sales", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.URL.Query().Get("branch_id")
+		if branchID == "" {
+			branchID = req.Header.Get("X-Branch-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "pos.sale.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "pos.sale.read")
+			return
+		}
+		limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+		items, err := inventoryStore.ListSales(req.Context(), domain.SaleFilter{
+			OrgRef: subject.OrgID, BranchCode: branchID, Limit: limit,
+		})
+		if err != nil {
+			http.Error(w, `{"error":"list_failed"}`, http.StatusInternalServerError)
+			return
+		}
+		if items == nil {
+			items = []domain.POSSale{}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	})
+
+	r.Get("/pos/sales/{id}", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "pos.sale.read",
+			Resource: map[string]any{"branch_id": req.Header.Get("X-Branch-Id"), "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "pos.sale.read")
+			return
+		}
+		sale, err := inventoryStore.GetSale(req.Context(), subject.OrgID, id)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, sale)
+	})
+
+	r.Post("/pos/sales/complete", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		var body domain.CompleteSaleRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.OrgID = subject.OrgID
+		body.CashierSub = subject.Sub
+		if body.BranchID == "" {
+			body.BranchID = req.Header.Get("X-Branch-Id")
+		}
+		if body.OperatorLabel == "" {
+			body.OperatorLabel = req.Header.Get("X-Operator-Label")
+		}
+		if body.SessionID == "" {
+			body.SessionID = req.Header.Get("X-Session-Id")
+		}
+		if body.StationID == "" {
+			body.StationID = req.Header.Get("X-Station-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "pos.sale.create",
+			Resource: map[string]any{"branch_id": body.BranchID, "org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "pos.sale.create")
+			return
+		}
+		sale, err := inventoryStore.CompleteSale(req.Context(), body)
+		if errors.Is(err, domain.ErrInsufficientStock) {
+			http.Error(w, `{"error":"insufficient_stock","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusConflict)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"sale_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusCreated, sale)
+	})
+
+	r.Post("/pos/sales/{id}/invoice", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		id := chi.URLParam(req, "id")
+		var body domain.RequestInvoiceRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.Actor = subject.Sub
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "pos.invoice.request",
+			Resource: map[string]any{"branch_id": req.Header.Get("X-Branch-Id"), "org_id": subject.OrgID},
+			Context:  map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "pos.invoice.request")
+			return
+		}
+		inv, err := inventoryStore.RequestSaleInvoice(req.Context(), subject.OrgID, id, body)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"invoice_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, inv)
+	})
+
 
 	log.Printf("inventory listening on %s", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {

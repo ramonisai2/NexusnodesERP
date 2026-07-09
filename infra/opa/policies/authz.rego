@@ -326,6 +326,46 @@ allow if {
 }
 
 allow if {
+  input.action == "pos.sale.read"
+  pos_sale_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "pos.sale.create"
+  pos_sale_create_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "pos.sale.void"
+  pos_sale_void_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "pos.invoice.request"
+  pos_invoice_request_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
+  input.action == "pos.invoice.read"
+  pos_invoice_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "pos.settings.manage"
+  pos_settings_manage_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "customer.read"
   customer_read_allowed
   branch_allowed
@@ -805,6 +845,70 @@ department_manager_assign_allowed if {
 }
 
 department_manager_assign_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+pos_sale_read_allowed if {
+  "pos.sale.read" in input.subject.permissions
+}
+
+pos_sale_read_allowed if {
+  "pos.sale.create" in input.subject.permissions
+}
+
+pos_sale_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+pos_sale_create_allowed if {
+  "pos.sale.create" in input.subject.permissions
+}
+
+pos_sale_create_allowed if {
+  "store_owner" in input.subject.roles
+}
+
+pos_sale_create_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+pos_sale_void_allowed if {
+  "pos.sale.void" in input.subject.permissions
+}
+
+pos_sale_void_allowed if {
+  "store_owner" in input.subject.roles
+}
+
+pos_sale_void_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+pos_invoice_request_allowed if {
+  "pos.invoice.request" in input.subject.permissions
+}
+
+pos_invoice_request_allowed if {
+  "pos.sale.create" in input.subject.permissions
+}
+
+pos_invoice_read_allowed if {
+  "pos.invoice.read" in input.subject.permissions
+}
+
+pos_invoice_read_allowed if {
+  "pos.sale.read" in input.subject.permissions
+}
+
+pos_settings_manage_allowed if {
+  "pos.settings.manage" in input.subject.permissions
+}
+
+pos_settings_manage_allowed if {
+  "store_owner" in input.subject.roles
+}
+
+pos_settings_manage_allowed if {
   "platform_admin" in input.subject.roles
 }
 
