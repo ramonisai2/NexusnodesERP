@@ -121,6 +121,24 @@ LIMIT 1`, in.Sub).Scan(&userID, &orgID)
 		if mods != nil {
 			out.Attrs["enabled_modules"] = mods
 		}
+		profile, demoOrg, err := loadOrgProfile(ctx, tx, orgID)
+		if err != nil {
+			return err
+		}
+		if demoOrg {
+			out.Attrs["demo_org"] = true
+			// Keep user-level demo_mode (guided explorer) if already set;
+			// otherwise mark org profile without forcing the guided home.
+			if profile != "" {
+				if _, has := out.Attrs["demo_mode"]; !has {
+					out.Attrs["profile"] = profile
+				}
+			}
+		} else if profile != "" {
+			if _, has := out.Attrs["profile"]; !has {
+				out.Attrs["profile"] = profile
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -363,4 +381,25 @@ SELECT enabled_modules FROM organizations WHERE id = $1::uuid`, orgID).Scan(&raw
 		return nil, nil
 	}
 	return mods, nil
+}
+
+func loadOrgProfile(ctx context.Context, tx pgx.Tx, orgID string) (profile string, demoMode bool, err error) {
+	var p *string
+	err = tx.QueryRow(ctx, `
+SELECT profile FROM organizations WHERE id = $1::uuid`, orgID).Scan(&p)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		if strings.Contains(err.Error(), "profile") {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	if p == nil {
+		return "", false, nil
+	}
+	profile = *p
+	demoMode = profile == "demo" || orgID == "11111111-1111-1111-1111-111111111111"
+	return profile, demoMode, nil
 }

@@ -101,10 +101,12 @@ export type DevPersona =
   | "purchasing_mgr"
   | "facilities"
   | "hr"
-  | "webmaster";
+  | "webmaster"
+  | "demo";
 
 /** Demo personas for the advanced login selector (enterprise matrix). */
 export const DEV_PERSONAS: { id: DevPersona; labelKey: string; hintKey: string }[] = [
+  { id: "demo", labelKey: "loginDemo", hintKey: "loginDemoHint" },
   { id: "analyst", labelKey: "loginAnalyst", hintKey: "loginAnalystHint" },
   { id: "approver", labelKey: "loginApprover", hintKey: "loginApproverHint" },
   { id: "wh_manager", labelKey: "loginWhManager", hintKey: "loginWhManagerHint" },

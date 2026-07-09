@@ -39,6 +39,12 @@ export function AppShell() {
   const t = useLocaleStore((s) => s.t);
   const locale = useLocaleStore((s) => s.locale);
   const isShop = claims?.roles?.includes("store_owner") || claims?.attrs?.profile === "abarrotes";
+  const isDemoOrg =
+    claims?.attrs?.demo_org === true ||
+    claims?.attrs?.demo_mode === true ||
+    claims?.attrs?.profile === "demo" ||
+    claims?.org_id === "org_demo" ||
+    claims?.sub === "usr_dev_demo";
   const [heroesOpen, setHeroesOpen] = useState(false);
 
   useEffect(() => listenForHeroUnlock(() => setHeroesOpen(true)), []);
@@ -88,6 +94,12 @@ export function AppShell() {
         </nav>
       </aside>
       <div className="main">
+        {isDemoOrg ? (
+          <div className="demo-banner" role="status">
+            <strong>{t("demoBannerTitle")}</strong>
+            <span>{t("demoBannerBody")}</span>
+          </div>
+        ) : null}
         <header className="topbar">
           <div>
             <div className="muted">{t("session")}</div>

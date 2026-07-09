@@ -232,6 +232,8 @@ func main() {
 			claims = auth.HROfficerClaims()
 		case "webmaster":
 			claims = auth.WebmasterClaims()
+		case "demo":
+			claims = auth.DemoClaims()
 		case "owner":
 			claims = auth.StoreOwnerClaims("usr_dev_owner", "org_demo", "br_norte", "Mi Tienda")
 			// Prefer the shop owner created by the setup wizard when present.

@@ -2498,3 +2498,23 @@ td {
 .module-chip.off .module-state {
   color: var(--muted);
 }
+
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  align-items: baseline;
+  padding: 0.65rem 1rem;
+  background: linear-gradient(90deg, color-mix(in srgb, #0f766e 18%, var(--panel)), color-mix(in srgb, #0369a1 12%, var(--panel)));
+  border-bottom: 1px solid color-mix(in srgb, #0f766e 35%, var(--line));
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.demo-banner strong {
+  letter-spacing: 0.02em;
+}
+
+.demo-home .shop-actions {
+  margin-top: 1rem;
+}

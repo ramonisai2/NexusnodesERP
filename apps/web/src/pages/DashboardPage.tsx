@@ -6,14 +6,55 @@ export function DashboardPage() {
   const claims = useAuthStore((s) => s.claims);
   const t = useLocaleStore((s) => s.t);
   const locale = useLocaleStore((s) => s.locale);
+  const isDemo =
+    claims?.attrs?.demo_mode === true ||
+    claims?.sub === "usr_dev_demo";
   const isShop =
-    claims?.roles?.includes("store_owner") ||
-    claims?.attrs?.profile === "abarrotes" ||
-    typeof claims?.attrs?.store_name === "string";
+    !isDemo &&
+    (claims?.roles?.includes("store_owner") ||
+      claims?.attrs?.profile === "abarrotes" ||
+      typeof claims?.attrs?.store_name === "string");
 
   const storeLabel =
     (typeof claims?.attrs?.store_name === "string" && claims.attrs.store_name) ||
     (claims?.org_id ? labelOrg(claims.org_id, locale) : "—");
+
+  if (isDemo) {
+    return (
+      <section className="panel demo-home">
+        <p className="setup-kicker">{t("demoDashKicker")}</p>
+        <h1>{t("demoDashTitle")}</h1>
+        <p className="muted">{t("demoDashSubtitle")}</p>
+        <div className="shop-actions">
+          <Link className="shop-tile" to="/inventory">
+            <strong>{t("demoTileInventory")}</strong>
+            <span className="muted">{t("demoTileInventoryHint")}</span>
+          </Link>
+          <Link className="shop-tile" to="/caja">
+            <strong>{t("demoTilePos")}</strong>
+            <span className="muted">{t("demoTilePosHint")}</span>
+          </Link>
+          <Link className="shop-tile" to="/inventory/receiving">
+            <strong>{t("demoTileReceiving")}</strong>
+            <span className="muted">{t("demoTileReceivingHint")}</span>
+          </Link>
+          <Link className="shop-tile" to="/reports">
+            <strong>{t("demoTileReports")}</strong>
+            <span className="muted">{t("demoTileReportsHint")}</span>
+          </Link>
+          <Link className="shop-tile" to="/hr">
+            <strong>{t("demoTileHr")}</strong>
+            <span className="muted">{t("demoTileHrHint")}</span>
+          </Link>
+          <Link className="shop-tile" to="/reports/seguridad">
+            <strong>{t("demoTileSecurity")}</strong>
+            <span className="muted">{t("demoTileSecurityHint")}</span>
+          </Link>
+        </div>
+        <p className="muted tip">{t("demoDashTip")}</p>
+      </section>
+    );
+  }
 
   if (isShop) {
     return (

@@ -18,7 +18,7 @@ export function LoginPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [operatorLabel, setOperatorLabel] = useState("");
   const [stationId, setStationId] = useState("");
-  const [persona, setPersona] = useState<DevPersona>("warehouse");
+  const [persona, setPersona] = useState<DevPersona>("demo");
 
   const selected = useMemo(
     () => DEV_PERSONAS.find((p) => p.id === persona) ?? DEV_PERSONAS[0],
@@ -79,7 +79,17 @@ export function LoginPage() {
         </div>
 
         <div className="login-actions">
-          <Link className="btn" to="/setup">
+          <button
+            type="button"
+            className="btn"
+            disabled={loading}
+            onClick={() => void onDevLogin("demo")}
+          >
+            {loading ? t("loginLoading") : t("loginDemoCta")}
+          </button>
+          <p className="hint">{t("loginDemoHint")}</p>
+
+          <Link className="btn secondary" to="/setup">
             {t("loginSetupCta")}
           </Link>
           <p className="hint">{t("loginSetupHint")}</p>

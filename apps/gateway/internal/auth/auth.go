@@ -813,6 +813,31 @@ func WebmasterClaims() Claims {
 	}
 }
 
+// DemoClaims — guided explorer for DEMO org (full tour, all modules unlocked).
+func DemoClaims() Claims {
+	return Claims{
+		Sub:       "usr_dev_demo",
+		OrgID:     "org_demo",
+		BranchIDs: []string{"br_norte", "br_sur", "br_cedi"},
+		Roles:     []string{"store_admin", "hr_officer", "security_officer", "webmaster"},
+		Permissions: []string{
+			"inventory.balance.read", "inventory.catalog.read", "inventory.label.read",
+			"inventory.warehouse.read", "inventory.movement.create", "inventory.movement.read",
+			"inventory.receipt.read", "inventory.receipt.create", "pos.sale.read", "pos.sale.create",
+			"customer.read", "reporting.read", "reporting.export", "reporting.print",
+			"reporting.catalog.read", "reporting.image.read", "reporting.security.read",
+			"employee.read", "payroll.run.read", "session.operator",
+		},
+		Attrs: map[string]any{
+			"demo_mode":      true,
+			"profile":        "demo",
+			"max_adjustment": 100000.0,
+		},
+		AMR: []string{"pwd", "otp"},
+		SID: "sess_dev_demo",
+	}
+}
+
 // RegionalManagerClaims — superior of area managers in Región Norte.
 func RegionalManagerClaims() Claims {
 	return Claims{

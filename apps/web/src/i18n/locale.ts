@@ -116,6 +116,7 @@ export function labelUser(sub: string): string {
     usr_dev_admin: "Admin",
     usr_dev_wh_manager: "Jefe almacén",
     usr_dev_regional: "Jefe regional",
+    usr_dev_demo: "Explorador demo",
   };
   const en: Record<string, string> = {
     usr_dev_analyst: "Analyst",
@@ -124,6 +125,7 @@ export function labelUser(sub: string): string {
     usr_dev_admin: "Admin",
     usr_dev_wh_manager: "Warehouse mgr",
     usr_dev_regional: "Regional mgr",
+    usr_dev_demo: "Demo explorer",
   };
   const locale = useLocaleStore.getState().locale;
   return (locale === "en" ? en[sub] : map[sub]) ?? sub.replace(/^usr_dev_/, "");
