@@ -533,6 +533,82 @@ type CancelTransferRequest struct {
 	Actor  string `json:"actor,omitempty"`
 }
 
+// Online storefront (public catalog) configuration per branch.
+type StorefrontSettings struct {
+	ID              string   `json:"id,omitempty"`
+	OrgID           string   `json:"org_id,omitempty"`
+	BranchID        string   `json:"branch_id"`
+	PublicSlug      string   `json:"public_slug"`
+	Published       bool     `json:"published"`
+	BrandName       string   `json:"brand_name"`
+	Tagline         string   `json:"tagline,omitempty"`
+	PrimaryColor    string   `json:"primary_color"`
+	AccentColor     string   `json:"accent_color"`
+	HeroTitle       string   `json:"hero_title"`
+	HeroSubtitle    string   `json:"hero_subtitle,omitempty"`
+	HeroImageURL    string   `json:"hero_image_url,omitempty"`
+	CTALabel        string   `json:"cta_label,omitempty"`
+	CTAURL          string   `json:"cta_url,omitempty"`
+	ShowPrices      bool     `json:"show_prices"`
+	ShowStockBadge  bool     `json:"show_stock_badge"`
+	InStockOnly     bool     `json:"in_stock_only"`
+	FeaturedSKUs    []string `json:"featured_skus,omitempty"`
+	ContactPhone    string   `json:"contact_phone,omitempty"`
+	ContactWhatsApp string   `json:"contact_whatsapp,omitempty"`
+	ContactEmail    string   `json:"contact_email,omitempty"`
+	ContactAddress  string   `json:"contact_address,omitempty"`
+	ContactHours    string   `json:"contact_hours,omitempty"`
+	MapsURL         string   `json:"maps_url,omitempty"`
+	UpdatedAt       time.Time `json:"updated_at,omitempty"`
+	PublicURL       string   `json:"public_url,omitempty"`
+}
+
+type UpsertStorefrontRequest struct {
+	OrgID           string   `json:"org_id"`
+	BranchID        string   `json:"branch_id"`
+	PublicSlug      string   `json:"public_slug"`
+	Published       bool     `json:"published"`
+	BrandName       string   `json:"brand_name"`
+	Tagline         string   `json:"tagline"`
+	PrimaryColor    string   `json:"primary_color"`
+	AccentColor     string   `json:"accent_color"`
+	HeroTitle       string   `json:"hero_title"`
+	HeroSubtitle    string   `json:"hero_subtitle"`
+	HeroImageURL    string   `json:"hero_image_url"`
+	CTALabel        string   `json:"cta_label"`
+	CTAURL          string   `json:"cta_url"`
+	ShowPrices      bool     `json:"show_prices"`
+	ShowStockBadge  bool     `json:"show_stock_badge"`
+	InStockOnly     bool     `json:"in_stock_only"`
+	FeaturedSKUs    []string `json:"featured_skus"`
+	ContactPhone    string   `json:"contact_phone"`
+	ContactWhatsApp string   `json:"contact_whatsapp"`
+	ContactEmail    string   `json:"contact_email"`
+	ContactAddress  string   `json:"contact_address"`
+	ContactHours    string   `json:"contact_hours"`
+	MapsURL         string   `json:"maps_url"`
+	UpdatedBy       string   `json:"updated_by"`
+}
+
+type StorefrontCatalogItem struct {
+	SKU               string   `json:"sku"`
+	Name              string   `json:"name"`
+	Description       string   `json:"description"`
+	DepartmentLabel   string   `json:"department_label,omitempty"`
+	Brand             string   `json:"brand,omitempty"`
+	Currency          string   `json:"currency,omitempty"`
+	Price             *float64 `json:"price,omitempty"`
+	PriceLabel        string   `json:"price_label,omitempty"`
+	InStock           *bool    `json:"in_stock,omitempty"`
+	Featured          bool     `json:"featured,omitempty"`
+}
+
+type StorefrontPublicView struct {
+	Settings StorefrontSettings      `json:"settings"`
+	Featured []StorefrontCatalogItem `json:"featured,omitempty"`
+	Catalog  []StorefrontCatalogItem `json:"catalog,omitempty"`
+}
+
 type Store interface {
 	ListBalances(ctx context.Context, filter BalanceFilter) ([]StockBalance, error)
 	PostMovement(ctx context.Context, req MovementRequest) (Movement, error)
@@ -561,4 +637,7 @@ type Store interface {
 	ShipTransfer(ctx context.Context, orgRef, transferID, actor string) (InventoryTransfer, error)
 	ReceiveTransfer(ctx context.Context, orgRef, transferID, actor string) (InventoryTransfer, error)
 	CancelTransfer(ctx context.Context, orgRef, transferID string, req CancelTransferRequest) (InventoryTransfer, error)
+	GetStorefrontSettings(ctx context.Context, orgRef, branchCode string) (StorefrontSettings, error)
+	UpsertStorefrontSettings(ctx context.Context, req UpsertStorefrontRequest) (StorefrontSettings, error)
+	GetPublicStorefront(ctx context.Context, slug string) (StorefrontPublicView, error)
 }

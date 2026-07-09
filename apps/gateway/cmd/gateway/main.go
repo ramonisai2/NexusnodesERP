@@ -138,6 +138,9 @@ func main() {
 	r.Method(http.MethodGet, "/reports/images/upload/{token}", reverseProxy(reportsURL))
 	r.Method(http.MethodPost, "/reports/images/upload/{token}", reverseProxy(reportsURL))
 
+	// Public online storefront (no JWT). Path must not collide with /storefront/settings.
+	r.Handle("GET /storefront/public/{slug}", reverseProxy(inventoryURL))
+
 	// Dev helper: mint a JWT for local SPA / curl without Keycloak.
 	// persona=analyst|approver|dual|owner (default analyst) to exercise payroll SoD.
 	r.Post("/auth/dev-token", func(w http.ResponseWriter, req *http.Request) {
@@ -628,6 +631,8 @@ func main() {
 		pr.Handle("/search", reverseProxy(searchURL))
 		pr.Handle("/mail/*", reverseProxy(messagingURL))
 		pr.Handle("/mail", reverseProxy(messagingURL))
+		pr.Handle("/storefront/*", reverseProxy(inventoryURL))
+		pr.Handle("/storefront", reverseProxy(inventoryURL))
 	})
 
 	log.Printf("gateway listening on %s", addr)
@@ -773,6 +778,9 @@ func reverseProxy(target *url.URL) http.Handler {
 			if req.URL.Path == "" {
 				req.URL.Path = "/"
 			}
+		case strings.HasPrefix(path, "/storefront"):
+			// keep /storefront path on inventory (settings + public)
+			req.URL.Path = path
 		}
 		if claims, ok := auth.FromContext(req.Context()); ok {
 			req.Header.Set("X-User-Id", claims.Sub)

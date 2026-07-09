@@ -312,6 +312,25 @@ func localAllow(in Input) bool {
 				return false
 			}
 		}
+	} else if in.Action == "store.storefront.read" {
+		if !in.Subject.HasPermission("store.storefront.read") &&
+			!in.Subject.HasPermission("store.storefront.manage") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "store.storefront.manage" {
+		if !in.Subject.HasPermission("store.storefront.manage") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "store_owner" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
 	} else if in.Action == "inventory.movement.void.request" {
 		if !in.Subject.HasPermission("inventory.movement.void.request") {
 			return false

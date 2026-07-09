@@ -42,6 +42,7 @@
 | [24 — Hojas de transporte](./24-transport-sheets.md) | Manifiesto con notas de diversos departamentos |
 | [25 — Correo interno mini-Outlook](./25-messaging-outlook.md) | Bandejas, prioridades por color, anuncios con caducidad |
 | [26 — Traslados de stock](./26-inventory-transfers.md) | TRANSFER_OUT/IN con ciclo tránsito → recibido |
+| [27 — Tienda en línea configurable](./27-configurable-storefront.md) | Vitrina pública /tienda/{slug} + admin |
 | [Diagrama de arquitectura](../diagrams/architecture-overview.mmd) | Mermaid — vista de componentes |
 | [Diagrama de flujo auth](../diagrams/auth-flow.mmd) | Mermaid — OAuth2/MFA/JWT |
 | [Diagrama de flujo inventario](../diagrams/inventory-flow.mmd) | Mermaid — movimiento de stock |

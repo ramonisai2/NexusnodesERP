@@ -1892,3 +1892,196 @@ td {
     grid-template-columns: 1fr;
   }
 }
+
+/* —— Tienda en línea (pública) —— */
+.storefront-public {
+  --sf-primary: #1a5c3a;
+  --sf-accent: #c6f2a8;
+  min-height: 100vh;
+  color: #f2f7f4;
+  background:
+    radial-gradient(900px 480px at 0% 0%, color-mix(in srgb, var(--sf-primary) 45%, transparent), transparent 60%),
+    linear-gradient(165deg, #0c1612, #132019 50%, #0e1814);
+  font-family: "DM Sans", sans-serif;
+}
+
+.sf-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem 0.5rem;
+  animation: rise 0.55s var(--ease) both;
+}
+
+.sf-brand-name {
+  margin: 0;
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  letter-spacing: 0.02em;
+}
+
+.sf-tagline {
+  margin: 0.2rem 0 0;
+  color: rgba(242, 247, 244, 0.7);
+}
+
+.sf-hero {
+  margin: 0.75rem 1.25rem 1.5rem;
+  min-height: min(62vh, 28rem);
+  border-radius: 0;
+  padding: 2.5rem 1.75rem;
+  display: flex;
+  align-items: flex-end;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--sf-primary) 70%, #0a1210), #101c17 55%, color-mix(in srgb, var(--sf-accent) 18%, #0a1210));
+  background-size: cover;
+  background-position: center;
+  animation: rise 0.7s var(--ease) 0.06s both;
+}
+
+.sf-hero-copy {
+  max-width: 36rem;
+}
+
+.sf-hero-copy h1 {
+  margin: 0 0 0.6rem;
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: clamp(2.2rem, 6vw, 3.4rem);
+  line-height: 1.05;
+}
+
+.sf-hero-copy p {
+  margin: 0 0 1.1rem;
+  color: rgba(242, 247, 244, 0.85);
+  font-size: 1.05rem;
+}
+
+.sf-cta {
+  display: inline-block;
+  padding: 0.7rem 1.15rem;
+  background: var(--sf-accent);
+  color: #0b1611;
+  font-weight: 700;
+  border-radius: 8px;
+  transition: transform 0.25s var(--ease);
+}
+
+.sf-cta:hover {
+  transform: translateY(-2px);
+}
+
+.sf-section {
+  padding: 0.5rem 1.5rem 1.75rem;
+  animation: rise 0.65s var(--ease) 0.1s both;
+}
+
+.sf-section h2 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: 1.8rem;
+  margin: 0 0 0.9rem;
+}
+
+.sf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.85rem;
+}
+
+.sf-product {
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(242, 247, 244, 0.12);
+  border-radius: 12px;
+  background: rgba(12, 22, 18, 0.55);
+  transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+
+.sf-product:hover {
+  border-color: color-mix(in srgb, var(--sf-accent) 50%, transparent);
+  transform: translateY(-2px);
+}
+
+.sf-product.featured {
+  box-shadow: inset 3px 0 0 var(--sf-accent);
+}
+
+.sf-product h3 {
+  margin: 0.35rem 0;
+  font-size: 1.05rem;
+}
+
+.sf-product-top,
+.sf-product-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.sf-dept,
+.sf-stock {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(242, 247, 244, 0.1);
+}
+
+.sf-stock.ok {
+  background: color-mix(in srgb, var(--sf-accent) 35%, transparent);
+  color: var(--sf-accent);
+}
+
+.sf-contact-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.sf-contact-grid a {
+  color: var(--sf-accent);
+}
+
+.sf-foot {
+  display: flex;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-top: 1px solid rgba(242, 247, 244, 0.1);
+  color: rgba(242, 247, 244, 0.65);
+}
+
+.storefront-offline {
+  max-width: 28rem;
+  margin: 4rem auto;
+  padding: 1.5rem;
+}
+
+.storefront-admin .sf-admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-width: 42rem;
+}
+
+.sf-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.25rem;
+}
+
+.sf-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .sf-hero {
+    min-height: 50vh;
+    margin: 0.5rem 0.75rem 1rem;
+    padding: 1.75rem 1.1rem;
+  }
+}

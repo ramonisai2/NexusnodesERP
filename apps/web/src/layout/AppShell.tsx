@@ -78,6 +78,16 @@ export function AppShell() {
       },
     },
     {
+      id: "nav.storefront",
+      label: t("navStorefront"),
+      path: "/settings/tienda",
+      require: {
+        permissions: ["store.storefront.manage", "store.storefront.read"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
       id: "nav.approvals",
       label: t("navApprovals"),
       path: "/approvals",

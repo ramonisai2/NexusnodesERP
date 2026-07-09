@@ -561,3 +561,13 @@ func (s *Memory) ReceiveTransfer(_ context.Context, _, _, _ string) (domain.Inve
 func (s *Memory) CancelTransfer(_ context.Context, _, _ string, _ domain.CancelTransferRequest) (domain.InventoryTransfer, error) {
 	return domain.InventoryTransfer{}, domain.ErrNotFound
 }
+
+func (s *Memory) GetStorefrontSettings(_ context.Context, _, _ string) (domain.StorefrontSettings, error) {
+	return domain.StorefrontSettings{}, domain.ErrNotFound
+}
+func (s *Memory) UpsertStorefrontSettings(_ context.Context, _ domain.UpsertStorefrontRequest) (domain.StorefrontSettings, error) {
+	return domain.StorefrontSettings{}, errors.New("storefront requires postgres store")
+}
+func (s *Memory) GetPublicStorefront(_ context.Context, _ string) (domain.StorefrontPublicView, error) {
+	return domain.StorefrontPublicView{}, domain.ErrNotFound
+}

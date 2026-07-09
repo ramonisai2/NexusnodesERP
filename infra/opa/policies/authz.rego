@@ -228,6 +228,19 @@ allow if {
 }
 
 allow if {
+  input.action == "store.storefront.read"
+  storefront_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "store.storefront.manage"
+  storefront_manage_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "mail.read"
   mail_read_allowed
 }
@@ -497,6 +510,30 @@ transfer_cancel_allowed if {
 }
 
 transfer_cancel_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+storefront_read_allowed if {
+  "store.storefront.read" in input.subject.permissions
+}
+
+storefront_read_allowed if {
+  "store.storefront.manage" in input.subject.permissions
+}
+
+storefront_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+storefront_manage_allowed if {
+  "store.storefront.manage" in input.subject.permissions
+}
+
+storefront_manage_allowed if {
+  "store_owner" in input.subject.roles
+}
+
+storefront_manage_allowed if {
   "platform_admin" in input.subject.roles
 }
 

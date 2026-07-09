@@ -20,6 +20,8 @@ import { ShippingSlipsPage } from "./pages/ShippingSlipsPage";
 import { TransportSheetsPage } from "./pages/TransportSheetsPage";
 import { MailPage } from "./pages/MailPage";
 import { TransfersPage } from "./pages/TransfersPage";
+import { PublicStorefrontPage } from "./pages/PublicStorefrontPage";
+import { StorefrontSettingsPage } from "./pages/StorefrontSettingsPage";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -50,6 +52,7 @@ function Bootstrap() {
     <Routes>
       <Route path="/setup" element={<SetupPage />} />
       <Route path="/upload/:token" element={<MobileUploadPage />} />
+      <Route path="/tienda/:slug" element={<PublicStorefrontPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
         element={
@@ -66,6 +69,7 @@ function Bootstrap() {
           <Route path="inventory/slips" element={<ShippingSlipsPage />} />
           <Route path="inventory/transport" element={<TransportSheetsPage />} />
           <Route path="inventory/transfers" element={<TransfersPage />} />
+          <Route path="settings/tienda" element={<StorefrontSettingsPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="mail" element={<MailPage />} />
           <Route path="payroll" element={<PayrollPage />} />

@@ -56,6 +56,21 @@ func main() {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "inventory"})
 	})
 
+	// Public storefront (no JWT) — gateway exposes /storefront/{slug} without auth.
+	r.Get("/storefront/public/{slug}", func(w http.ResponseWriter, req *http.Request) {
+		slug := chi.URLParam(req, "slug")
+		view, err := inventoryStore.GetPublicStorefront(req.Context(), slug)
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed"}`, http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, view)
+	})
+
 	r.Get("/balances", func(w http.ResponseWriter, req *http.Request) {
 		subject := authz.FromGatewayHeaders(req)
 		branchID := req.Header.Get("X-Branch-Id")
@@ -1101,6 +1116,70 @@ func main() {
 			return
 		}
 		writeJSON(w, http.StatusOK, out)
+	})
+
+	r.Get("/storefront/settings", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		branchID := req.URL.Query().Get("branch_id")
+		if branchID == "" {
+			branchID = req.Header.Get("X-Branch-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject:  subject,
+			Action:   "store.storefront.read",
+			Resource: map[string]any{"branch_id": branchID, "org_id": subject.OrgID},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "store.storefront.read")
+			return
+		}
+		settings, err := inventoryStore.GetStorefrontSettings(req.Context(), subject.OrgID, branchID)
+		if err != nil {
+			http.Error(w, `{"error":"lookup_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, settings)
+	})
+
+	r.Put("/storefront/settings", func(w http.ResponseWriter, req *http.Request) {
+		subject := authz.FromGatewayHeaders(req)
+		var body domain.UpsertStorefrontRequest
+		if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+			return
+		}
+		body.OrgID = subject.OrgID
+		body.UpdatedBy = subject.Sub
+		if body.BranchID == "" {
+			body.BranchID = req.Header.Get("X-Branch-Id")
+		}
+		allow, err := opa.Allow(req.Context(), authz.Input{
+			Subject: subject,
+			Action:  "store.storefront.manage",
+			Resource: map[string]any{
+				"branch_id": body.BranchID,
+				"org_id":    subject.OrgID,
+			},
+			Context: map[string]any{"mfa_level": subject.MFALevel()},
+		})
+		if err != nil {
+			http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		if !allow {
+			authz.WriteForbidden(w, "store.storefront.manage")
+			return
+		}
+		settings, err := inventoryStore.UpsertStorefrontSettings(req.Context(), body)
+		if err != nil {
+			http.Error(w, `{"error":"save_failed","detail":"`+escapeJSON(err.Error())+`"}`, http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusOK, settings)
 	})
 
 	log.Printf("inventory listening on %s", addr)
