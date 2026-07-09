@@ -2,6 +2,8 @@
 
 > Sistema ERP Web de nivel empresarial enfocado en **Inventarios** y **Nóminas**, diseñado bajo principios de alta disponibilidad, seguridad Zero-Trust y consistencia transaccional.
 
+**Manual de uso rápido (operadores):** [../manuales/uso-rapido.md](../manuales/uso-rapido.md)
+
 | Atributo | Valor |
 |---|---|
 | Estilo | Cliente–Servidor distribuido (Microservicios Stateless) |

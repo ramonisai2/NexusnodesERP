@@ -2,6 +2,10 @@
 
 ERP Web empresarial enfocado en **Inventarios** y **Nóminas**, con arquitectura de microservicios stateless, seguridad RBAC+ABAC (OAuth2/MFA/JWT) y persistencia transaccional de alta disponibilidad.
 
+## Manual de uso rápido
+
+Para operadores (caja, almacén, CEDI, dueño): [`docs/manuales/uso-rapido.md`](./docs/manuales/uso-rapido.md)
+
 ## Documentación de arquitectura
 
 La especificación técnica completa está en [`docs/architecture/`](./docs/architecture/README.md):
