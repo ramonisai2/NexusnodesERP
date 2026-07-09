@@ -108,6 +108,16 @@ export function AppShell() {
       },
     },
     {
+      id: "nav.deptManagers",
+      label: t("navDeptManagers"),
+      path: "/settings/jefes",
+      require: {
+        permissions: ["store.department.manager.read", "store.department.manager.assign"],
+        anyBranch: true,
+        minAmrCount: 1,
+      },
+    },
+    {
       id: "nav.approvals",
       label: t("navApprovals"),
       path: "/approvals",

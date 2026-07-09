@@ -107,6 +107,13 @@ LIMIT 1`, in.Sub).Scan(&userID, &orgID)
 		if len(managed) > 0 {
 			out.Attrs["managed_warehouses"] = managed
 		}
+		depts, err := loadManagedDepartments(ctx, tx, userID)
+		if err != nil {
+			return err
+		}
+		if len(depts) > 0 {
+			out.Attrs["managed_departments"] = depts
+		}
 		return nil
 	})
 	if err != nil {
@@ -117,6 +124,18 @@ LIMIT 1`, in.Sub).Scan(&userID, &orgID)
 	e.cache[key] = cacheEntry{claims: out, expiresAt: time.Now().Add(e.ttl)}
 	e.mu.Unlock()
 	return out, nil
+}
+
+// Invalidate clears cached claims for a subject (call after manager assignment changes).
+func (e *Enricher) Invalidate(sub, orgID string) {
+	if e == nil {
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	delete(e.cache, sub+"|"+orgID)
+	// Also drop entries keyed with empty org if present.
+	delete(e.cache, sub+"|")
 }
 
 func mapOrgClaim(orgUUID, fallback string) string {
@@ -271,6 +290,35 @@ ORDER BY w.code`, userID)
 	if err != nil {
 		// Hierarchy tables may not exist yet in older DBs.
 		if strings.Contains(err.Error(), "org_unit") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, err
+		}
+		out = append(out, code)
+	}
+	return out, rows.Err()
+}
+
+// loadManagedDepartments returns store department codes the user manages.
+// Multiple unrelated departments are allowed (no parent/child requirement).
+func loadManagedDepartments(ctx context.Context, tx pgx.Tx, userID string) ([]string, error) {
+	rows, err := tx.Query(ctx, `
+SELECT DISTINCT sd.code
+FROM department_managers dm
+JOIN store_departments sd ON sd.id = dm.department_id
+WHERE dm.user_id = $1::uuid
+  AND (dm.valid_to IS NULL OR dm.valid_to > now())
+  AND sd.active = TRUE
+ORDER BY sd.code`, userID)
+	if err != nil {
+		if strings.Contains(err.Error(), "department_managers") {
 			return nil, nil
 		}
 		return nil, err

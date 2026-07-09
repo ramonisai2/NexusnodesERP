@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/approvals"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/auth"
+	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/deptmgr"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/enrich"
 	gwmw "github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/middleware"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/sessions"
@@ -46,6 +47,7 @@ func main() {
 	var enricher *enrich.Enricher
 	var sessionStore *sessions.Store
 	var approvalStore *approvals.Store
+	var deptMgrStore *deptmgr.Store
 	setupSvc := &setup.Service{}
 	if os.Getenv("DATABASE_URL") != "" {
 		pool, err := db.Connect(ctx)
@@ -55,6 +57,7 @@ func main() {
 		enricher = enrich.New(pool)
 		sessionStore = sessions.New(pool)
 		approvalStore = approvals.New(pool)
+		deptMgrStore = &deptmgr.Store{Pool: pool}
 		setupSvc.Pool = pool
 		log.Printf("gateway claims enrichment=enabled")
 	} else {
@@ -369,6 +372,146 @@ func main() {
 				return
 			}
 			writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+		})
+
+		// Department managers: one jefe may own several unrelated store departments.
+		pr.Get("/org/department-managers", func(w http.ResponseWriter, req *http.Request) {
+			claims, _ := auth.FromContext(req.Context())
+			subject := claims.ToSubject()
+			branchID := req.URL.Query().Get("branch_id")
+			if branchID == "" && len(claims.BranchIDs) > 0 {
+				branchID = claims.BranchIDs[0]
+			}
+			allow, err := opa.Allow(req.Context(), authz.Input{
+				Subject:  subject,
+				Action:   "store.department.manager.read",
+				Resource: map[string]any{"branch_id": branchID, "org_id": claims.OrgID},
+			})
+			if err != nil {
+				http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+				return
+			}
+			if !allow {
+				authz.WriteForbidden(w, "store.department.manager.read")
+				return
+			}
+			if deptMgrStore == nil {
+				http.Error(w, `{"error":"database_required"}`, http.StatusServiceUnavailable)
+				return
+			}
+			list, err := deptMgrStore.ListAssignments(req.Context(), claims.OrgID, branchID)
+			if err != nil {
+				http.Error(w, `{"error":"list_failed"}`, http.StatusInternalServerError)
+				return
+			}
+			if list == nil {
+				list = []deptmgr.Assignment{}
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"items": list, "branch_id": branchID})
+		})
+
+		pr.Get("/org/department-managers/options", func(w http.ResponseWriter, req *http.Request) {
+			claims, _ := auth.FromContext(req.Context())
+			subject := claims.ToSubject()
+			branchID := req.URL.Query().Get("branch_id")
+			if branchID == "" && len(claims.BranchIDs) > 0 {
+				branchID = claims.BranchIDs[0]
+			}
+			allow, err := opa.Allow(req.Context(), authz.Input{
+				Subject:  subject,
+				Action:   "store.department.manager.read",
+				Resource: map[string]any{"branch_id": branchID, "org_id": claims.OrgID},
+			})
+			if err != nil {
+				http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+				return
+			}
+			if !allow {
+				authz.WriteForbidden(w, "store.department.manager.read")
+				return
+			}
+			if deptMgrStore == nil {
+				http.Error(w, `{"error":"database_required"}`, http.StatusServiceUnavailable)
+				return
+			}
+			deps, err := deptMgrStore.ListDepartments(req.Context(), claims.OrgID, branchID)
+			if err != nil {
+				http.Error(w, `{"error":"list_failed"}`, http.StatusInternalServerError)
+				return
+			}
+			users, err := deptMgrStore.ListAssignableUsers(req.Context(), claims.OrgID)
+			if err != nil {
+				http.Error(w, `{"error":"list_failed"}`, http.StatusInternalServerError)
+				return
+			}
+			if deps == nil {
+				deps = []deptmgr.DepartmentOption{}
+			}
+			if users == nil {
+				users = []deptmgr.UserOption{}
+			}
+			writeJSON(w, http.StatusOK, map[string]any{
+				"branch_id":   branchID,
+				"departments": deps,
+				"users":       users,
+			})
+		})
+
+		pr.Put("/org/department-managers", func(w http.ResponseWriter, req *http.Request) {
+			claims, _ := auth.FromContext(req.Context())
+			subject := claims.ToSubject()
+			var body struct {
+				UserSub         string   `json:"user_sub"`
+				BranchID        string   `json:"branch_id"`
+				DepartmentCodes []string `json:"department_codes"`
+			}
+			if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+				http.Error(w, `{"error":"invalid_json"}`, http.StatusBadRequest)
+				return
+			}
+			if body.BranchID == "" && len(claims.BranchIDs) > 0 {
+				body.BranchID = claims.BranchIDs[0]
+			}
+			allow, err := opa.Allow(req.Context(), authz.Input{
+				Subject:  subject,
+				Action:   "store.department.manager.assign",
+				Resource: map[string]any{"branch_id": body.BranchID, "org_id": claims.OrgID},
+				Context:  map[string]any{"mfa_level": subject.MFALevel()},
+			})
+			if err != nil {
+				http.Error(w, `{"error":"authz_unavailable"}`, http.StatusServiceUnavailable)
+				return
+			}
+			if !allow {
+				authz.WriteForbidden(w, "store.department.manager.assign")
+				return
+			}
+			if deptMgrStore == nil {
+				http.Error(w, `{"error":"database_required"}`, http.StatusServiceUnavailable)
+				return
+			}
+			list, err := deptMgrStore.ReplaceAssignments(req.Context(), deptmgr.ReplaceInput{
+				OrgClaim:        claims.OrgID,
+				ActorSub:        claims.Sub,
+				UserSub:         body.UserSub,
+				BranchCode:      body.BranchID,
+				DepartmentCodes: body.DepartmentCodes,
+			})
+			if err != nil {
+				status := http.StatusBadRequest
+				if errors.Is(err, deptmgr.ErrUserNotFound) || errors.Is(err, deptmgr.ErrBranchNotFound) || errors.Is(err, deptmgr.ErrDepartmentNotFound) {
+					status = http.StatusNotFound
+				}
+				http.Error(w, fmt.Sprintf(`{"error":"assign_failed","detail":%q}`, err.Error()), status)
+				return
+			}
+			if enricher != nil {
+				enricher.Invalidate(body.UserSub, claims.OrgID)
+			}
+			if list == nil {
+				list = []deptmgr.Assignment{}
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"items": list, "branch_id": body.BranchID, "user_sub": body.UserSub})
 		})
 
 		// Boss supervision queue (maker-checker).

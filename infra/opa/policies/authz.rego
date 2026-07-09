@@ -313,6 +313,19 @@ allow if {
 }
 
 allow if {
+  input.action == "store.department.manager.read"
+  department_manager_read_allowed
+  branch_allowed
+}
+
+allow if {
+  input.action == "store.department.manager.assign"
+  department_manager_assign_allowed
+  branch_allowed
+  mfa_ok
+}
+
+allow if {
   input.action == "customer.read"
   customer_read_allowed
   branch_allowed
@@ -764,6 +777,34 @@ storefront_manage_allowed if {
 }
 
 storefront_manage_allowed if {
+  "platform_admin" in input.subject.roles
+}
+
+department_manager_read_allowed if {
+  "store.department.manager.read" in input.subject.permissions
+}
+
+department_manager_read_allowed if {
+  "store.department.manager.assign" in input.subject.permissions
+}
+
+department_manager_read_allowed if {
+  "inventory.balance.read" in input.subject.permissions
+}
+
+department_manager_assign_allowed if {
+  "store.department.manager.assign" in input.subject.permissions
+}
+
+department_manager_assign_allowed if {
+  "store_owner" in input.subject.roles
+}
+
+department_manager_assign_allowed if {
+  "regional_manager" in input.subject.roles
+}
+
+department_manager_assign_allowed if {
   "platform_admin" in input.subject.roles
 }
 

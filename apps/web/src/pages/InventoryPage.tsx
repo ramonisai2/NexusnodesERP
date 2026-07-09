@@ -102,6 +102,7 @@ function InventoryPanel() {
   const canVoid = hasPermission(claims, "inventory.movement.void");
   const canRequestVoid = hasPermission(claims, "inventory.movement.void.request");
   const managed = (claims?.attrs?.managed_warehouses as string[] | undefined) ?? [];
+  const managedDepartments = (claims?.attrs?.managed_departments as string[] | undefined) ?? [];
 
   const [department, setDepartment] = useState("");
   const [category, setCategory] = useState("");
@@ -283,6 +284,12 @@ function InventoryPanel() {
       <p className="muted tip">{t("invDeptTip")}</p>
       <p className="muted tip">{t("invLabelTip")}</p>
       {canVoid ? <p className="muted tip">{t("invManagerTip")}</p> : null}
+      {managedDepartments.length > 0 ? (
+        <p className="muted tip">
+          {t("deptMgrRule")}{" "}
+          <strong>{managedDepartments.join(", ")}</strong>
+        </p>
+      ) : null}
       {canRequestVoid && !canVoid ? <p className="muted tip">{t("invRequestVoidTip")}</p> : null}
 
       <div className="filter-bar">

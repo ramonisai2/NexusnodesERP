@@ -30,6 +30,11 @@ Tablas:
 
 El **stock** sigue siendo único por almacén+SKU; la colocación es catálogo/merchandising, no inventarios duplicados.
 
+## Jefes de departamento
+
+Un jefe puede responsabilizarse de **varios** departamentos aunque no estén relacionados.  
+Ver [31 — Jefes multi-departamento](./31-department-managers.md) (`department_managers` + `managed_departments`).
+
 ## API
 
 - `GET /inventory/departments?branch_id=` — árbol depto → categorías

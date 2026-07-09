@@ -432,6 +432,25 @@ func localAllow(in Input) bool {
 			!in.Subject.HasPermission("inventory.movement.create") {
 			return false
 		}
+	} else if in.Action == "store.department.manager.read" {
+		if !in.Subject.HasPermission("store.department.manager.read") &&
+			!in.Subject.HasPermission("store.department.manager.assign") &&
+			!in.Subject.HasPermission("inventory.balance.read") {
+			return false
+		}
+	} else if in.Action == "store.department.manager.assign" {
+		if !in.Subject.HasPermission("store.department.manager.assign") {
+			ok := false
+			for _, r := range in.Subject.Roles {
+				if r == "platform_admin" || r == "store_owner" || r == "regional_manager" {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return false
+			}
+		}
 	} else if in.Action == "inventory.movement.void.request" {
 		if !in.Subject.HasPermission("inventory.movement.void.request") {
 			return false

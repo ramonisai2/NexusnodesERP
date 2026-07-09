@@ -24,6 +24,7 @@ import { ParcelsPage } from "./pages/ParcelsPage";
 import { PublicStorefrontPage } from "./pages/PublicStorefrontPage";
 import { CustomerAccountPage } from "./pages/CustomerAccountPage";
 import { CustomersAdminPage } from "./pages/CustomersAdminPage";
+import { DepartmentManagersPage } from "./pages/DepartmentManagersPage";
 import { StorefrontSettingsPage } from "./pages/StorefrontSettingsPage";
 import "./styles.css";
 
@@ -75,6 +76,7 @@ function Bootstrap() {
           <Route path="inventory/transfers" element={<TransfersPage />} />
           <Route path="inventory/parcels" element={<ParcelsPage />} />
           <Route path="settings/tienda" element={<StorefrontSettingsPage />} />
+          <Route path="settings/jefes" element={<DepartmentManagersPage />} />
           <Route path="customers" element={<CustomersAdminPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="mail" element={<MailPage />} />

@@ -199,7 +199,8 @@ WHERE p.code IN (
   'reporting.image.read','reporting.image.create','store.setup.read',
   'inventory.receipt.read','inventory.receipt.create','inventory.receipt.post',
   'inventory.warehouse.read','mail.read','mail.send','mail.announce',
-  'store.storefront.read','store.storefront.manage'
+  'store.storefront.read','store.storefront.manage',
+  'store.department.manager.read','store.department.manager.assign'
 )`, roleID); err != nil {
 		return CompleteResult{}, fmt.Errorf("role_perms: %w", err)
 	}
@@ -335,7 +336,9 @@ INSERT INTO permissions (code, module, action, resource) VALUES
   ('mail.send', 'mail', 'send', 'message'),
   ('mail.announce', 'mail', 'announce', 'announcement'),
   ('store.storefront.read', 'store', 'read', 'storefront'),
-  ('store.storefront.manage', 'store', 'manage', 'storefront')
+  ('store.storefront.manage', 'store', 'manage', 'storefront'),
+  ('store.department.manager.read', 'store', 'read', 'department_manager'),
+  ('store.department.manager.assign', 'store', 'assign', 'department_manager')
 ON CONFLICT (code) DO NOTHING`)
 	return err
 }

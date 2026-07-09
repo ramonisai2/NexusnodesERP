@@ -53,3 +53,8 @@ ABAC: `resource.warehouse_id` ∈ `subject.attrs.managed_warehouses`
 1. Solo movimientos `POSTED` (no ya anulados) se pueden revertir.
 2. La compensación usa cantidad inversa e idempotencia.
 3. Queda auditoría (`voided_by`, `void_reason`, outbox `InventoryMovedVoided`).
+
+## Relación con departamentos de tienda
+
+La jerarquía de `org_units` gobierna **almacenes** (void).  
+La responsabilidad comercial por **departamentos** (Electrónica, Juguetería, …) es otro modelo: un jefe puede tener varios departamentos **sin** que estén relacionados. Ver [31](./31-department-managers.md).

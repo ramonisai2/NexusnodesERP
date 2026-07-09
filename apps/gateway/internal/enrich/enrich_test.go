@@ -132,3 +132,54 @@ func TestEnrichManagedWarehouses(t *testing.T) {
 		t.Fatalf("regional should manage wh_norte via hierarchy, got %#v", rm)
 	}
 }
+
+func TestEnrichManagedDepartmentsUnrelated(t *testing.T) {
+	if os.Getenv("DATABASE_URL") == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	pool, err := db.Connect(context.Background())
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer pool.Close()
+
+	e := enrich.New(pool)
+	out, err := e.Enrich(context.Background(), auth.Claims{
+		Sub:   "usr_dev_wh_manager",
+		OrgID: "org_demo",
+		AMR:   []string{"pwd", "otp"},
+	})
+	if err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+	depts := asStrings(out.Attrs["managed_departments"])
+	hasElec, hasToys := false, false
+	for _, d := range depts {
+		if d == "electronica" {
+			hasElec = true
+		}
+		if d == "jugueteria" {
+			hasToys = true
+		}
+	}
+	if !hasElec || !hasToys {
+		t.Fatalf("expected unrelated departments electronica+jugueteria, got %#v", depts)
+	}
+}
+
+func asStrings(v any) []string {
+	switch t := v.(type) {
+	case []string:
+		return t
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, item := range t {
+			if s, ok := item.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}

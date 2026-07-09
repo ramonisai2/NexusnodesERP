@@ -423,10 +423,12 @@ func WarehouseManagerClaims() Claims {
 			"session.operator",
 			"reporting.image.read",
 			"reporting.image.create",
+			"store.department.manager.read",
 		},
 		Attrs: map[string]any{
-			"max_adjustment":     50000.0,
-			"managed_warehouses": []string{"wh_norte"},
+			"max_adjustment":      50000.0,
+			"managed_warehouses":  []string{"wh_norte"},
+			"managed_departments": []string{"electronica", "jugueteria"},
 		},
 		AMR: []string{"pwd", "otp"},
 		SID: "sess_dev_wh_manager",
@@ -457,6 +459,8 @@ func RegionalManagerClaims() Claims {
 			"payroll.run.read",
 			"reporting.image.read",
 			"reporting.image.create",
+			"store.department.manager.read",
+			"store.department.manager.assign",
 		},
 		Attrs: map[string]any{
 			"max_adjustment":     50000.0,
@@ -512,6 +516,8 @@ func StoreOwnerClaims(sub, orgID, branchCode, storeName string) Claims {
 			"store.setup.read",
 			"store.storefront.read",
 			"store.storefront.manage",
+			"store.department.manager.read",
+			"store.department.manager.assign",
 		},
 		Attrs: map[string]any{
 			"max_adjustment": 100000.0,

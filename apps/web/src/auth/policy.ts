@@ -120,6 +120,16 @@ export const NAV_NODES: NavNode[] = [
     },
   },
   {
+    id: "nav.deptManagers",
+    label: "Jefes depto",
+    path: "/settings/jefes",
+    require: {
+      permissions: ["store.department.manager.read", "store.department.manager.assign"],
+      anyBranch: true,
+      minAmrCount: 1,
+    },
+  },
+  {
     id: "nav.payroll",
     label: "Nómina",
     path: "/payroll",
