@@ -8,7 +8,7 @@
 | Privilege escalation | Deny-all, PDP central, least privilege, revisión de roles |
 | IDOR / cross-branch | ABAC por `org_id`/`branch_id` en TODA query |
 | Token replay | JWT corto (5–15 min), `jti` en denylist Redis, binding de device |
-| Injection / XSS | Prepared statements, CSP estricta, sanitización, GraphQL depth limits |
+| Injection / XSS | Prepared statements, CSP, `packages/go/secure` + SPA sanitize (ver [30](./30-security-hardening.md)), GraphQL depth limits |
 | Insider abuse | Audit append-only, SoD (segregation of duties) en nómina |
 
 ## 2. Autenticación (AuthN)

@@ -17,6 +17,7 @@ import (
 	"github.com/ramonisai2/NexusnodesERP/packages/go/authz"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/otelx"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/secure"
 )
 
 func main() {
@@ -51,6 +52,8 @@ func main() {
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Timeout(20 * time.Second))
+	r.Use(secure.SecurityHeadersMiddleware)
+	r.Use(secure.LimitBodyMiddleware(1 << 20))
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "inventory"})

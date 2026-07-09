@@ -23,6 +23,7 @@ import (
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/approvals"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/auth"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/enrich"
+	gwmw "github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/middleware"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/sessions"
 	"github.com/ramonisai2/NexusnodesERP/apps/gateway/internal/setup"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/authz"
@@ -74,6 +75,7 @@ func main() {
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Timeout(60 * time.Second))
+	r.Use(gwmw.Hardening(1 << 20)) // security headers + body limit + JSON content-type
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{envOr("CORS_ORIGIN", "http://localhost:5173")},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},

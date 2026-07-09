@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { useLocaleStore } from "../i18n/locale";
 import type { MessageKey } from "../i18n/messages";
+import { safeCssColor, safeUrl } from "../security/sanitize";
 
 type CatalogItem = {
   sku: string;
@@ -80,9 +81,11 @@ export function PublicStorefrontPage() {
   const s = view.data!.settings;
   const featured = view.data!.featured ?? [];
   const catalog = view.data!.catalog ?? [];
+  const heroImage = safeUrl(s.hero_image_url);
+  const mapsUrl = safeUrl(s.maps_url);
   const style = {
-    ["--sf-primary" as string]: s.primary_color || "#1a5c3a",
-    ["--sf-accent" as string]: s.accent_color || "#c6f2a8",
+    ["--sf-primary" as string]: safeCssColor(s.primary_color, "#1a5c3a"),
+    ["--sf-accent" as string]: safeCssColor(s.accent_color, "#c6f2a8"),
   };
 
   return (
@@ -101,10 +104,12 @@ export function PublicStorefrontPage() {
       </header>
 
       <section
-        className={`sf-hero${s.hero_image_url ? " has-image" : ""}`}
+        className={`sf-hero${heroImage ? " has-image" : ""}`}
         style={
-          s.hero_image_url
-            ? { backgroundImage: `linear-gradient(120deg, rgba(10,20,16,0.72), rgba(10,20,16,0.35)), url(${s.hero_image_url})` }
+          heroImage
+            ? {
+                backgroundImage: `linear-gradient(120deg, rgba(10,20,16,0.72), rgba(10,20,16,0.35)), url(${JSON.stringify(heroImage)})`,
+              }
             : undefined
         }
       >
@@ -154,8 +159,8 @@ export function PublicStorefrontPage() {
           {s.contact_email ? <a href={`mailto:${s.contact_email}`}>{s.contact_email}</a> : null}
           {s.contact_address ? <p>{s.contact_address}</p> : null}
           {s.contact_hours ? <p className="muted">{s.contact_hours}</p> : null}
-          {s.maps_url ? (
-            <a href={s.maps_url} target="_blank" rel="noreferrer">
+          {mapsUrl ? (
+            <a href={mapsUrl} target="_blank" rel="noreferrer">
               {t("sfMaps")}
             </a>
           ) : null}

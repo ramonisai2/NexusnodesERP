@@ -15,4 +15,5 @@ use (
 	./packages/go/events
 	./packages/go/heroes
 	./packages/go/otelx
+	./packages/go/secure
 )

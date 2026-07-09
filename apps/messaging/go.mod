@@ -9,6 +9,7 @@ require (
 	github.com/ramonisai2/NexusnodesERP/packages/go/authz v0.0.0
 	github.com/ramonisai2/NexusnodesERP/packages/go/db v0.0.0
 	github.com/ramonisai2/NexusnodesERP/packages/go/otelx v0.0.0
+	github.com/ramonisai2/NexusnodesERP/packages/go/secure v0.0.0
 )
 
 require (
@@ -45,3 +46,5 @@ replace github.com/ramonisai2/NexusnodesERP/packages/go/authz => ../../packages/
 replace github.com/ramonisai2/NexusnodesERP/packages/go/db => ../../packages/go/db
 
 replace github.com/ramonisai2/NexusnodesERP/packages/go/otelx => ../../packages/go/otelx
+
+replace github.com/ramonisai2/NexusnodesERP/packages/go/secure => ../../packages/go/secure

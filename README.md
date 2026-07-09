@@ -10,6 +10,7 @@ La especificación técnica completa está en [`docs/architecture/`](./docs/arch
 |---|---|
 | Arquitectura de componentes + HA | [docs/architecture/01-component-architecture.md](./docs/architecture/01-component-architecture.md) |
 | Seguridad RBAC/ABAC + JWT/MFA | [docs/architecture/02-security-rbac-abac.md](./docs/architecture/02-security-rbac-abac.md) |
+| Hardening HTTP + anti-inyección | [docs/architecture/30-security-hardening.md](./docs/architecture/30-security-hardening.md) |
 | Persistencia, concurrencia, sync | [docs/architecture/03-persistence-integrity.md](./docs/architecture/03-persistence-integrity.md) |
 | Stack tecnológico recomendado | [docs/architecture/04-tech-stack.md](./docs/architecture/04-tech-stack.md) |
 | Guía de bootstrap local | [docs/architecture/05-bootstrap-guide.md](./docs/architecture/05-bootstrap-guide.md) |

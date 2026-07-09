@@ -14,6 +14,7 @@ import (
 	"github.com/ramonisai2/NexusnodesERP/apps/inventory/internal/domain"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
 	"golang.org/x/crypto/bcrypt"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/secure"
 )
 
 func (s *Postgres) ResolveOrgByStorefrontSlug(ctx context.Context, slug string) (string, string, error) {
@@ -47,10 +48,17 @@ func (s *Postgres) RegisterCustomer(ctx context.Context, req domain.RegisterCust
 	if len(req.Password) < 8 {
 		return domain.Customer{}, errors.New("password must be at least 8 characters")
 	}
-	name := strings.TrimSpace(req.DisplayName)
+	if msg := secure.RejectIfInjection("display_name", req.DisplayName); msg != "" {
+		return domain.Customer{}, errors.New(msg)
+	}
+	if msg := secure.RejectIfInjection("phone", req.Phone); msg != "" {
+		return domain.Customer{}, errors.New(msg)
+	}
+	name := secure.PlainTextMax(req.DisplayName, 120)
 	if name == "" {
 		name = strings.Split(email, "@")[0]
 	}
+	req.Phone = secure.PlainTextMax(req.Phone, 40)
 
 	orgRef := strings.TrimSpace(req.OrgID)
 	branchHint := strings.TrimSpace(req.PreferredBranch)
@@ -297,6 +305,12 @@ func (s *Postgres) CreateCustomerCard(ctx context.Context, req domain.CreateCust
 	if len(code) < 4 {
 		return domain.CustomerCard{}, errors.New("card_code too short")
 	}
+	if msg := secure.RejectIfInjection("card_code", code); msg != "" {
+		return domain.CustomerCard{}, errors.New(msg)
+	}
+	if msg := secure.RejectIfInjection("label", req.Label); msg != "" {
+		return domain.CustomerCard{}, errors.New(msg)
+	}
 	if strings.TrimSpace(req.CustomerID) == "" {
 		return domain.CustomerCard{}, errors.New("customer_id required")
 	}
@@ -322,7 +336,7 @@ SELECT id::text FROM customers WHERE org_id = $1::uuid AND id = $2::uuid AND sta
 
 	id := uuid.New()
 	now := time.Now().UTC()
-	label := strings.TrimSpace(req.Label)
+	label := secure.PlainTextMax(req.Label, 80)
 	if label == "" {
 		if kind == domain.CardKindChip {
 			label = "Tarjeta chip"

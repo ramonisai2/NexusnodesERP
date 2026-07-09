@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/ramonisai2/NexusnodesERP/apps/inventory/internal/domain"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/secure"
 )
 
 func (s *Postgres) CreateShippingSlip(ctx context.Context, req domain.CreateShippingSlipRequest) (domain.ShippingSlip, error) {
@@ -47,6 +48,20 @@ func (s *Postgres) CreateShippingSlip(ctx context.Context, req domain.CreateShip
 	if strings.TrimSpace(req.Description) == "" && strings.TrimSpace(req.ContentsSummary) == "" && len(req.Lines) == 0 {
 		return domain.ShippingSlip{}, errors.New("description, contents_summary, or lines required")
 	}
+	for _, pair := range [][2]string{
+		{"description", req.Description},
+		{"contents_summary", req.ContentsSummary},
+		{"notes", req.Notes},
+		{"tracking_code", req.TrackingCode},
+	} {
+		if msg := secure.RejectIfInjection(pair[0], pair[1]); msg != "" {
+			return domain.ShippingSlip{}, errors.New(msg)
+		}
+	}
+	req.Description = secure.PlainTextMax(req.Description, 500)
+	req.ContentsSummary = secure.PlainTextMax(req.ContentsSummary, 500)
+	req.Notes = secure.PlainTextMax(req.Notes, 500)
+	req.TrackingCode = secure.PlainTextMax(req.TrackingCode, 80)
 	if req.QuantityUnits <= 0 {
 		req.QuantityUnits = 1
 	}

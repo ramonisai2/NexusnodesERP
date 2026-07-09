@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/secure"
 )
 
 var (
@@ -102,8 +103,14 @@ type Store struct {
 func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
 func (s *Store) Send(ctx context.Context, in SendInput) (Message, error) {
-	in.Subject = strings.TrimSpace(in.Subject)
-	in.Body = strings.TrimSpace(in.Body)
+	if msg := secure.RejectIfInjection("subject", in.Subject); msg != "" {
+		return Message{}, errors.New(msg)
+	}
+	if msg := secure.RejectIfInjection("body", in.Body); msg != "" {
+		return Message{}, errors.New(msg)
+	}
+	in.Subject = secure.PlainTextMax(in.Subject, 200)
+	in.Body = secure.PlainTextMax(in.Body, 8000)
 	if in.Subject == "" {
 		return Message{}, errors.New("subject_required")
 	}

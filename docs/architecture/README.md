@@ -45,6 +45,7 @@
 | [27 — Tienda en línea configurable](./27-configurable-storefront.md) | Vitrina pública /tienda/{slug} + admin |
 | [28 — Paquetería CEDI / garantías](./28-parcel-logistics.md) | Hub entre tiendas, defectuosos, garantías y centros |
 | [29 — Cuentas de cliente y tarjetas](./29-customer-accounts-cards.md) | Registro + tarjetas chip / código de barras |
+| [30 — Hardening HTTP + anti-inyección](./30-security-hardening.md) | Headers, body limit, sanitización XSS/SQLi |
 | [Diagrama de arquitectura](../diagrams/architecture-overview.mmd) | Mermaid — vista de componentes |
 | [Diagrama de flujo auth](../diagrams/auth-flow.mmd) | Mermaid — OAuth2/MFA/JWT |
 | [Diagrama de flujo inventario](../diagrams/inventory-flow.mmd) | Mermaid — movimiento de stock |

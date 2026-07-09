@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/ramonisai2/NexusnodesERP/apps/inventory/internal/domain"
 	"github.com/ramonisai2/NexusnodesERP/packages/go/db"
+	"github.com/ramonisai2/NexusnodesERP/packages/go/secure"
 )
 
 var slugRe = regexp.MustCompile(`[^a-z0-9-]+`)
@@ -88,14 +89,34 @@ func (s *Postgres) UpsertStorefrontSettings(ctx context.Context, req domain.Upse
 	if strings.TrimSpace(req.BranchID) == "" {
 		return domain.StorefrontSettings{}, errors.New("branch_id required")
 	}
-	primary := strings.TrimSpace(req.PrimaryColor)
-	if primary == "" {
-		primary = "#1a5c3a"
+	// Injection / XSS prevention on user-controlled marketing fields.
+	for _, pair := range [][2]string{
+		{"brand_name", req.BrandName},
+		{"tagline", req.Tagline},
+		{"hero_title", req.HeroTitle},
+		{"hero_subtitle", req.HeroSubtitle},
+		{"cta_label", req.CTALabel},
+		{"contact_address", req.ContactAddress},
+	} {
+		if msg := secure.RejectIfInjection(pair[0], pair[1]); msg != "" {
+			return domain.StorefrontSettings{}, errors.New(msg)
+		}
 	}
-	accent := strings.TrimSpace(req.AccentColor)
-	if accent == "" {
-		accent = "#c6f2a8"
-	}
+	req.BrandName = secure.PlainTextMax(req.BrandName, 120)
+	req.Tagline = secure.PlainTextMax(req.Tagline, 200)
+	req.HeroTitle = secure.PlainTextMax(req.HeroTitle, 160)
+	req.HeroSubtitle = secure.PlainTextMax(req.HeroSubtitle, 280)
+	req.CTALabel = secure.PlainTextMax(req.CTALabel, 80)
+	req.ContactPhone = secure.PlainTextMax(req.ContactPhone, 40)
+	req.ContactWhatsApp = secure.PlainTextMax(req.ContactWhatsApp, 40)
+	req.ContactEmail = secure.PlainTextMax(req.ContactEmail, 120)
+	req.ContactAddress = secure.PlainTextMax(req.ContactAddress, 240)
+	req.ContactHours = secure.PlainTextMax(req.ContactHours, 120)
+	req.HeroImageURL = secure.SafeURL(req.HeroImageURL)
+	req.CTAURL = secure.SafeURL(req.CTAURL)
+	req.MapsURL = secure.SafeURL(req.MapsURL)
+	primary := secure.SafeCSSColor(req.PrimaryColor, "#1a5c3a")
+	accent := secure.SafeCSSColor(req.AccentColor, "#c6f2a8")
 	featured := uniqueStrings(req.FeaturedSKUs)
 	if featured == nil {
 		featured = []string{}

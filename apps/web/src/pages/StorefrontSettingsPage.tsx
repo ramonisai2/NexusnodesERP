@@ -5,6 +5,7 @@ import { hasPermission } from "../auth/policy";
 import { PolicyGuard } from "../auth/PolicyGuard";
 import { apiFetch, useAuthStore } from "../auth/store";
 import { useLocaleStore } from "../i18n/locale";
+import { rejectIfInjection, safeUrl } from "../security/sanitize";
 
 type StorefrontSettings = {
   branch_id: string;
@@ -94,9 +95,28 @@ function StorefrontSettingsPanel() {
   const save = useMutation({
     mutationFn: async () => {
       if (!form) throw new Error("no_form");
+      const injection = rejectIfInjection(
+        form.brand_name,
+        form.tagline,
+        form.hero_title,
+        form.hero_subtitle,
+        form.cta_label,
+        form.hero_image_url,
+        form.cta_url,
+        form.contact_phone,
+        form.contact_whatsapp,
+        form.contact_email,
+        form.contact_address,
+        form.contact_hours,
+        form.maps_url,
+      );
+      if (injection) throw new Error(injection);
       const payload = {
         ...form,
         branch_id: branchId,
+        hero_image_url: safeUrl(form.hero_image_url) || "",
+        cta_url: safeUrl(form.cta_url) || "",
+        maps_url: safeUrl(form.maps_url) || "",
         featured_skus: featuredText
           .split(/[,\n]/)
           .map((s) => s.trim())
@@ -117,7 +137,7 @@ function StorefrontSettingsPanel() {
       setError("");
       void qc.invalidateQueries({ queryKey: ["storefront-settings"] });
     },
-    onError: () => setError(t("sfAdminSaveError")),
+    onError: (err: Error) => setError(err.message || t("sfAdminSaveError")),
   });
 
   if (settings.isLoading || !form) {
